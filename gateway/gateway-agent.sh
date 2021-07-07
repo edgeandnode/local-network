@@ -30,7 +30,7 @@ export GATEWAY_NETWORK_SUBGRAPH_ENDPOINT=https://network-subgraph-indexers.netwo
 export NODE_ENV=development
 
 # Ensure a local gateway database exists
-(createdb gateway 2>/dev/null || true)
+(createdb gateway >/dev/null 2>&1) || true
 
 cd $GATEWAY_SOURCES
 

@@ -17,3 +17,18 @@
    ```sh
    overmind s
    ```
+
+## Logs
+
+The logs from the different processes are written to the following files:
+
+- `/tmp/gateway-agent.log`
+- `/tmp/gateway.log`
+
+The logs can best be searched with a command like the one below. The logs are
+raw JSON and each log message is exactly one line. For this reason it's best to
+grep for something before pretty printing the logs.
+
+```sh
+tail -n 10000 -f /tmp/gateway-agent.log | grep "something" | pino-pretty | less
+```
