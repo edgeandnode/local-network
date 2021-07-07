@@ -1,0 +1,3 @@
+graph-node: ./graph-node.sh > /dev/null 2>&1
+indexer-agent: sleep 5; ./indexer-agent.sh
+indexer-service: sleep 20; ./indexer-service.sh
