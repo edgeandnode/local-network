@@ -4,11 +4,8 @@
 
 - [overmind](https://github.com/DarthSim/overmind) is required for managing
   subprocesses and tear down everything if one of the processes exits.
-
 - [cloud_sql_proxy](https://cloud.google.com/sql/docs/mysql/sql-proxy) is
   required for connecting to the studio database.
-
-## Testnet vs. Mainnet
 
 ## Run
 
