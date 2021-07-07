@@ -14,6 +14,6 @@
 3. Open a terminal in this directory and run the following to spin up
    `cloud_sql_proxy`, `gateway` and `gateway-agent`:
 
-```sh
-overmind s
-```
+   ```sh
+   overmind s
+   ```
