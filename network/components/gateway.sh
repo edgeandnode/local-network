@@ -23,20 +23,25 @@ export GATEWAY_LOG_LEVEL=debug
 export NODE_ENV=development
 
 # Ensure the local gateway stats database exists and the timescaledb extension is installed
-(dropdb $GATEWAY_STATS_DATABASE >/dev/null 2>&1) || true
-(createdb $GATEWAY_STATS_DATABASE >/dev/null 2>&1) || true
-(psql -U "$POSTGRES_USERNAME" -d $GATEWAY_STATS_DATABASE -c 'create extension timescaledb' >/dev/null 2>&1) || true
+(dropdb -h localhost -U $POSTGRES_USERNAME -w $GATEWAY_STATS_DATABASE >/dev/null 2>&1) || true
+createdb -h localhost -U $POSTGRES_USERNAME -w $GATEWAY_STATS_DATABASE
+psql -h localhost -U $POSTGRES_USERNAME -w -d $GATEWAY_STATS_DATABASE -c 'create extension timescaledb'
+
+cd $INDEXER_SELECTION_SOURCES
+yarn
+yalc publish
 
 cd $GATEWAY_SOURCES
 
 pushd packages/query-engine
 yalc add @graphprotocol/common-ts
+yalc add @edgeandnode/indexer-selection
 yarn
 popd
 
 pushd packages/gateway
-
 yalc add @graphprotocol/common-ts
+yalc add @edgeandnode/indexer-selection
 yarn
 yarn start \
   --name gateway-local \

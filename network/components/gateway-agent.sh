@@ -26,19 +26,23 @@ export GATEWAY_LOG_LEVEL=debug
 export NODE_ENV=development
 
 # Ensure there is a fresh local gateway and studio databases
-(dropdb $GATEWAY_DATABASE >/dev/null 2>&1) || true
-(createdb $GATEWAY_DATABASE >/dev/null 2>&1) || true
+(dropdb -h localhost -U $POSTGRES_USERNAME -w $GATEWAY_DATABASE >/dev/null 2>&1) || true
+createdb -h localhost -U $POSTGRES_USERNAME -w $GATEWAY_DATABASE
 
 cd $GATEWAY_SOURCES
 
 pushd packages/query-engine
 yalc add @graphprotocol/common-ts
-yarn
+yalc add @graphprotocol/indexer-selection
 popd
 
 pushd packages/gateway
-
 yalc add @graphprotocol/common-ts
+yalc add @graphprotocol/indexer-selection
+popd
+yarn
+
+pushd packages/gateway
 yarn agent \
   --name local_gateway \
   --local true \

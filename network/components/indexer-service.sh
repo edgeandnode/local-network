@@ -33,7 +33,8 @@ export INDEXER_SERVICE_FREE_QUERY_AUTH_TOKEN=superdupersecrettoken
 export NODE_ENV=development
 
 # Ensure the local indexer database exists
-(createdb $INDEXER_DB_NAME >/dev/null 2>&1) || true
+(dropdb -h localhost -U $POSTGRES_USERNAME -w $INDEXER_DB_NAME >/dev/null 2>&1) || true
+createdb -h localhost -U $POSTGRES_USERNAME -w $INDEXER_DB_NAME
 
 cd $INDEXER_SOURCES
 

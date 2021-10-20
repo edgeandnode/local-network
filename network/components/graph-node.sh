@@ -7,7 +7,7 @@ set -e
 
 export DB_NAME=local_network_indexer_0_node
 export POSTGRES_URL=postgresql://$POSTGRES_USERNAME:$POSTGRES_PASSWORD@localhost:5432/$DB_NAME
-export RUSTFLAGS='-L /Applications/Postgres.app/Contents/Versions/13/lib/'
+# export RUSTFLAGS='-L /Applications/Postgres.app/Contents/Versions/13/lib/'
 
 export GRAPH_ETH_CALL_FULL_LOG=true
 export GRAPH_EXPERIMENTAL_SUBGRAPH_VERSION_SWITCHING_MODE=synced
@@ -20,8 +20,8 @@ export GRAPH_LOG=debug
 # Run
 
 # Ensure the local graph database exists and is fresh
-(dropdb $DB_NAME >/dev/null 2>&1) || true
-(createdb $DB_NAME >/dev/null 2>&1) || true
+(dropdb -h localhost -U $POSTGRES_USERNAME -w $DB_NAME >/dev/null 2>&1) || true
+createdb -h localhost -U $POSTGRES_USERNAME -w $DB_NAME
 
 cd $GRAPH_NODE_SOURCES
 
