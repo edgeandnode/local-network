@@ -1,3 +1,0 @@
-studio-db: cloud_sql_proxy --verbose --instances=the-graph-production:us-central1:subgraph-studio=tcp:5433
-gateway-agent: sleep 5; ./gateway-agent.sh
-gateway: sleep 20; ./gateway.sh

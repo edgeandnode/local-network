@@ -1,7 +1,15 @@
-# Local Network Environments
+# Local Network Testing
 
-Scripts to spin up local gateways or indexers.
+## Initial setup
 
-- [gateway/](gateway/)
-- [indexer/](indexer/)
-- [network/](network/)
+1. Clone repos: `bash clone-repos.bash`
+2. Patch: `bash patch.bash`
+
+## Build
+
+- Clean all build files: `make clean`
+- Build all: `make -j`
+
+## Run
+
+`overmind s`
