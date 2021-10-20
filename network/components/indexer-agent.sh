@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -e && set -u && set -o pipefail
 
 #########################################################################
 # Configuration
@@ -9,7 +9,7 @@ export INDEXER_AGENT_LOG_LEVEL=trace
 export INDEXER_AGENT_PUBLIC_INDEXER_URL=http://localhost:7600/
 export INDEXER_AGENT_MNEMONIC=$MNEMONIC
 export INDEXER_AGENT_INDEXER_ADDRESS=$ACCOUNT_ADDRESS
-export INDEXER_AGENT_COLLECT_RECEIPTS_ENDPOINT=$GATEWAY_ENDPOINT/collect-receipts \
+export INDEXER_AGENT_COLLECT_RECEIPTS_ENDPOINT=$GATEWAY_ENDPOINT/collect-receipts
 
 # DB
 export INDEXER_DB_NAME=local_network_indexer_0_components
@@ -17,9 +17,8 @@ export INDEXER_AGENT_POSTGRES_USERNAME=$POSTGRES_USERNAME
 export INDEXER_AGENT_POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 
 # Network
-export INDEXER_AGENT_ETHEREUM_NETWORK=$ETHEREUM_NETWORK
+export INDEXER_AGENT_ETHEREUM_NETWORK=any
 export INDEXER_AGENT_ETHEREUM=$ETHEREUM
-export INDEXER_AGENT_ETHEREUM_NETWORK=$ETHEREUM_NETWORK
 export INDEXER_AGENT_NETWORK_SUBGRAPH_DEPLOYMENT=$NETWORK_SUBGRAPH
 export INDEXER_AGENT_NETWORK_SUBGRAPH_ENDPOINT=$NETWORK_SUBGRAPH_ENDPOINT
 
@@ -29,15 +28,14 @@ export INDEXER_AGENT_NETWORK_SUBGRAPH_ENDPOINT=$NETWORK_SUBGRAPH_ENDPOINT
 export NODE_ENV=development
 
 # Ensure there is a fresh local indexer database
-(dropdb $INDEXER_DB_NAME >/dev/null 2>&1) || true
-(createdb $INDEXER_DB_NAME >/dev/null 2>&1) || true
+(dropdb -h localhost -U $POSTGRES_USERNAME -w $INDEXER_DB_NAME >/dev/null 2>&1) || true
+createdb -h localhost -U $POSTGRES_USERNAME -w $INDEXER_DB_NAME
 
-cd $COMMON_TS_SOURCES
+cd $COMMON_TS_SOURCES/packages/common-ts
 
 yalc publish
 
 cd $INDEXER_SOURCES
-
 yarn
 
 pushd packages/indexer-common

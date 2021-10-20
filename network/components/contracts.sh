@@ -15,6 +15,8 @@ export PROVIDER_URL=$ETHEREUM
 
 export NODE_ENV=development
 
+cp subgraphMetadata.json versionMetadata.json $CONTRACTS_SOURCES/cli
+
 cd $CONTRACTS_SOURCES
 
 export STAKING_CONTRACT_ADDRESS=$(jq '."1337".Staking.address' $ADDRESS_BOOK)

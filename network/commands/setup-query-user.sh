@@ -5,7 +5,7 @@ set -e
 ########################################################################
 # Configuration
 
-export STUDIO_SOURCES=~/thegraph/workspaces/subgraph-studio/
+export STUDIO_SOURCES=~/src/edgeandnode/subgraph-studio
 export DB_HOST=localhost
 export DB_NAME=local_network_subgraph_studio
 export DB_USER=$POSTGRES_USERNAME
