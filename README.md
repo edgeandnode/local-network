@@ -3,6 +3,7 @@
 ## Prerequisites
 
 - On Linux, increase buffer size for go-ipfs QUIC transfers: `sysctl -w net.core.rmem_max=2500000`
+  - See https://github.com/lucas-clemente/quic-go/wiki/UDP-Receive-Buffer-Size
 
 ## Initial setup
 
