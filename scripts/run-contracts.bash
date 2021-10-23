@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 source prelude.bash
 
+export NODE_ENV=development
+
 cd projects/graphprotocol/contracts
 yarn deploy-hardhat
 
@@ -30,7 +32,7 @@ ts-node ./cli/cli.ts protocol set subgraph-availability-oracle "${ACCOUNT2_ADDRE
   --provider-url "${ETHEREUM}" \
   --ipfs "${IPFS}" \
   --graphAccount "${ACCOUNT_ADDRESS}" \
-  --subgraphDeploymentID QmcUrDscqmmf3FAHNyGW8kJM6ZBp62mgFrJNFJFPkPzNEy \
+  --subgraphDeploymentID "${NETWORK_SUBGRAPH_DEPLOYMENT}" \
   --subgraphPath '/subgraphMetadata.json' \
   --versionPath '/versionMetadata.json'
 # Approve GNS contract

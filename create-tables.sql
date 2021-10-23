@@ -1,0 +1,3 @@
+
+create database local_network_indexer_0_node;
+create database local_network_indexer_0_components;
