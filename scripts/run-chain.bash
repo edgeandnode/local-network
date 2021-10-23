@@ -2,4 +2,4 @@
 source prelude.bash
 
 cd projects/graphprotocol/contracts
-yarn deploy-hardhat
+npx hardhat node
