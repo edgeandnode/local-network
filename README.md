@@ -1,5 +1,9 @@
 # Local Network Testing
 
+## Prerequisites
+
+- On Linux, increase buffer size for go-ipfs QUIC transfers: `sysctl -w net.core.rmem_max=2500000`
+
 ## Initial setup
 
 1. Clone repos: `bash clone-repos.bash`

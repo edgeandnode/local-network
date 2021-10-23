@@ -20,4 +20,5 @@ graphprotocol/contracts:
 
 .PHONY: graphprotocol/common-ts
 graphprotocol/common-ts: graphprotocol/contracts
+	cd projects/$@/packages/common-ts && yalc add @graphprotocol/contracts
 	cd projects/$@ && yarn
