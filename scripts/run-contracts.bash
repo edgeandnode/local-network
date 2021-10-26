@@ -4,7 +4,7 @@ source prelude.bash
 export NODE_ENV=development
 
 cd projects/graphprotocol/contracts
-yarn deploy-hardhat
+yarn deploy-ganache-manual
 
 STAKING_CONTRACT_ADDRESS=$(jq '."1337".Staking.address' addresses.json)
 GNS_CONTRACT_ADDRESS=$(jq '."1337".GNS.address' addresses.json)

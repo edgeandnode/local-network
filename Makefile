@@ -1,6 +1,8 @@
 .PHONY: all
 all: \
 	docker-pull \
+	edgeandnode/gateway \
+	edgeandnode/indexer-selection \
 	graphprotocol/contracts \
 	graphprotocol/common-ts \
 	graphprotocol/graph-network-subgraph \
@@ -17,19 +19,34 @@ clean:
 docker-pull:
 	docker pull timescale/timescaledb:latest-pg12
 
+.PHONY: edgeandnode/gateway
+edgeandnode/gateway: edgeandnode/indexer-selection graphprotocol/common-ts
+	cd projects/$@/packages/gateway \
+		&& yalc add @graphprotocol/common-ts
+	cd projects/$@/packages/query-engine \
+		&& yalc add @edgeandnode/indexer-selection \
+		&& yalc add @graphprotocol/common-ts
+	cd projects/$@ \
+		&& yalc add @graphprotocol/common-ts \
+		&& yarn
+
+.PHONY: edgeandnode/indexer-selection
+edgeandnode/indexer-selection:
+	cd projects/$@ && yarn && yalc publish --push
+
 .PHONY: graphprotocol/contracts
 graphprotocol/contracts:
-	cd projects/$@ && yarn && yarn build && yalc publish
+	cd projects/$@ && yarn && yarn build && yalc publish --push
 
 .PHONY: graphprotocol/common-ts
 graphprotocol/common-ts: graphprotocol/contracts
 	cd projects/$@/packages/common-ts && yalc add @graphprotocol/contracts
 	cd projects/$@ && yarn
-	cd projects/$@/packages/common-ts && yalc publish
+	cd projects/$@/packages/common-ts && yalc publish --push
 
 .PHONY: graphprotocol/cost-model
 graphprotocol/cost-model:
-	cd projects/$@/node-plugin && yarn && yalc publish
+	cd projects/$@/node-plugin && yarn && yalc publish --push
 
 .PHONY: graphprotocol/graph-network-subgraph
 graphprotocol/graph-network-subgraph:
@@ -41,10 +58,14 @@ graphprotocol/graph-node:
 
 .PHONY: graphprotocol/indexer
 graphprotocol/indexer: graphprotocol/common-ts graphprotocol/cost-model
-	cd projects/$@/packages/indexer-agent && yalc add @graphprotocol/contracts
-	cd projects/$@/packages/indexer-common && yalc add @graphprotocol/cost-model
-	cd projects/$@/packages/indexer-agent && yalc add @graphprotocol/common-ts
-	cd projects/$@/packages/indexer-cli && yalc add @graphprotocol/common-ts
-	cd projects/$@/packages/indexer-common && yalc add @graphprotocol/common-ts
-	cd projects/$@/packages/indexer-service && yalc add @graphprotocol/common-ts
+	cd projects/$@/packages/indexer-agent \
+		&& yalc add @graphprotocol/common-ts \
+		&& yalc add @graphprotocol/contracts
+	cd projects/$@/packages/indexer-common \
+		&& yalc add @graphprotocol/common-ts \
+		&& yalc add @graphprotocol/cost-model
+	cd projects/$@/packages/indexer-cli \
+		&& yalc add @graphprotocol/common-ts
+	cd projects/$@/packages/indexer-service \
+		&& yalc add @graphprotocol/common-ts
 	cd projects/$@ && yarn
