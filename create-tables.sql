@@ -1,3 +1,6 @@
 
+create database local_network_gateway;
+create database local_network_gateway_stats;
 create database local_network_indexer_0_node;
 create database local_network_indexer_0_components;
+create database local_network_subgraph_studio;

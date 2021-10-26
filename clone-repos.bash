@@ -2,6 +2,8 @@
 source prelude.bash
 
 repos="\
+  edgeandnode/gateway
+  edgeandnode/indexer-selection
   graphprotocol/common-ts
   graphprotocol/contracts
   graphprotocol/cost-model
