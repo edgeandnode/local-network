@@ -1,5 +1,6 @@
 chain: ./components/chain.sh
 contracts: sleep 10; ./components/contracts.sh
+test-contracts-deployed: sleep 100; ./commands/test-contracts-deployed.sh
 
 ipfs: ipfs daemon
 graph-node: sleep 10; ./components/graph-node.sh

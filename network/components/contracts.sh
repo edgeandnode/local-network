@@ -25,8 +25,9 @@ yarn
 yarn build
 
 # Deploy contracts to local test network
-yarn deploy-hardhat
+yarn deploy-ganache-manual
 
+# Publish so the other components have access to the address book
 yalc publish
 
 # Set short epoch length interval
