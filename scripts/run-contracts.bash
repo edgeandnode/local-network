@@ -46,3 +46,5 @@ ts-node ./cli/cli.ts protocol set subgraph-availability-oracle "${ACCOUNT2_ADDRE
   --graphAccount "${ACCOUNT_ADDRESS}" \
   --tokens 1000 \
   --subgraphNumber 0
+
+bash ./scripts/check-contracts.bash

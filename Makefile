@@ -3,6 +3,7 @@ all: \
 	docker-pull \
 	edgeandnode/gateway \
 	edgeandnode/indexer-selection \
+	edgeandnode/subgraph-studio \
 	graphprotocol/contracts \
 	graphprotocol/common-ts \
 	graphprotocol/graph-network-subgraph \
@@ -33,6 +34,10 @@ edgeandnode/gateway: edgeandnode/indexer-selection graphprotocol/common-ts
 .PHONY: edgeandnode/indexer-selection
 edgeandnode/indexer-selection:
 	cd projects/$@ && yarn && yalc publish --push
+
+.PHONY: edgeandnode/subgraph-studio
+edgeandnode/subgraph-studio:
+	cd projects/$@ && yarn
 
 .PHONY: graphprotocol/contracts
 graphprotocol/contracts:

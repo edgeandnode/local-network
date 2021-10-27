@@ -4,6 +4,7 @@ source prelude.bash
 repos="\
   edgeandnode/gateway
   edgeandnode/indexer-selection
+  edgeandnode/subgraph-studio
   graphprotocol/common-ts
   graphprotocol/contracts
   graphprotocol/cost-model
