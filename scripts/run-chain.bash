@@ -2,4 +2,4 @@
 source prelude.bash
 
 cd projects/graphprotocol/contracts
-npx hardhat node
+npx hardhat node |& tee /tmp/chain.log

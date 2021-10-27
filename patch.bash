@@ -28,6 +28,10 @@ find_replace_sed \
   lib/index.js
 popd
 
+pushd projects/edgeandnode/subgraph-studio
+git switch ford/local-network
+popd
+
 pushd projects/graphprotocol/contracts
 # TODO: rm?
 # git switch ford/local-network
