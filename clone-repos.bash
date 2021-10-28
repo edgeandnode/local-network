@@ -3,11 +3,12 @@ source prelude.bash
 
 repos="\
   edgeandnode/gateway
+  edgeandnode/graph-gateway
   edgeandnode/indexer-selection
   edgeandnode/subgraph-studio
+  graphprotocol/agora
   graphprotocol/common-ts
   graphprotocol/contracts
-  graphprotocol/cost-model
   graphprotocol/graph-network-subgraph
   graphprotocol/graph-node
   graphprotocol/indexer"

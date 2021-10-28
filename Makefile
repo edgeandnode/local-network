@@ -2,8 +2,10 @@
 all: \
 	docker-pull \
 	edgeandnode/gateway \
+	edgeandnode/graph-gateway \
 	edgeandnode/indexer-selection \
 	edgeandnode/subgraph-studio \
+	graphprotocol/agora \
 	graphprotocol/contracts \
 	graphprotocol/common-ts \
 	graphprotocol/graph-network-subgraph \
@@ -31,6 +33,10 @@ edgeandnode/gateway: edgeandnode/indexer-selection graphprotocol/common-ts
 		&& yalc add @graphprotocol/common-ts \
 		&& yarn
 
+.PHONY: edgeandnode/graph-gateway
+edgeandnode/graph-gateway:
+	cd projects/$@ && cargo build
+
 .PHONY: edgeandnode/indexer-selection
 edgeandnode/indexer-selection:
 	cd projects/$@ && yarn && yalc publish --push
@@ -49,8 +55,8 @@ graphprotocol/common-ts: graphprotocol/contracts
 	cd projects/$@ && yarn
 	cd projects/$@/packages/common-ts && yalc publish --push
 
-.PHONY: graphprotocol/cost-model
-graphprotocol/cost-model:
+.PHONY: graphprotocol/agora
+graphprotocol/agora:
 	cd projects/$@/node-plugin && yarn && yalc publish --push
 
 .PHONY: graphprotocol/graph-network-subgraph
@@ -62,7 +68,7 @@ graphprotocol/graph-node:
 	cd projects/$@ && cargo build -p graph-node
 
 .PHONY: graphprotocol/indexer
-graphprotocol/indexer: graphprotocol/common-ts graphprotocol/cost-model
+graphprotocol/indexer: graphprotocol/common-ts graphprotocol/agora
 	cd projects/$@/packages/indexer-agent \
 		&& yalc add @graphprotocol/common-ts \
 		&& yalc add @graphprotocol/contracts

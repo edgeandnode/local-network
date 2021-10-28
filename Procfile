@@ -13,3 +13,4 @@ setup-indexer: sleep 135; bash scripts/setup-indexer.bash
 
 gateway-agent: sleep 90; bash scripts/run-gateway-agent.bash
 gateway: sleep 100; bash scripts/run-gateway.bash
+# gateway-ts: sleep 100; bash scripts/run-gateway-ts.bash
