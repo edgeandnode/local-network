@@ -33,3 +33,8 @@
     -H 'Content-Type: application/json' \
     -d '{"query": "{ _meta { block { hash number } } }"}'
   ```
+
+- Load env file in Bash:
+  ```
+  set -o allexport; source .overmind.env; set +o allexport
+  ```

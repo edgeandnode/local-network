@@ -45,7 +45,7 @@ git switch ford/local-network
 find_replace_yalc @ethersproject/contracts @graphprotocol/contracts package.json
 popd
 
-pushd projects/graphprotocol/cost-model
+pushd projects/graphprotocol/agora
 find_replace_sed \
   '..\/native' \
   '@graphprotocol\/cost-model' \
