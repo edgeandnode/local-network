@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "autocannon": "~7.5.0",
+    "@types/autocannon": "~4.1.1",
+    "nodeplotlib": "~0.7.6"
+  }
+}
