@@ -34,7 +34,31 @@
     -d '{"query": "{ _meta { block { hash number } } }"}'
   ```
 
-- Load env file in Bash:
+- Query indexer directly:
+  ```bash
+  curl localhost:8000/subgraphs/id/Qmei3s21mJy6WYy3nTmNFgHKuXmFJCkDtvTR7CeNVPiYiR \
+    -H 'Content-Type: application/json' \
+    -d '{"query": "{ allocations{ id } }"}'
   ```
+
+- Load env file in Bash:
+  ```bash
   set -o allexport; source .overmind.env; set +o allexport
+  ```
+
+- Run gateway comparison benchmark
+  ```bash
+  cd bench && yarn
+  # Benchmark TypeScript gateway
+  ts-node bench.ts \
+    gateway-ts \
+    "http://${HOST}:${PORT}/api/${API_KEY}/deployments/id/Qmei3s21mJy6WYy3nTmNFgHKuXmFJCkDtvTR7CeNVPiYiR" \
+    |& tee bench-ts.csv
+  # Benchmark Rust gateway
+  ts-node bench.ts \
+    gateway-rs \
+    "http://${HOST}:${PORT}/api/${API_KEY}/deployments/id/Qmei3s21mJy6WYy3nTmNFgHKuXmFJCkDtvTR7CeNVPiYiR" \
+    |& tee bench-rs.csv
+  # Show plots
+  python plot.py bench-{ts,rs}.csv
   ```
