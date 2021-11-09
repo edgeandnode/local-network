@@ -62,3 +62,8 @@
   # Show plots
   python plot.py bench-{ts,rs}.csv
   ```
+
+- Connect indexer CLI
+  ```bash
+  ./projects/graphprotocol/indexer/packages/indexer-cli/bin/graph-indexer indexer connect http://localhost:18000
+  ```
