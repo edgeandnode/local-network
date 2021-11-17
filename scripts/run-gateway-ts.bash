@@ -16,11 +16,11 @@ export GATEWAY_NETWORK_SUBGRAPH_AUTH_TOKEN=superdupersecrettoken
 export GATEWAY_MNEMONIC="${MNEMONIC}"
 export GATEWAY_ETHEREUM="${ETHEREUM}"
 export GATEWAY_ETHEREUM_NETWORKS="${ETHEREUM_NETWORK}:10:${ETHEREUM}"
-export GATEWAY_LOG_LEVEL=debug
+export GATEWAY_LOG_LEVEL=trace
+export GATEWAY_ASYNC_LOGGING=true
 
 yarn start \
   --name gateway-local \
-  --log-level debug \
   --port "${GATEWAY_PORT}" \
   --metrics-port "${GATEWAY_METRICS_PORT}" \
   --agent-syncing-api "http://localhost:${GATEWAY_AGENT_SYNCING_PORT}" \
