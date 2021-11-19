@@ -31,7 +31,7 @@
   ```bash
   curl localhost:6700/api/${API_KEY}/deployments/id/Qmei3s21mJy6WYy3nTmNFgHKuXmFJCkDtvTR7CeNVPiYiR \
     -H 'Content-Type: application/json' \
-    -d '{"query": "{ _meta { block { hash number } } }"}'
+    -d '{"query": "{ _meta { block { number } } }"}'
   ```
 
 - Query indexer directly:
