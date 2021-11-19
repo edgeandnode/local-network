@@ -33,8 +33,6 @@ git switch ford/local-network
 popd
 
 pushd projects/graphprotocol/contracts
-# TODO: rm?
-# git switch ford/local-network
 cp ../../../{subgraph,version}Metadata.json ./cli
 # TODO: upstream
 find_replace_sed '_src\/\*.ts' '_src\/types\/\*.ts' scripts/prepublish
@@ -66,7 +64,6 @@ find_replace_jq \
 popd
 
 pushd projects/graphprotocol/indexer
-git switch ford/local-network
 find_replace_yalc \
   @graphprotocol/contracts \
   @graphprotocol/contracts \
