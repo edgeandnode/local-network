@@ -33,13 +33,13 @@ git switch ford/local-network
 popd
 
 pushd projects/graphprotocol/contracts
+git checkout 0877142
 cp ../../../{subgraph,version}Metadata.json ./cli
 # TODO: upstream
 find_replace_sed '_src\/\*.ts' '_src\/types\/\*.ts' scripts/prepublish
 popd
 
 pushd projects/graphprotocol/common-ts/packages/common-ts/
-git switch ford/local-network
 find_replace_yalc @ethersproject/contracts @graphprotocol/contracts package.json
 popd
 
