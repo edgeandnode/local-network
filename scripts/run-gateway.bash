@@ -8,6 +8,7 @@ export MNEMONIC="${MNEMONIC}"
 export ETHEREUM_PROVIDERS="${ETHEREUM_NETWORK}=${ETHEREUM}"
 export NETWORK_SUBGRAPH_AUTH_TOKEN=superdupersecrettoken
 export SYNC_AGENT="http://localhost:${GATEWAY_AGENT_SYNCING_PORT}"
+export IPFS="${IPFS}api/v0/cat?arg="
 
 export PORT="${GATEWAY_PORT}"
 export METRICS_PORT="${GATEWAY_METRICS_PORT}"
