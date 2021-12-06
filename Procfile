@@ -1,7 +1,7 @@
 ipfs: ipfs daemon
-postgres: bash scripts/run-postgres.bash |& tee /tmp/postgres.log
+postgres: bash scripts/run-postgres.bash 2>&1| tee /tmp/postgres.log
 chain: bash scripts/run-chain.bash
-contracts: sleep 10; bash scripts/run-contracts.bash |& tee /tmp/contracts.log
+contracts: sleep 10; bash scripts/run-contracts.bash 2>&1| tee /tmp/contracts.log
 graph-node: sleep 10; bash scripts/run-graph-node.bash
 network-subgraph: sleep 80; bash scripts/setup-network-subgraph.bash
 studio-api: sleep 90; bash scripts/run-studio-api.bash

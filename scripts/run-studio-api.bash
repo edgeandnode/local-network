@@ -13,4 +13,4 @@ export DB_PASS="${POSTGRES_PASSWORD}"
 
 yarn setup
 cd packages/api
-yarn start |& tee /tmp/studio-api.log
+yarn start 2>&1| tee /tmp/studio-api.log
