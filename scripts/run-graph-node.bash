@@ -21,4 +21,4 @@ cargo run -p graph-node -- \
   --admin-port "${GRAPH_NODE_STATUS_PORT}" \
   --index-node-port "${GRAPH_NODE_JRPC_PORT}" \
   --metrics-port "${GRAPH_NODE_METRICS_PORT}" \
-  |& tee /tmp/graph-node.log
+  2>&1| tee /tmp/graph-node.log

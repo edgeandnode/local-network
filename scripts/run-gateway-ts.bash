@@ -29,4 +29,4 @@ yarn start \
   --rate-limiting-max-queries 10 \
   --query-budget "0.00030" \
 	--local true \
-  |& pino-pretty | tee /tmp/gateway-ts.log
+  2>&1| pino-pretty | tee /tmp/gateway-ts.log

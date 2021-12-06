@@ -55,12 +55,12 @@
   ts-node bench.ts \
     gateway-ts \
     "http://${HOST}:${PORT}/api/${API_KEY}/deployments/id/Qmei3s21mJy6WYy3nTmNFgHKuXmFJCkDtvTR7CeNVPiYiR" \
-    |& tee bench-ts.csv
+    2>&1| tee bench-ts.csv
   # Benchmark Rust gateway
   ts-node bench.ts \
     gateway-rs \
     "http://${HOST}:${PORT}/api/${API_KEY}/deployments/id/Qmei3s21mJy6WYy3nTmNFgHKuXmFJCkDtvTR7CeNVPiYiR" \
-    |& tee bench-rs.csv
+    2>&1| tee bench-rs.csv
   # Show plots
   python plot.py bench-{ts,rs}.csv
   ```

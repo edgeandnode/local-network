@@ -19,4 +19,4 @@ export STATS_DB_NAME=local_network_gateway_stats
 export STATS_DB_USER="${POSTGRES_USERNAME}"
 export STATS_DB_PASSWORD=
 
-cargo run |& tee /tmp/gateway.log
+cargo run 2>&1| tee /tmp/gateway.log
