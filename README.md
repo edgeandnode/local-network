@@ -4,7 +4,8 @@
 
 - [Rust toolchain](https://rustup.rs/)
 - [Overmind](https://github.com/DarthSim/overmind)
-- `ts-node`, `yarn`, `yalc`, `prettier`, `eslint`
+- Login to NPM (run `npm login`)
+- `ts-node`, `yarn`, `yalc`, `prettier`, `eslint`, `pino-pretty`
 - [go-ipfs](https://github.com/ipfs/go-ipfs)
   - On Linux, increase buffer size for go-ipfs QUIC transfers: `sysctl -w net.core.rmem_max=2500000`. See https://github.com/lucas-clemente/quic-go/wiki/UDP-Receive-Buffer-Size
 

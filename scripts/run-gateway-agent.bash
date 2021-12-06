@@ -31,4 +31,4 @@ yarn agent \
 	--postgres-database "${GATEWAY_DATABASE}" \
   --studio-database-port 5432 \
   --studio-database-database "${GATEWAY_STUDIO_DATABASE}" \
-  | pino-pretty | tee /tmp/gateway-agent.log
+  2>&1| pino-pretty | tee /tmp/gateway-agent.log
