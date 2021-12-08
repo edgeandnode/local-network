@@ -6,7 +6,12 @@
 - [Overmind](https://github.com/DarthSim/overmind)
 - Login to NPM (run `npm login`)
 - `ts-node`, `yarn`, `yalc`, `prettier`, `eslint`, `pino-pretty`
+- [Docker](https://www.docker.com/get-started)
+  - Make sure the daemon is running
+- libpq
+  - MacOS: `brew install postgresql`
 - [go-ipfs](https://github.com/ipfs/go-ipfs)
+  - After installing, run `ipfs init`
   - On Linux, increase buffer size for go-ipfs QUIC transfers: `sysctl -w net.core.rmem_max=2500000`. See https://github.com/lucas-clemente/quic-go/wiki/UDP-Receive-Buffer-Size
 
 ## Initial setup
