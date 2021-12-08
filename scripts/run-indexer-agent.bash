@@ -15,11 +15,12 @@ export INDEXER_AGENT_MNEMONIC="${MNEMONIC}"
 export INDEXER_AGENT_INDEXER_ADDRESS="${ACCOUNT_ADDRESS}"
 export INDEXER_AGENT_COLLECT_RECEIPTS_ENDPOINT="http://${GATEWAY_HOST}:${GATEWAY_PORT}/collect-receipts"
 
-
 export INDEXER_AGENT_ETHEREUM_NETWORK=any
 export INDEXER_AGENT_ETHEREUM="${ETHEREUM}"
 export INDEXER_AGENT_NETWORK_SUBGRAPH_DEPLOYMENT="${NETWORK_SUBGRAPH_DEPLOYMENT}"
 export INDEXER_AGENT_NETWORK_SUBGRAPH_ENDPOINT="${NETWORK_SUBGRAPH}"
+export INDEXER_AGENT_ALLOCATE_ON_NETWORK_SUBGRAPH=true
+export INDEXER_AGENT_REBATE_CLAIM_THRESHOLD=0.00001
 
 yarn start \
   --graph-node-query-endpoint "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}" \
@@ -33,7 +34,7 @@ yarn start \
   --log-level debug \
   --dai-contract 0x9e7e607afd22906f7da6f1ec8f432d6f244278be \
 	--restake-rewards true \
-  --poi-dispute-monitoring true \
+  --poi-dispute-monitoring false \
   --poi-disputable-epochs 5 \
 	--gas-price-max 10 \
   | pino-pretty | tee /tmp/indexer-agent.log

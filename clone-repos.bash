@@ -5,6 +5,7 @@ repos="\
   edgeandnode/gateway
   edgeandnode/graph-gateway
   edgeandnode/indexer-selection
+  edgeandnode/network-services
   edgeandnode/subgraph-studio
   graphprotocol/agora
   graphprotocol/common-ts
