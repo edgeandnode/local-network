@@ -37,16 +37,16 @@
 
 - Query indexer status:
   ```bash
-  curl localhost:6700/api/${API_KEY}/deployments/id/Qmei3s21mJy6WYy3nTmNFgHKuXmFJCkDtvTR7CeNVPiYiR \
+  curl localhost:6700/api/${API_KEY}/deployments/id/QmVSnGK2tmBczx7MqnxdSAKhatpGUvpzHTsg8WE58Wakd7 \
     -H 'Content-Type: application/json' \
     -d '{"query": "{ _meta { block { number } } }"}'
   ```
 
 - Query indexer directly:
   ```bash
-  curl localhost:8000/subgraphs/id/Qmei3s21mJy6WYy3nTmNFgHKuXmFJCkDtvTR7CeNVPiYiR \
+  curl localhost:8000/subgraphs/id/QmVSnGK2tmBczx7MqnxdSAKhatpGUvpzHTsg8WE58Wakd7 \
     -H 'Content-Type: application/json' \
-    -d '{"query": "{ allocations{ id } }"}'
+    -d '{"query": "{ allocations { id } }"}'
   ```
 
 - Load env file in Bash:
@@ -60,12 +60,12 @@
   # Benchmark TypeScript gateway
   ts-node bench.ts \
     gateway-ts \
-    "http://${HOST}:${PORT}/api/${API_KEY}/deployments/id/Qmei3s21mJy6WYy3nTmNFgHKuXmFJCkDtvTR7CeNVPiYiR" \
+    "http://${HOST}:${PORT}/api/${API_KEY}/deployments/id/QmVSnGK2tmBczx7MqnxdSAKhatpGUvpzHTsg8WE58Wakd7" \
     2>&1| tee bench-ts.csv
   # Benchmark Rust gateway
   ts-node bench.ts \
     gateway-rs \
-    "http://${HOST}:${PORT}/api/${API_KEY}/deployments/id/Qmei3s21mJy6WYy3nTmNFgHKuXmFJCkDtvTR7CeNVPiYiR" \
+    "http://${HOST}:${PORT}/api/${API_KEY}/deployments/id/QmVSnGK2tmBczx7MqnxdSAKhatpGUvpzHTsg8WE58Wakd7" \
     2>&1| tee bench-rs.csv
   # Show plots
   python plot.py bench-{ts,rs}.csv

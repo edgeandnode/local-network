@@ -3,8 +3,10 @@ source prelude.bash
 
 export NODE_ENV=development
 
-cd projects/graphprotocol/contracts
+pushd projects/graphprotocol/contracts
 yarn deploy-ganache-manual
+# Push contract addresses
+yalc push
 
 STAKING_CONTRACT_ADDRESS=$(jq '."1337".Staking.address' addresses.json)
 GNS_CONTRACT_ADDRESS=$(jq '."1337".GNS.address' addresses.json)
@@ -44,5 +46,7 @@ ts-node ./cli/cli.ts protocol set subgraph-availability-oracle "${ACCOUNT2_ADDRE
 ./cli/cli.ts contracts gns mintSignal \
   --subgraphID "${NETWORK_SUBGRAPH_ID_0}" \
   --tokens 1000
+
+popd
 
 bash ./scripts/check-contracts.bash

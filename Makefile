@@ -4,6 +4,7 @@ all: \
 	edgeandnode/gateway \
 	edgeandnode/graph-gateway \
 	edgeandnode/indexer-selection \
+	edgeandnode/network-services \
 	edgeandnode/subgraph-studio \
 	graphprotocol/agora \
 	graphprotocol/contracts \
@@ -25,12 +26,16 @@ docker-pull:
 .PHONY: edgeandnode/gateway
 edgeandnode/gateway: edgeandnode/indexer-selection graphprotocol/common-ts
 	cd projects/$@/packages/gateway \
-		&& yalc add @graphprotocol/common-ts
+		&& yalc link @graphprotocol/common-ts \
+		&& yalc update
 	cd projects/$@/packages/query-engine \
-		&& yalc add @edgeandnode/indexer-selection \
-		&& yalc add @graphprotocol/common-ts
+		&& yalc link @edgeandnode/indexer-selection \
+		&& yalc link @graphprotocol/common-ts \
+		&& yalc link @graphprotocol/contracts \
+		&& yalc update
 	cd projects/$@ \
-		&& yalc add @graphprotocol/common-ts \
+		&& yalc link @graphprotocol/common-ts \
+		&& yalc update \
 		&& yarn
 
 .PHONY: edgeandnode/graph-gateway
@@ -39,7 +44,11 @@ edgeandnode/graph-gateway:
 
 .PHONY: edgeandnode/indexer-selection
 edgeandnode/indexer-selection:
-	cd projects/$@ && yarn && yalc publish --push
+	cd projects/$@ && yarn && yalc push
+
+.PHONY: edgeandnode/network-services
+edgeandnode/network-services:
+	cd projects/$@ && cargo build
 
 .PHONY: edgeandnode/subgraph-studio
 edgeandnode/subgraph-studio:
@@ -47,21 +56,31 @@ edgeandnode/subgraph-studio:
 
 .PHONY: graphprotocol/contracts
 graphprotocol/contracts:
-	cd projects/$@ && yarn && yarn build && yalc publish --push
+	cd projects/$@ && yarn && yarn build && yalc push
 
 .PHONY: graphprotocol/common-ts
 graphprotocol/common-ts: graphprotocol/contracts
-	cd projects/$@/packages/common-ts && yalc add @graphprotocol/contracts
-	cd projects/$@ && yarn
-	cd projects/$@/packages/common-ts && yalc publish --push
+	cd projects/$@/packages/common-ts \
+		&& yalc link @graphprotocol/contracts \
+		&& yalc update
+	cd projects/$@ \
+		&& yalc link @graphprotocol/contracts \
+		&& yalc update \
+		&& yarn
+	cd projects/$@/packages/common-ts \
+		&& yalc push
 
 .PHONY: graphprotocol/agora
 graphprotocol/agora:
-	cd projects/$@/node-plugin && yarn && yalc publish --push
+	cd projects/$@/node-plugin && yarn && yalc push
 
 .PHONY: graphprotocol/graph-network-subgraph
-graphprotocol/graph-network-subgraph:
-	cd projects/$@ && yarn
+graphprotocol/graph-network-subgraph: graphprotocol/common-ts
+	cd projects/$@ \
+		&& yalc link @graphprotocol/common-ts \
+		&& yalc link @graphprotocol/contracts \
+		&& yalc update \
+		&& yarn
 
 .PHONY: graphprotocol/graph-node
 graphprotocol/graph-node:
@@ -70,13 +89,17 @@ graphprotocol/graph-node:
 .PHONY: graphprotocol/indexer
 graphprotocol/indexer: graphprotocol/common-ts graphprotocol/agora
 	cd projects/$@/packages/indexer-agent \
-		&& yalc add @graphprotocol/common-ts \
-		&& yalc add @graphprotocol/contracts
+		&& yalc link @graphprotocol/common-ts \
+		&& yalc link @graphprotocol/contracts \
+		&& yalc update
 	cd projects/$@/packages/indexer-common \
-		&& yalc add @graphprotocol/common-ts \
-		&& yalc add @graphprotocol/cost-model
+		&& yalc link @graphprotocol/common-ts \
+		&& yalc link @graphprotocol/cost-model \
+		&& yalc update
 	cd projects/$@/packages/indexer-cli \
-		&& yalc add @graphprotocol/common-ts
+		&& yalc link @graphprotocol/common-ts \
+		&& yalc update
 	cd projects/$@/packages/indexer-service \
-		&& yalc add @graphprotocol/common-ts
+		&& yalc link @graphprotocol/common-ts \
+		&& yalc update
 	cd projects/$@ && yarn
