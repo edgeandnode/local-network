@@ -3,7 +3,7 @@ source prelude.bash
 
 export NODE_ENV=development
 
-cd projects/graphprotocol/contracts
+pushd projects/graphprotocol/contracts
 yarn deploy-ganache-manual
 
 STAKING_CONTRACT_ADDRESS=$(jq '."1337".Staking.address' addresses.json)
@@ -46,5 +46,7 @@ ts-node ./cli/cli.ts protocol set subgraph-availability-oracle "${ACCOUNT2_ADDRE
   --graphAccount "${ACCOUNT_ADDRESS}" \
   --tokens 1000 \
   --subgraphNumber 0
+
+popd
 
 bash ./scripts/check-contracts.bash

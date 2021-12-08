@@ -4,6 +4,7 @@ all: \
 	edgeandnode/gateway \
 	edgeandnode/graph-gateway \
 	edgeandnode/indexer-selection \
+	edgeandnode/network-services \
 	edgeandnode/subgraph-studio \
 	graphprotocol/agora \
 	graphprotocol/contracts \
@@ -40,6 +41,10 @@ edgeandnode/graph-gateway:
 .PHONY: edgeandnode/indexer-selection
 edgeandnode/indexer-selection:
 	cd projects/$@ && yarn && yalc publish --push
+
+.PHONY: edgeandnode/network-services
+edgeandnode/network-services:
+	cd projects/$@ && cargo build
 
 .PHONY: edgeandnode/subgraph-studio
 edgeandnode/subgraph-studio:

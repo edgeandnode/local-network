@@ -46,7 +46,7 @@
   ```bash
   curl localhost:8000/subgraphs/id/Qmei3s21mJy6WYy3nTmNFgHKuXmFJCkDtvTR7CeNVPiYiR \
     -H 'Content-Type: application/json' \
-    -d '{"query": "{ allocations{ id } }"}'
+    -d '{"query": "{ allocations { id } }"}'
   ```
 
 - Load env file in Bash:
