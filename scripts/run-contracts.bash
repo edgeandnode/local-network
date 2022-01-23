@@ -31,7 +31,6 @@ ts-node ./cli/cli.ts protocol set subgraph-availability-oracle "${ACCOUNT2_ADDRE
   --mnemonic "${MNEMONIC}" \
   --provider-url "${ETHEREUM}" \
   --ipfs "${IPFS}" \
-  --graphAccount "${ACCOUNT_ADDRESS}" \
   --subgraphDeploymentID "${NETWORK_SUBGRAPH_DEPLOYMENT}" \
   --subgraphPath '/subgraphMetadata.json' \
   --versionPath '/versionMetadata.json'
@@ -42,10 +41,9 @@ ts-node ./cli/cli.ts protocol set subgraph-availability-oracle "${ACCOUNT2_ADDRE
   --account "${GNS_CONTRACT_ADDRESS}" \
   --amount 1000000
 # Mint and signal on subgraph
-./cli/cli.ts contracts gns mintNSignal \
-  --graphAccount "${ACCOUNT_ADDRESS}" \
-  --tokens 1000 \
-  --subgraphNumber 0
+./cli/cli.ts contracts gns mintSignal \
+  --subgraphID "${NETWORK_SUBGRAPH_ID_0}" \
+  --tokens 1000
 
 popd
 
