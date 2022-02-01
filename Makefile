@@ -27,6 +27,7 @@ docker-pull:
 edgeandnode/gateway: edgeandnode/indexer-selection graphprotocol/common-ts
 	cd projects/$@/packages/gateway \
 		&& yalc link @graphprotocol/common-ts \
+		&& yalc link @graphprotocol/contracts \
 		&& yalc update
 	cd projects/$@/packages/query-engine \
 		&& yalc link @edgeandnode/indexer-selection \
@@ -35,6 +36,7 @@ edgeandnode/gateway: edgeandnode/indexer-selection graphprotocol/common-ts
 		&& yalc update
 	cd projects/$@ \
 		&& yalc link @graphprotocol/common-ts \
+		&& yalc link @graphprotocol/contracts \
 		&& yalc update \
 		&& yarn
 
@@ -56,7 +58,11 @@ edgeandnode/subgraph-studio:
 
 .PHONY: graphprotocol/contracts
 graphprotocol/contracts:
-	cd projects/$@ && yarn && yarn build && yalc push
+	cd projects/$@ \
+		&& yarn \
+		&& yarn build \
+		&& npx hardhat migrate \
+		&& yalc push
 
 .PHONY: graphprotocol/common-ts
 graphprotocol/common-ts: graphprotocol/contracts
