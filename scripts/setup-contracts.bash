@@ -10,6 +10,7 @@ yalc push
 
 STAKING_CONTRACT_ADDRESS=$(jq '."1337".Staking.address' addresses.json)
 GNS_CONTRACT_ADDRESS=$(jq '."1337".GNS.address' addresses.json)
+ALLOCATION_EXCHANGE_CONTRACT_ADDRESS=$(jq '."1337".AllocationExchange.address' addresses.json)
 
 # Set short epoch length interval
 ts-node ./cli/cli.ts protocol set epochs-length 4
@@ -46,6 +47,10 @@ ts-node ./cli/cli.ts protocol set subgraph-availability-oracle "${ACCOUNT2_ADDRE
 ./cli/cli.ts contracts gns mintSignal \
   --subgraphID "${NETWORK_SUBGRAPH_ID_0}" \
   --tokens 1000
+# Fund AllocationExchange
+./cli/cli.ts contracts graphToken mint \
+  --account "${ALLOCATION_EXCHANGE_CONTRACT_ADDRESS}" \
+  --amount 1000000
 
 popd
 
