@@ -5,6 +5,14 @@ pushd projects/edgeandnode/gateway
 git switch theodus/local-network
 popd
 
+pushd projects/graphprotocol/contracts
+# TODO: What should the authority address be?
+find_replace_sed \
+  '\&authority "0x79fd74da4c906509862c8fe93e87a9602e370bc4"' \
+  '\&authority "0x5d0365e8dcbd1b00fc780b206e85c9d78159a865"' \
+  graph.config.yml
+popd
+
 pushd projects/graphprotocol/indexer
 git switch theodus/allocation-exchange
 popd
@@ -23,10 +31,6 @@ popd
 
 pushd projects/edgeandnode/subgraph-studio
 git switch ford/local-network
-popd
-
-pushd projects/graphprotocol/common-ts
-git switch theodus/allocation-exchange
 popd
 
 pushd projects/graphprotocol/contracts
