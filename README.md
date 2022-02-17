@@ -42,6 +42,13 @@
     -d '{"query": "{ _meta { block { number } } }"}'
   ```
 
+- Query using subgraph name:
+  ```bash
+  curl localhost:6700/api/${API_KEY}/subgraphs/id/ACDJUXGoFN68GiZxeeAbqqxLoQe2dstdJawR4BMgZgVR \
+    -H 'Content-Type: application/json' \
+    -d '{"query": "{ _meta { block { number } } }"}'
+  ```
+
 - Query indexer directly:
   ```bash
   curl localhost:8000/subgraphs/id/QmVSnGK2tmBczx7MqnxdSAKhatpGUvpzHTsg8WE58Wakd7 \
