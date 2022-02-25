@@ -13,10 +13,6 @@ find_replace_sed \
   graph.config.yml
 popd
 
-pushd projects/graphprotocol/indexer
-git switch theodus/allocation-exchange
-popd
-
 pushd projects/edgeandnode/indexer-selection
 git switch theodus/neon-update
 find_replace_sed \
