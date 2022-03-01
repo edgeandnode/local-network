@@ -20,4 +20,7 @@ export STATS_DB_NAME=local_network_gateway_stats
 export STATS_DB_USER="${POSTGRES_USERNAME}"
 export STATS_DB_PASSWORD=
 
+export LOCATION_COUNT=1
+export REPLICA_COUNT=1
+
 cargo run 2>&1| tee /tmp/gateway.log
