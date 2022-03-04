@@ -26,7 +26,7 @@ git switch ford/local-network
 popd
 
 pushd projects/edgeandnode/subgraph-studio
-git switch ford/local-network
+git switch theodus/local-network
 popd
 
 pushd projects/graphprotocol/contracts
