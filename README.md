@@ -31,11 +31,13 @@
 ## Useful commands
 
 - Get API keys:
+
   ```bash
   psql -h localhost -U postgres -d local_network_subgraph_studio -c 'SELECT * FROM "ApiKeys";'
   ```
 
 - Query indexer status:
+
   ```bash
   curl localhost:6700/api/${API_KEY}/deployments/id/QmVSnGK2tmBczx7MqnxdSAKhatpGUvpzHTsg8WE58Wakd7 \
     -H 'Content-Type: application/json' \
@@ -43,6 +45,7 @@
   ```
 
 - Query using subgraph name:
+
   ```bash
   curl localhost:6700/api/${API_KEY}/subgraphs/id/ACDJUXGoFN68GiZxeeAbqqxLoQe2dstdJawR4BMgZgVR \
     -H 'Content-Type: application/json' \
@@ -50,6 +53,7 @@
   ```
 
 - Query indexer directly:
+
   ```bash
   curl localhost:8000/subgraphs/id/QmVSnGK2tmBczx7MqnxdSAKhatpGUvpzHTsg8WE58Wakd7 \
     -H 'Content-Type: application/json' \
@@ -57,11 +61,13 @@
   ```
 
 - Load env file in Bash:
+
   ```bash
   set -o allexport; source .overmind.env; set +o allexport
   ```
 
 - Run gateway comparison benchmark
+
   ```bash
   cd bench && yarn
   # Benchmark TypeScript gateway
@@ -79,6 +85,21 @@
   ```
 
 - Connect indexer CLI
+
   ```bash
   ./projects/graphprotocol/indexer/packages/indexer-cli/bin/graph-indexer indexer connect http://localhost:18000
+  ```
+
+- Add API key indexer preferences
+
+  `psql -h localhost -U postgres -d local_network_subgraph_studio`
+
+  ```bash
+  INSERT INTO "IndexerPreferences" (name, description, "order") VALUES ('Fastest speed', 'Time between the query and the response from an indexer. If you mark this as important we will optimize for fast indexers.', 1);
+  INSERT INTO "IndexerPreferences" (name, description, "order") VALUES ('Lowest price', 'The amount paid per query. If you mark this as important we will optimize for the less expensive indexers.', 2);
+  INSERT INTO "IndexerPreferences" (name, description, "order") VALUES ('Data freshness', 'How recent the latest block an indexer has processed for the subgraph you are querying. If you mark this as important we will optimize to find the indexers with the freshest data.', 3);
+  INSERT INTO "IndexerPreferences" (name, description, "order") VALUES ('Economic security', 'The amount of GRT an indexer can lose if they respond incorrectly to your query. If you mark this as important we will optimize for indexers with a large stake.', 4);
+
+  INSERT INTO "ApiKeyIndexerPreferences" ("apiKeyId", "indexerPreferenceId", "points", "weight")
+  SELECT 1, id, 0, 0.00 FROM "IndexerPreferences";
   ```
