@@ -22,6 +22,7 @@ clean:
 .PHONY: docker-pull
 docker-pull:
 	docker pull timescale/timescaledb:latest-pg12
+	docker pull vectorized/redpanda:latest
 
 .PHONY: edgeandnode/gateway
 edgeandnode/gateway: edgeandnode/indexer-selection graphprotocol/common-ts

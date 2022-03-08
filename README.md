@@ -90,6 +90,12 @@
   ./projects/graphprotocol/indexer/packages/indexer-cli/bin/graph-indexer indexer connect http://localhost:18000
   ```
 
+- Consume Kafka topics
+
+  ```bash
+  docker exec -it redpanda-1 rpk topic consume gateway_client_query_results --brokers="${REDPANDA_BROKERS}"
+  ```
+
 - Add API key indexer preferences
 
   `psql -h localhost -U postgres -d local_network_subgraph_studio`

@@ -15,6 +15,8 @@ export IPFS="${IPFS}api/v0/cat?arg="
 export PORT="${GATEWAY_PORT}"
 export METRICS_PORT="${GATEWAY_METRICS_PORT}"
 
+export REDPANDA_BROKERS="${REDPANDA_BROKERS}"
+
 export STATS_DB_HOST=localhost
 export STATS_DB_PORT=5432
 export STATS_DB_NAME=local_network_gateway_stats
