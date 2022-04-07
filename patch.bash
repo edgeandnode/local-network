@@ -5,14 +5,6 @@ pushd projects/edgeandnode/gateway
 git switch theodus/local-network
 popd
 
-pushd projects/graphprotocol/contracts
-# TODO: What should the authority address be?
-find_replace_sed \
-  '\&authority "0x79fd74da4c906509862c8fe93e87a9602e370bc4"' \
-  '\&authority "0x5d0365e8dcbd1b00fc780b206e85c9d78159a865"' \
-  graph.config.yml
-popd
-
 pushd projects/edgeandnode/indexer-selection
 git switch theodus/neon-update
 find_replace_sed \
@@ -30,6 +22,11 @@ git switch theodus/local-network
 popd
 
 pushd projects/graphprotocol/contracts
+# TODO: What should the authority address be?
+find_replace_sed \
+  '\&authority "0x79fd74da4c906509862c8fe93e87a9602e370bc4"' \
+  '\&authority "0x5d0365e8dcbd1b00fc780b206e85c9d78159a865"' \
+  graph.config.yml
 cp ../../../{subgraph,version}Metadata.json ./cli
 # TODO: upstream
 find_replace_sed '_src\/\*.ts' '_src\/types\/\*.ts' scripts/prepublish
