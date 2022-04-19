@@ -1,18 +1,16 @@
-ipfs: ipfs daemon
-postgres: bash scripts/run-postgres.bash 2>&1| tee /tmp/postgres.log
-chain: bash scripts/run-chain.bash
-redpanda: bash scripts/run-redpanda.bash
-contracts: sleep 5; bash scripts/setup-contracts.bash 2>&1| tee /tmp/contracts.log
-graph-node: sleep 10; bash scripts/run-graph-node.bash
-network-subgraph: sleep 80; bash scripts/setup-network-subgraph.bash 2>&1| tee /tmp/network-subgraph.log
-studio-api: sleep 90; bash scripts/run-studio-api.bash
-setup-client: sleep 120; bash scripts/setup-client.bash
-
-indexer-agent: sleep 90; bash scripts/run-indexer-agent.bash
-indexer-service: sleep 100; bash scripts/run-indexer-service.bash
-setup-indexer: sleep 135; bash scripts/setup-indexer.bash
-
-gateway: sleep 80; bash scripts/run-gateway.bash
-gateway-agent: sleep 90; bash scripts/run-gateway-agent.bash
-fisherman: sleep 90; bash scripts/run-fisherman.bash
-# gateway-ts: sleep 100; bash scripts/run-gateway-ts.bash
+ipfs: sh ipfs.sh 2>&1| tee /tmp/local-net/ipfs.log
+redpanda: sh redpanda.sh 2>&1| tee /tmp/local-net/redpada.log
+chain: sh chain.sh 2>&1| tee /tmp/local-net/chain.log
+graph-contracts: sh graph-contracts.sh 2>&1| tee /tmp/local-net/graph-contracts.log
+postgres: sh postgres.sh 2>&1| tee /tmp/local-net/postgres.log
+graph-node: sh graph-node.sh 2>&1| tee /tmp/local-net/graph-node.log
+common-ts: sh common-ts.sh 2>&1| tee /tmp/local-net/common-ts.log
+graph-subgraph: sh graph-subgraph.sh 2>&1| tee /tmp/local-net/graph-subgraph.log
+studio-api: sh studio-api.sh 2>&1| tee /tmp/local-net/studio-api.log
+setup-client: sh setup-client.sh 2>&1| tee /tmp/local-net/setup-client.log
+indexer-agent: sh indexer-agent.sh
+indexer-service: sh indexer-service.sh
+setup-indexer: sh setup-indexer.sh 2>&1| tee /tmp/local-net/setup-indexer.log
+gateway: sh gateway.sh 2>&1| tee /tmp/local-net/gateway.log
+gateway-agent: sh gateway-agent.sh
+fisherman: bash fisherman.bash

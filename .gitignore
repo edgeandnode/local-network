@@ -1,4 +1,1 @@
-/bench/node_modules
-/.overmind.sock
-/bench/yarn.lock
-/projects/
+/build/
