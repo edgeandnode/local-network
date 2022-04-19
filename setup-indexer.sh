@@ -1,7 +1,9 @@
-#!/usr/bin/env bash
-source prelude.bash
+#!/bin/sh
+. ./prelude.sh
 
-cd projects/graphprotocol/indexer/packages/indexer-cli
+await "curl -sf localhost:${INDEXER_AGENT_MANAGEMENT_PORT} > /dev/null"
+
+cd build/graphprotocol/indexer/packages/indexer-cli
 
 # Connect to indexer management API server
 ./bin/graph-indexer indexer connect "http://localhost:${INDEXER_AGENT_MANAGEMENT_PORT}"

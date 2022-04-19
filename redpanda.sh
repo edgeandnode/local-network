@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
-source prelude.bash
+#!/bin/sh
+. ./prelude.sh
 
-docker run --name=redpanda-1 --rm \
-  -p 9092:9092 \
+docker_run redpanda \
+  -p "${REDPANDA_PORT}:9092" \
   -p 9644:9644 \
   docker.vectorized.io/vectorized/redpanda:latest \
   redpanda start \
