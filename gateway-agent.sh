@@ -3,6 +3,8 @@
 
 github_clone edgeandnode/gateway theodus/local-network
 
+await_ready common-ts
+
 cd build/edgeandnode/gateway
 cd packages/gateway \
 		&& yalc link @graphprotocol/common-ts \

@@ -5,21 +5,12 @@ await "curl -sf localhost:${ETHEREUM_PORT} > /dev/null"
 
 cd build/graphprotocol/contracts
 
-# TODO: How should we determine the authority address?
-find_replace_sed \
-  '\&authority "0x79fd74da4c906509862c8fe93e87a9602e370bc4"' \
-  '\&authority "0x5d0365e8dcbd1b00fc780b206e85c9d78159a865"' \
-  graph.config.yml
-cp ../../../subgraphMetadata.json ../../../versionMetadata.json ./cli
-
-yarn --non-interactive
-yarn build
-
 npx hardhat migrate
-
 yarn deploy-ganache-manual
 
-find_replace_sed '_src\/\*.ts' '_src\/types\/\*.ts' scripts/prepublish
+if [ "$(uname)" != Darwin ]; then
+  find_replace_sed '_src\/\*.ts' '_src\/types\/\*.ts' scripts/prepublish
+fi
 ./scripts/prepublish
 
 yalc push

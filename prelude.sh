@@ -21,7 +21,7 @@ signal_ready() {
   touch "build/.${name}-ready"
   # shellcheck disable=SC2064
   trap "rm -f build/.${name}-ready" INT
-  sleep infinity
+  while true; do sleep 100; done
 }
 
 await_ready() {
@@ -47,7 +47,9 @@ github_clone() {
 }
 
 find_replace_sed() {
-  sed -i "s/${1}/${2}/g" "${3}"
+  sed="sed"
+  if [ "$(uname)" = Darwin ]; then sed=gsed; fi
+  ${sed} -i "s/${1}/${2}/g" "${3}"
 }
 
 find_replace_jq() {

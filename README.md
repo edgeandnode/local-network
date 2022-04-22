@@ -4,8 +4,10 @@
 
 - [Docker](https://docs.docker.com/get-docker/)
 - [Overmind](https://github.com/DarthSim/overmind)
+- go-ipfs
 - curl, jq, psql, sh
-- JS/TS stuff: yarn, yalc, typescript, pino-pretty
+- JS/TS stuff: yarn, yalc, typescript, ts-node, pino-pretty
+- Login to NPM
 
 ## Run
 
