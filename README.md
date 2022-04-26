@@ -4,7 +4,6 @@
 
 - [Docker](https://docs.docker.com/get-docker/)
 - [Overmind](https://github.com/DarthSim/overmind)
-- go-ipfs
 - curl, jq, psql, sh
 - JS/TS stuff: yarn, yalc, typescript, ts-node, pino-pretty
 - Login to NPM
@@ -61,6 +60,13 @@
 
   ```sh
   docker exec -it redpanda-1 rpk topic consume gateway_client_query_results --brokers="${REDPANDA_BROKERS}"
+  ```
+
+- Query chain
+
+  ```sh
+  curl "localhost:${ETHEREUM_PORT}" -X POST --data \
+    '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
   ```
 
 - Add API key indexer preferences
