@@ -13,7 +13,7 @@ cd build/edgeandnode/graph-gateway
 
 export RUST_LOG=info,graph_gateway=trace
 export MNEMONIC="${MNEMONIC}"
-export ETHEREUM_PROVIDERS="${ETHEREUM_NETWORK}=http://localhost:${ETHEREUM_PORT}"
+export ETHEREUM_PROVIDERS="${ETHEREUM_NETWORK}=3,http://localhost:${ETHEREUM_PORT}"
 export NETWORK_SUBGRAPH_AUTH_TOKEN=superdupersecrettoken
 export NETWORK_SUBGRAPH="http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/id/${NETWORK_SUBGRAPH_DEPLOYMENT}"
 export SYNC_AGENT="http://localhost:${GATEWAY_AGENT_SYNCING_PORT}"
