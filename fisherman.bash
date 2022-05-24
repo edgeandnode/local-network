@@ -19,5 +19,5 @@ cargo run --bin fisherman -- \
   --signing-key "${ACCOUNT1_KEY:2}" \
   --trusted-indexers "${FISHERMAN_TRUSTED_INDEXERS}" \
   --metrics-port 8041 \
-  --server-port 11000 \
+  --server-port "${FISHERMAN_PORT}" \
   2>&1| pino-pretty | tee /tmp/fisherman.log

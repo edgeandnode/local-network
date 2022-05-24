@@ -25,6 +25,7 @@ export PORT="${GATEWAY_PORT}"
 export METRICS_PORT="${GATEWAY_METRICS_PORT}"
 
 export REDPANDA_BROKERS="localhost:${REDPANDA_PORT}"
+export FISHERMAN="http://localhost:${FISHERMAN_PORT}"
 
 export STATS_DB_HOST=localhost
 export STATS_DB_PORT=5432
