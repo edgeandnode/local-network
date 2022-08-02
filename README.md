@@ -26,6 +26,14 @@
   psql -h localhost -U dev -d local_network_subgraph_studio -c 'SELECT * FROM "ApiKeys";'
   ```
 
+  or
+
+  ```sh
+  API_KEY=$(curl "http://localhost:${STUDIO_ADMIN_PORT}/admin/gateway-api-keys" \
+    -H "Authorization: Bearer $(cat build/studio-admin-auth.txt)" \
+    | jq '.api_keys[0].key' -r)
+  ```
+
 - Query indexer status:
 
   ```sh

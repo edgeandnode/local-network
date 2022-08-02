@@ -15,5 +15,5 @@ export DB_USER="${POSTGRES_USER}"
 export DB_PASS="${POSTGRES_PASSWORD}"
 
 yarn setup
-cd packages/api
-yarn start
+yarn db:setup
+yarn start:api
