@@ -29,7 +29,7 @@
   or
 
   ```sh
-  API_KEY=$(curl "http://localhost:${STUDIO_ADMIN_PORT}/admin/gateway-api-keys" \
+  API_KEY=$(curl "http://localhost:${STUDIO_ADMIN_PORT}/admin/v1/gateway-api-keys" \
     -H "Authorization: Bearer $(cat build/studio-admin-auth.txt)" \
     | jq '.api_keys[0].key' -r)
   ```

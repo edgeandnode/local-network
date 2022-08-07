@@ -11,6 +11,7 @@ export DB_NAME=local_network_subgraph_studio
 export DB_USER="${POSTGRES_USER}"
 export DB_PASS="${POSTGRES_PASSWORD}"
 
+yarn db:setup
 yarn knex seed:run --specific test-users.ts
 
 psql -w \

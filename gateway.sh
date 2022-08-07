@@ -24,7 +24,7 @@ export SYNC_AGENT_ACCEPT_EMPTY=true
 export IPFS="http://localhost:${IPFS_PORT}/api/v0/cat?arg="
 # export MIPS="0.2:0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1"
 
-export STUDIO_URL="http://localhost:${STUDIO_ADMIN_PORT}/admin"
+export STUDIO_URL="http://localhost:${STUDIO_ADMIN_PORT}/admin/v1"
 
 export PORT="${GATEWAY_PORT}"
 export METRICS_PORT="${GATEWAY_METRICS_PORT}"
