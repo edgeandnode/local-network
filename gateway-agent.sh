@@ -3,24 +3,9 @@
 
 github_clone edgeandnode/gateway theodus/local-network
 
-await_ready common-ts
-
-cd build/edgeandnode/gateway
-cd packages/gateway \
-		&& yalc link @graphprotocol/common-ts \
-		&& yalc link @graphprotocol/contracts \
-		&& yalc update \
-    && cd -
-cd packages/query-engine \
-  && yalc link @graphprotocol/common-ts \
-  && yalc link @graphprotocol/contracts \
-  && yalc update \
-  && cd -
-yalc link @graphprotocol/common-ts
-yalc link @graphprotocol/contracts
-yalc update
+cd build/edgeandnode/gateway/packages/gateway
 yarn
-cd ../../..
+cd ../../../../..
 
 await_ready graph-subgraph
 

@@ -17,7 +17,7 @@
 - Load env file in shell:
 
   ```sh
-  . .overmind.env
+  source .overmind.env
   ```
 
 - Get API keys:
