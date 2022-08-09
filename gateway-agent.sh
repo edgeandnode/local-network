@@ -35,4 +35,4 @@ yarn agent \
 	--postgres-database local_network_gateway \
   --studio-database-port 5432 \
   --studio-database-database local_network_subgraph_studio \
-  2>&1| pino-pretty | tee /tmp/gateway-agent.log
+  2>&1| pino-pretty | tee /tmp/local-net/gateway-agent.log
