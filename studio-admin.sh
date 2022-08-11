@@ -1,6 +1,8 @@
 #!/bin/sh
 . ./prelude.sh
 
+await 'curl -sf localhost:4000'
+
 export DB_HOST=localhost
 export DB_PORT=5432
 export DB_NAME=local_network_subgraph_studio
