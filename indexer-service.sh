@@ -33,4 +33,4 @@ yarn start \
   --graph-node-query-endpoint "http://localhost:${GRAPH_NODE_GRAPHQL_PORT}" \
   --graph-node-status-endpoint "http://localhost:${GRAPH_NODE_JRPC_PORT}/graphql" \
   --log-level debug \
-  | pino-pretty | tee /tmp/local-network/indexer-service.log
+  | pino-pretty | tee /tmp/local-net/indexer-service.log

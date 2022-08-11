@@ -61,4 +61,4 @@ yarn start \
   --poi-dispute-monitoring false \
   --poi-disputable-epochs 5 \
 	--gas-price-max 10 \
-  | pino-pretty | tee /tmp/local-network/indexer-agent.log
+  | pino-pretty | tee /tmp/local-net/indexer-agent.log
