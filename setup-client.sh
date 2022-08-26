@@ -12,10 +12,3 @@ export DB_USER="${POSTGRES_USER}"
 export DB_PASS="${POSTGRES_PASSWORD}"
 
 yarn knex seed:run --specific test-users.ts
-
-psql -w \
-  -h localhost \
-  -p "${POSTGRES_PORT}" \
-  -U "${POSTGRES_USER}" \
-  -d local_network_subgraph_studio \
-  -c 'update "Users" set "queriesActivated" = true;'

@@ -15,6 +15,7 @@ export STUDIO_AUTH=$(cat build/studio-admin-auth.txt)
 cd build/edgeandnode/graph-gateway
 
 export RUST_LOG=info,graph_gateway=trace
+export LOG_JSON=false
 export MNEMONIC="${MNEMONIC}"
 export ETHEREUM_PROVIDERS="${ETHEREUM_NETWORK}=3,http://localhost:${ETHEREUM_PORT}"
 export NETWORK_SUBGRAPH_AUTH_TOKEN=superdupersecrettoken
@@ -25,6 +26,7 @@ export IPFS="http://localhost:${IPFS_PORT}/api/v0/cat?arg="
 # export MIPS="0.2:0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1"
 
 export STUDIO_URL="http://localhost:${STUDIO_ADMIN_PORT}/admin/v1"
+export API_KEY_PAYMENT_REQUIRED=true
 
 export PORT="${GATEWAY_PORT}"
 export METRICS_PORT="${GATEWAY_METRICS_PORT}"
