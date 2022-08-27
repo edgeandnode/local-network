@@ -42,4 +42,4 @@ export STATS_DB_PASSWORD=
 export LOCATION_COUNT=1
 export REPLICA_COUNT=1
 
-cargo run
+cargo run --bin graph-gateway
