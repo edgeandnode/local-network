@@ -20,7 +20,6 @@ export MNEMONIC="${MNEMONIC}"
 export ETHEREUM_PROVIDERS="${ETHEREUM_NETWORK}=3,http://localhost:${ETHEREUM_PORT}"
 export NETWORK_SUBGRAPH_AUTH_TOKEN=superdupersecrettoken
 export NETWORK_SUBGRAPH="http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/id/${NETWORK_SUBGRAPH_DEPLOYMENT}"
-export SYNC_AGENT="http://localhost:${GATEWAY_AGENT_SYNCING_PORT}"
 export IPFS="http://localhost:${IPFS_PORT}/api/v0/cat?arg="
 # export MIPS="0.2:0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1"
 

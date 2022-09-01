@@ -13,5 +13,4 @@ indexer-agent: sh indexer-agent.sh
 indexer-service: sh indexer-service.sh
 setup-indexer: sh setup-indexer.sh 2>&1| tee /tmp/local-net/setup-indexer.log
 gateway: sh gateway.sh 2>&1| tee /tmp/local-net/gateway.log
-gateway-agent: sh gateway-agent.sh
 fisherman: bash fisherman.bash
