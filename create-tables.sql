@@ -1,7 +1,3 @@
-alter system set timescaledb.telemetry_level=off;
-
-create database local_network_gateway;
-create database local_network_gateway_stats;
 create database local_network_subgraph_studio;
 create database local_network_indexer_node_0;
 create database local_network_indexer_components_0;

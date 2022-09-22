@@ -32,12 +32,6 @@ export METRICS_PORT="${GATEWAY_METRICS_PORT}"
 export REDPANDA_BROKERS="localhost:${REDPANDA_PORT}"
 export FISHERMAN="http://localhost:${FISHERMAN_PORT}"
 
-export STATS_DB_HOST=localhost
-export STATS_DB_PORT=5432
-export STATS_DB_NAME=local_network_gateway_stats
-export STATS_DB_USER="${POSTGRES_USER}"
-export STATS_DB_PASSWORD=
-
 export LOCATION_COUNT=1
 export REPLICA_COUNT=1
 
