@@ -17,5 +17,6 @@ yarn issue-auth-token | grep Bearer | awk '{print $2}' > "${auth_file}"
 
 trap "rm -f ${auth_file}" INT
 
+yarn build
 cd ../..
 yarn dev:admin-api
