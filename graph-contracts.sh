@@ -5,8 +5,7 @@ await "curl -sf localhost:${ETHEREUM_PORT} > /dev/null"
 
 cd build/graphprotocol/contracts
 
-npx hardhat migrate
-yarn deploy-ganache-manual
+yarn deploy-localhost --skip-confirmation
 
 if [ "$(uname)" != Darwin ]; then
   find_replace_sed '_src\/\*.ts' '_src\/types\/\*.ts' scripts/prepublish
@@ -15,9 +14,9 @@ fi
 
 yalc push
 
-staking_contract=$(jq '."1337".Staking.address' addresses.json)
-gns_contract=$(jq '."1337".GNS.address' addresses.json)
-allocation_exchange_contract=$(jq '."1337".AllocationExchange.address' addresses.json)
+staking_contract=$(jq -r '."1337".Staking.address' addresses.json)
+gns_contract=$(jq -r '."1337".GNS.address' addresses.json)
+allocation_exchange_contract=$(jq -r '."1337".AllocationExchange.address' addresses.json)
 
 # Set short epoch length interval
 ts-node ./cli/cli.ts protocol set epochs-length 4
@@ -52,10 +51,12 @@ ts-node ./cli/cli.ts protocol set subgraph-availability-oracle "${ACCOUNT2_ADDRE
   --amount 1000000
 # Mint and signal on subgraph
 ./cli/cli.ts contracts gns mintSignal \
+  --mnemonic "${MNEMONIC}" \
   --subgraphID "${NETWORK_SUBGRAPH_ID_0}" \
   --tokens 1000
 # Fund AllocationExchange
 ./cli/cli.ts contracts graphToken mint \
+  --mnemonic "${MNEMONIC}" \
   --account "${allocation_exchange_contract}" \
   --amount 1000000
 
