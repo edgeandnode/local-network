@@ -1,17 +1,22 @@
 #!/bin/sh
 . ./prelude.sh
 
-github_clone graphprotocol/contracts v1.11.0
+github_clone graphprotocol/contracts v2.1.0
 cd build/graphprotocol/contracts
 
 # TODO: How should we determine the authority address?
 find_replace_sed \
-  '\&authority "0x79fd74da4c906509862c8fe93e87a9602e370bc4"' \
+  '\&authority "0xE11BA2b4D45Eaed5996Cd0823791E0C93114882d"' \
   '\&authority "0x5d0365e8dcbd1b00fc780b206e85c9d78159a865"' \
-  graph.config.yml
+  config/graph.localhost.yml
+find_replace_sed \
+  '- fn: "renounceMinter"' \
+  '# - fn: "renounceMinter"' \
+  config/graph.localhost.yml
+
 cp ../../../subgraphMetadata.json ../../../versionMetadata.json ./cli
 
-yarn --non-interactive
+yarn install --non-interactive --frozen-lockfile
 yarn build
 
 npx hardhat node
