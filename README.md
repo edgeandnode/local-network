@@ -4,7 +4,7 @@
 
 - [Docker](https://docs.docker.com/get-docker/)
 - [Overmind](https://github.com/DarthSim/overmind)
-- curl, jq, psql, sh
+- curl, jq, psql, sh, gsed (on MacOS)
 - JS/TS stuff: yarn, yalc, typescript, ts-node, pino-pretty
 - Login to NPM
 
@@ -37,7 +37,7 @@
 - Query indexer status:
 
   ```sh
-  curl localhost:6700/api/${API_KEY}/deployments/id/${NETWORK_SUBGRAPH_DEPLOYMENT} \
+  curl localhost:${GATEWAY_PORT}/api/${API_KEY}/deployments/id/${NETWORK_SUBGRAPH_DEPLOYMENT} \
     -H 'Content-Type: application/json' \
     -d '{"query": "{ _meta { block { number } } }"}'
   ```
@@ -45,7 +45,7 @@
 - Query using subgraph name:
 
   ```sh
-  curl localhost:6700/api/${API_KEY}/subgraphs/id/${NETWORK_SUBGRAPH_ID_0} \
+  curl localhost:${GATEWAY_PORT}/api/${API_KEY}/subgraphs/id/${NETWORK_SUBGRAPH_ID_0} \
     -H 'Content-Type: application/json' \
     -d '{"query": "{ _meta { block { number } } }"}'
   ```
