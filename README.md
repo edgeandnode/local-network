@@ -53,9 +53,18 @@
 - Query indexer directly:
 
   ```sh
-  curl localhost:8000/subgraphs/id/${NETWORK_SUBGRAPH_DEPLOYMENT} \
+  curl localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/id/${NETWORK_SUBGRAPH_DEPLOYMENT} \
     -H 'Content-Type: application/json' \
-    -d '{"query": "{ allocations { id } }"}'
+    -d '{"query": "{ _meta { block { number } } }"}'
+  ```
+
+- Query indexer srevice:
+
+  ```sh
+  curl localhost:${INDEXER_SERVICE_PORT}/subgraphs/id/${NETWORK_SUBGRAPH_DEPLOYMENT} \
+    -H 'Content-Type: application/json' \
+    -H 'Authorization: Bearer superdupersecrettoken' \
+    -d '{"query": "{ _meta { block { number } } }"}'
   ```
 
 - Connect indexer CLI

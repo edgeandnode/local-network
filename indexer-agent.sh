@@ -1,7 +1,7 @@
 #!/bin/sh
 . ./prelude.sh
 
-github_clone graphprotocol/indexer
+github_clone graphprotocol/indexer bcc8f14
 
 await_ready graph-subgraph
 
