@@ -76,7 +76,7 @@
 - Consume Kafka topics
 
   ```sh
-  docker exec -it redpanda-1 rpk topic consume gateway_client_query_results --brokers="${REDPANDA_BROKERS}"
+  docker exec -it redpanda rpk topic consume gateway_client_query_results --brokers="localhost:${REDPANDA_PORT}"
   ```
 
 - Query chain

@@ -19,8 +19,8 @@ export LOG_JSON=false
 export MNEMONIC="${MNEMONIC}"
 export ETHEREUM_PROVIDERS="${ETHEREUM_NETWORK}=3,http://localhost:${ETHEREUM_PORT}"
 export NETWORK_SUBGRAPH="http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/id/${NETWORK_SUBGRAPH_DEPLOYMENT}"
+export GRAPH_ENV_ID=localnet
 export IPFS="http://localhost:${IPFS_PORT}/api/v0/cat?arg="
-# export RESTRICTED_NETWORKS="hardhat=${NETWORK_SUBGRAPH_DEPLOYMENT}"
 # export RESTRICTED_DEPLOYMENTS="${NETWORK_SUBGRAPH_DEPLOYMENT}=${ACCOUNT_ADDRESS}"
 
 export STUDIO_URL="http://localhost:${STUDIO_ADMIN_PORT}/admin/v1"
