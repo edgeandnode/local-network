@@ -36,3 +36,11 @@ poll_hz = 3
 # "ssl.ca.location"
 # "ssl.key.location"
 # "ssl.certificate.location"
+
+[[subscription_tiers]]
+payment_rate = 1
+query_rate_limit = 1
+
+[[subscription_tiers]]
+payment_rate = 10
+query_rate_limit = 10
