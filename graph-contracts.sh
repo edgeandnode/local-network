@@ -10,7 +10,8 @@ yarn deploy-localhost --skip-confirmation
 if [ "$(uname)" != Darwin ]; then
   find_replace_sed '_src\/\*.ts' '_src\/types\/\*.ts' scripts/prepublish
 fi
-./scripts/prepublish
+
+yarn run prepublishOnly
 
 yalc push
 
