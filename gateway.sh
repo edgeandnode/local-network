@@ -8,9 +8,11 @@ cargo build
 cd -
 
 await_ready graph-subgraph
+await_ready subscriptions
 await "test -f build/studio-admin-auth.txt"
 
 export STUDIO_AUTH=$(cat build/studio-admin-auth.txt)
+export SUBSCRIPTIONS_CONTRACT=$(jq -r '.contract' build/subscriptions.json)
 envsubst <gateway.jsonnet >build/gateway.jsonnet
 jsonnet build/gateway.jsonnet >build/gateway.json
 

@@ -12,5 +12,6 @@ setup-client: sh setup-client.sh 2>&1| tee /tmp/local-net/setup-client.log
 indexer-agent: sh indexer-agent.sh
 indexer-service: sh indexer-service.sh
 setup-indexer: sh setup-indexer.sh 2>&1| tee /tmp/local-net/setup-indexer.log
+subscriptions: sh subscriptions.sh 2>&1| tee /tmp/local-net/subscriptions.log
 gateway: sh gateway.sh 2>&1| tee /tmp/local-net/gateway.log
 fisherman: bash fisherman.bash

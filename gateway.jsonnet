@@ -43,7 +43,7 @@
     },
 
     subscriptions_subgraph: "http://localhost:8000/subgraphs/name/edgeandnode-subscriptions",
-    subscriptions_contract: "0xd45A464a2412A2f83498d13635698a041b9dBe9b",
+    subscriptions_contract: "${SUBSCRIPTIONS_CONTRACT}",
     subscriptions_chain_id: 1337,
     subscription_tiers: [
         { payment_rate: "1", query_rate_limit: 1 },
