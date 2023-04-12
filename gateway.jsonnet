@@ -5,6 +5,8 @@
     graph_env_id: "localnet",
     indexer_selection_retry_limit: 2,
     ipfs: "http://localhost:${IPFS_PORT}/api/v0/cat?arg=",
+    ip_rate_limit_window_secs: 10,
+    ip_rate_limit: 200,
     log_json: false,
     min_indexer_version: "0.0.0",
     network_subgraph: "http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/id/${NETWORK_SUBGRAPH_DEPLOYMENT}",
@@ -12,10 +14,6 @@
     port_metrics: ${GATEWAY_METRICS_PORT},
     query_budget_discount: 0.5,
     query_budget_scale: 1.5,
-    rate_limit_api_window_secs: 10,
-    rate_limit_api_limit: 100,
-    rate_limit_ip_window_secs: 10,
-    rate_limit_ip_limit: 200,
     # restricted_deployments: "${NETWORK_SUBGRAPH_DEPLOYMENT}=${ACCOUNT_ADDRESS}",
     signer_key: "${MNEMONIC}",
     # special_api_keys:
@@ -28,6 +26,7 @@
             name: "${ETHEREUM_NETWORK}",
             rpc: "http://localhost:${ETHEREUM_PORT}",
             poll_hz: 3,
+            block_rate_hz: 0.5,
         },
     ],
 
