@@ -4,7 +4,7 @@
 
 - [Docker](https://docs.docker.com/get-docker/)
 - [Overmind](https://github.com/DarthSim/overmind)
-- curl, jq, psql, sh, gsed (on MacOS)
+- curl, jq, jsonnet, psql, sh, gsed (on MacOS)
 - JS/TS stuff: yarn, yalc, typescript, ts-node, pino-pretty
 - Login to NPM
 
