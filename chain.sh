@@ -1,7 +1,7 @@
 #!/bin/sh
 . ./prelude.sh
 
-github_clone graphprotocol/contracts v2.1.0
+github_clone graphprotocol/contracts v3.0.0
 cd build/graphprotocol/contracts
 
 # TODO: How should we determine the authority address?

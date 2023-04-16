@@ -14,8 +14,22 @@ yalc link @graphprotocol/common-ts
 yalc update
 yarn --non-interactive
 
-yarn create:local
-yarn deploy:hardhat
+npx graph create \
+    --node "http://127.0.0.1:${GRAPH_NODE_STATUS_PORT}" \
+    graphprotocol/graph-network
+
+yarn prep:no-ipfs
+
+ts-node config/hardhatAddressScript.ts
+npx mustache ./config/generatedAddresses.json ./config/addresses.template.ts > ./config/addresses.ts
+
+npx mustache ./config/generatedAddresses.json subgraph.template.yaml > subgraph.yaml
+npx graph codegen --output-dir src/types/
+
+npx graph deploy graphprotocol/graph-network \
+    --ipfs "http://127.0.0.1:${IPFS_PORT}" \
+    --node "http://127.0.0.1:${GRAPH_NODE_STATUS_PORT}" \
+    --version-label $(jq .label ../../../versionMetadata.json)
 
 cd -
 
