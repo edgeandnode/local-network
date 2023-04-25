@@ -1,5 +1,6 @@
 {
     api_key_payment_required: true,
+    exchange_rate_provider: "1.0",
     fisherman: "http://localhost:${FISHERMAN_PORT}",
     gateway_instance_count: 1,
     graph_env_id: "localnet",
@@ -40,11 +41,14 @@
         // "ssl.certificate.location"
     },
 
-    subscriptions_subgraph: "http://localhost:8000/subgraphs/name/edgeandnode-subscriptions",
     subscriptions_contract: "${SUBSCRIPTIONS_CONTRACT}",
     subscriptions_chain_id: 1337,
+    subscriptions_owner: "0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1",
+    // subscriptions_subgraph: "http://localhost:8000/subgraphs/name/edgeandnode-subscriptions",
+    subscriptions_subgraph: "http://localhost:${GATEWAY_PORT}/api/deployments/id/${SUBSCRIPTIONS_DEPLOYMENT}",
+    subscriptions_ticket: "oWZzaWduZXJUkPi_akefMg6tB0QRpLDnlE6oycEtTrC6JCzrddbf1iRRG7tiwosxzOq-Oy1gnKNmeThRiHoVSWA_d6wXVEoXN8d6eHk6dtcUG6fLBpyTyLSE8F0IHA",
     subscription_tiers: [
-        { payment_rate: "1", query_rate_limit: 1 },
-        { payment_rate: "10", query_rate_limit: 10 },
+        { payment_rate: "1", queries_per_minute: 10 },
+        { payment_rate: "10", queries_per_minute: 100 },
     ],
 }
