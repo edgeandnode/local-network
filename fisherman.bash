@@ -1,7 +1,7 @@
 #!/bin/bash
 . ./prelude.sh
 
-github_clone edgeandnode/network-services master
+github_clone edgeandnode/network-services main
 cd build/edgeandnode/network-services
 cargo build
 cd -
