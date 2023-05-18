@@ -1,3 +1,0 @@
-create database local_network_subgraph_studio;
-create database local_network_indexer_node_0;
-create database local_network_indexer_components_0;

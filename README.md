@@ -1,101 +1,125 @@
-# Local Graph Testnet
+# Local Net
 
-## Prerequisites
+A local graph network for integration testing
 
-- [Docker](https://docs.docker.com/get-docker/)
-- [Overmind](https://github.com/DarthSim/overmind)
-- curl, jq, jsonnet, psql, sh, gsed (on MacOS)
-- JS/TS stuff: yarn, yalc, typescript, ts-node, pino-pretty
-- Login to NPM
+## Setup
 
-## Run
+- Install [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/)
+- On Mac/Windows, comment out the `DOCKER_GATEWAY_HOST` export in `.env`
+- Create a GitHub auth token for pulling private repos. For fine-grained tokens, make sure the resource owner is set to edgeandnode.
+- `docker compose up --build`
+- Run component outside docker compose (e.g. gateway): `docker stop gateway && sh ./gateway/run.sh`
 
-`overmind s`
+## Notes
 
-## Useful commands
+- When running a service outside docker compose, make sure to listen on all interfaces (0.0.0.0)
+- `node:16-bullseye-slim` images fail to build on MacOS hosts only (wat). So the non-slim image is used.
 
-- Load env file in shell:
+## Debugging
 
-  ```sh
-  source .overmind.env
-  ```
+- Try `docker compose down` or `docker system prune`
+- Check controller state with `curl 127.0.0.1:6001/ | jq`
+- Follow logs: `docker logs -f --tail 10 ${container_name}`
 
-- Get API keys:
+## FAQ
 
-  ```sh
-  psql -h localhost -U dev -d local_network_subgraph_studio -c 'SELECT * FROM "ApiKeys";'
-  ```
+- Why not use Docker host networking, instead of using `${DOCKER_GATEWAY_HOST:-host.docker.internal}` everywhere?
 
-  or
+    Docker host networking isn't supported on Mac/Windows.
 
-  ```sh
-  API_KEY=$(curl "http://localhost:${STUDIO_ADMIN_PORT}/admin/v1/gateway-api-keys" \
-    -H "Authorization: Bearer $(cat build/studio-admin-auth.txt)" \
-    | jq '.api_keys[0].key' -r)
-  ```
+## Examples
 
-- Query indexer status:
+- load env file: `. ./.env`
 
-  ```sh
-  curl localhost:${GATEWAY_PORT}/api/${API_KEY}/deployments/id/${NETWORK_SUBGRAPH_DEPLOYMENT} \
-    -H 'Content-Type: application/json' \
-    -d '{"query": "{ _meta { block { number } } }"}'
-  ```
+### Chain
 
-- Query using subgraph name:
+- Enable logging
 
-  ```sh
-  curl localhost:${GATEWAY_PORT}/api/${API_KEY}/subgraphs/id/${NETWORK_SUBGRAPH_ID_0} \
-    -H 'Content-Type: application/json' \
-    -d '{"query": "{ _meta { block { number } } }"}'
-  ```
+    ```bash
+    curl "localhost:8545" -X POST --data \
+        '{"jsonrpc":"2.0","method":"hardhat_setLoggingEnabled","params":[true],"id":1}'
+    ```
 
-- Query indexer directly:
+- Check chain head
 
-  ```sh
-  curl localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/id/${NETWORK_SUBGRAPH_DEPLOYMENT} \
-    -H 'Content-Type: application/json' \
-    -d '{"query": "{ _meta { block { number } } }"}'
-  ```
+    ```bash
+    curl "localhost:8545" -X POST --data \
+        '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest", false],"id":1}'
+    ```
 
-- Query indexer srevice:
+### Postgres
 
-  ```sh
-  curl localhost:${INDEXER_SERVICE_PORT}/subgraphs/id/${NETWORK_SUBGRAPH_DEPLOYMENT} \
-    -H 'Content-Type: application/json' \
-    -H 'Authorization: Bearer superdupersecrettoken' \
-    -d '{"query": "{ _meta { block { number } } }"}'
-  ```
+- Login
 
-- Connect indexer CLI
+    ```bash
+    psql -h localhost -U dev
+    ```
 
-  ```sh
-  ./build/graphprotocol/indexer/packages/indexer-cli/bin/graph-indexer indexer connect http://localhost:18000
-  ```
+### Redpanda
 
-- Consume Kafka topics
+- Consume topic
 
-  ```sh
-  docker exec -it redpanda rpk topic consume gateway_client_query_results --brokers="localhost:${REDPANDA_PORT}"
-  ```
+    ```bash
+    docker exec -it redpanda rpk topic consume gateway_client_query_results --brokers="localhost:9092"
+    ```
 
-- Query chain
+### Graph Contracts
 
-  ```sh
-  curl "localhost:${ETHEREUM_PORT}" -X POST --data \
-    '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
-  ```
+- Check subgraphs
 
-- Add API key indexer preferences
+    ```bash
+    curl "http://localhost:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
+        -H 'Content-Type: application/json' \
+        -d '{"query": "{ subgraphs { id versions { subgraphDeployment { ipfsHash } } } }"}' | \
+        jq '.'
+    ```
 
-  `psql -h localhost -U postgres -d local_network_subgraph_studio`
+- Check allocations
 
-  ```sh
-  INSERT INTO "IndexerPreferences" (name, description, "order") VALUES ('Fastest speed', 'Time between the query and the response from an indexer. If you mark this as important we will optimize for fast indexers.', 1);
-  INSERT INTO "IndexerPreferences" (name, description, "order") VALUES ('Lowest price', 'The amount paid per query. If you mark this as important we will optimize for the less expensive indexers.', 2);
-  INSERT INTO "IndexerPreferences" (name, description, "order") VALUES ('Data freshness', 'How recent the latest block an indexer has processed for the subgraph you are querying. If you mark this as important we will optimize to find the indexers with the freshest data.', 3);
-  INSERT INTO "IndexerPreferences" (name, description, "order") VALUES ('Economic security', 'The amount of GRT an indexer can lose if they respond incorrectly to your query. If you mark this as important we will optimize for indexers with a large stake.', 4);
+    ```bash
+    curl "http://localhost:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
+        -H 'Content-Type: application/json' \
+        -d '{"query": "{ allocations(where:{status:Active}) { id indexer { url } } }"}' | \
+        jq '.'
+    ```
 
-  INSERT INTO "ApiKeyIndexerPreferences" ("apiKeyId", "indexerPreferenceId", "points", "weight")
-  SELECT 1, id, 0, 0.00 FROM "IndexerPreferences";
-  ```
+### Block Oracle (EBO)
+
+- Block Oracle message encoder: https://graphprotocol.github.io/block-oracle/
+
+- Check subgraph status
+
+    ```bash
+    curl "http://localhost:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle" \
+        -H 'Content-Type: application/json' \
+        -d '{"query": "{ networks { id latestValidBlockNumber { id } } }"}'
+    ```
+
+### Studio
+
+- Get API key
+
+    ```bash
+    API_KEY=$(curl -s "http://localhost:${STUDIO_ADMIN}/admin/v1/gateway-api-keys" \
+        -H "Authorization: Bearer $(curl -s http://localhost:${CONTROLLER}/studio_admin_auth)" \
+        | jq '.api_keys[0].key' -r) && \
+        echo ${API_KEY}
+    ```
+
+### Gateway
+
+- Query gateway by deployment
+
+    ```bash
+    curl "http://localhost:${GATEWAY}/api/${API_KEY}/deployments/id/$(curl -s http://localhost:${CONTROLLER}/graph_subgraph_deployment)" \
+        -H 'Content-Type: application/json' \
+        -d '{"query": "{ _meta { block { number } } }"}'
+    ```
+
+- Query gateway by subgraph
+
+    ```bash
+    curl "http://localhost:${GATEWAY}/api/${API_KEY}/subgraphs/id/$(curl -s http://localhost:${CONTROLLER}/graph_subgraph)" \
+        -H 'Content-Type: application/json' \
+        -d '{"query": "{ _meta { block { number } } }"}'
+    ```
