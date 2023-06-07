@@ -3,11 +3,11 @@ RUN apt-get update && \
     apt-get install -y jq libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
-ARG GH_TOKEN
-RUN git config --global url."https://${GH_TOKEN}:@github.com/".insteadOf "https://github.com/"
-
 WORKDIR /opt/
-RUN git clone https://github.com/edgeandnode/subgraph-studio build/edgeandnode/subgraph-studio --branch 'v0.16.13'
+RUN mkdir -p -m 0700 ~/.ssh && \
+    ssh-keyscan github.com >> ~/.ssh/known_hosts
+RUN --mount=type=ssh \
+    git clone git@github.com:edgeandnode/subgraph-studio build/edgeandnode/subgraph-studio --branch 'v0.16.13'
 RUN cd build/edgeandnode/subgraph-studio && \
     yarn setup
 

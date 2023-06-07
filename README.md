@@ -6,7 +6,6 @@ A local graph network for integration testing
 
 - Install [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/)
 - On Mac/Windows, comment out the `DOCKER_GATEWAY_HOST` export in `.env`
-- Create a GitHub auth token for pulling private repos. For fine-grained tokens, make sure the resource owner is set to edgeandnode.
 - `docker compose up --build`
 - Run component outside docker compose (e.g. gateway): `docker stop gateway && sh ./gateway/run.sh`
 
