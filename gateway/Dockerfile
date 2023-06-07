@@ -7,7 +7,8 @@ RUN mkdir -p -m 0700 ~/.ssh && \
     ssh-keyscan github.com >> ~/.ssh/known_hosts
 RUN --mount=type=ssh \
     git clone git@github.com:edgeandnode/graph-gateway /opt/build/edgeandnode/graph-gateway --branch 'v13.3.0'
-RUN --mount=type=cache,target=/root/.cargo/git \
+RUN --mount=type=ssh \
+    --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.cargo/registry \
     cargo install cargo-watch && \
     cd /opt/build/edgeandnode/graph-gateway/ && \
