@@ -1,0 +1,169 @@
+version: "3"
+services:
+  controller:
+    container_name: controller
+    build: { dockerfile: controller/Dockerfile }
+    ports:
+      - ${CONTROLLER}:6001
+
+  ipfs:
+    container_name: ipfs
+    image: ipfs/kubo:latest
+    ports:
+      - ${IPFS_RPC}:5001
+
+  redpanda:
+    container_name: redpanda
+    image: docker.vectorized.io/vectorized/redpanda:latest
+    ports:
+      - ${REDPANDA_KAFKA}:9092
+      - ${REDPANDA_ADMIN}:9644
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+
+  postgres:
+    container_name: postgres
+    image: postgres:14.5-alpine
+    ports:
+      - ${POSTGRES}:5432
+    command: ["postgres", "-cshared_preload_libraries=pg_stat_statements"]
+    volumes:
+      - ./postgres/create-tables.sql:/docker-entrypoint-initdb.d/create-tables.sql:ro
+    environment:
+      POSTGRES_INITDB_ARGS: "--encoding UTF8 --locale=C"
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD:
+
+  chain:
+    container_name: chain
+    build: { dockerfile: chain/Dockerfile }
+    ports:
+      - ${CHAIN_RPC}:8545
+    healthcheck:
+      interval: 2s
+      timeout: 2s
+      retries: 100
+      # graph-node has issues if the chain has no blocks
+      test: |
+        curl -sf localhost:8545 \
+          -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+          | jq -rs '.[].result // "0x0"' \
+          | (read input; [ "$$input" != '0x0' ])
+
+  graph-node:
+    container_name: graph-node
+    build: { dockerfile: graph-node/Dockerfile }
+    depends_on:
+      postgres: { condition: service_started }
+      chain: { condition: service_healthy }
+    ports:
+      - ${GRAPH_NODE_GRAPHQL}:8000
+      - ${GRAPH_NODE_JRPC}:8030
+      - ${GRAPH_NODE_METRICS}:8040
+      - ${GRAPH_NODE_STATUS}:8020
+
+  graph-contracts:
+    container_name: graph-contracts
+    build: { dockerfile: graph-contracts/Dockerfile }
+    depends_on:
+      graph-node: { condition: service_started }
+      chain: { condition: service_healthy }
+    healthcheck:
+      interval: 2s
+      timeout: 2s
+      retries: 1000
+      test: curl -sf http://localhost:8080 || exit 1
+
+  block-oracle:
+    container_name: block-oracle
+    build: { dockerfile: block-oracle/Dockerfile }
+    depends_on:
+      graph-contracts: { condition: service_healthy }
+    healthcheck:
+      interval: 2s
+      timeout: 2s
+      retries: 1000
+      test: curl -sf http://localhost:9090/metrics || exit 1
+
+  indexer-agent:
+    container_name: indexer-agent
+    build: { dockerfile: indexer/Dockerfile }
+    depends_on:
+      block-oracle: { condition: service_healthy }
+    command: sh indexer/run-agent.sh
+    ports:
+      - ${INDEXER_MANAGEMENT}:18000
+    healthcheck:
+      interval: 2s
+      timeout: 2s
+      retries: 1000
+      test: curl -sf http://localhost:18000 || exit 1
+
+  indexer-service:
+    container_name: indexer-service
+    build: { dockerfile: indexer/Dockerfile }
+    depends_on:
+      indexer-agent: { condition: service_healthy }
+    command: sh indexer/run-service.sh
+    ports:
+      - ${INDEXER_SERVICE}:7600
+    healthcheck:
+      interval: 2s
+      timeout: 2s
+      retries: 1000
+      test: curl -sf http://localhost:7600 || exit 1
+
+  studio-api:
+    container_name: studio-api
+    build:
+      dockerfile: studio/Dockerfile
+      ssh: ["default"]
+    depends_on:
+      postgres: { condition: service_started }
+    command: sh studio/run-api.sh
+    ports:
+      - ${STUDIO_API}:4000
+    healthcheck:
+      interval: 2s
+      timeout: 2s
+      retries: 1000
+      test: curl -sf http://localhost:4000 || exit 1
+
+  studio-admin:
+    container_name: studio-admin
+    build:
+      dockerfile: studio/Dockerfile
+      ssh: ["default"]
+    depends_on:
+      studio-api: { condition: service_healthy }
+    command: sh studio/run-admin.sh
+    ports:
+      - ${STUDIO_ADMIN}:4003
+    healthcheck:
+      interval: 2s
+      timeout: 2s
+      retries: 1000
+      test: curl -sf http://localhost:4003 || exit 1
+
+  gateway:
+    container_name: gateway
+    build:
+      dockerfile: gateway/Dockerfile
+      ssh: ["default"]
+    depends_on:
+      graph-contracts: { condition: service_healthy }
+    ports:
+      - ${GATEWAY}:6700
+    healthcheck:
+      interval: 2s
+      timeout: 2s
+      retries: 1000
+      test: curl -sf http://localhost:6700/ || exit 1
