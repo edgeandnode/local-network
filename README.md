@@ -30,6 +30,16 @@ A local graph network for integration testing
 
 - load env file: `. ./.env`
 
+### IPFS
+
+- Cat File
+
+    Note that if you have a hex digest, a valid CID for it is the hex digits prefixed by `f1220`. For example, `0xd6b169dcf83bfe0f615baa2d83e9adf77d520b52faf18a759eb7277b6d66fa7f` -> `f1220d6b169dcf83bfe0f615baa2d83e9adf77d520b52faf18a759eb7277b6d66fa7f`
+
+    ```bash
+    curl -X POST "http://localhost:5001/api/v0/cat?arg=f1220d6b169dcf83bfe0f615baa2d83e9adf77d520b52faf18a759eb7277b6d66fa7f"
+    ```
+
 ### Chain
 
 - Enable logging
