@@ -153,6 +153,12 @@ services:
       retries: 1000
       test: curl -sf http://localhost:4003 || exit 1
 
+  subscriptions:
+    container_name: subscriptions
+    build: { dockerfile: subscriptions/Dockerfile }
+    depends_on:
+      graph-contracts: { condition: service_healthy }
+
   gateway:
     container_name: gateway
     build:

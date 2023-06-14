@@ -132,3 +132,15 @@ A local graph network for integration testing
         -H 'Content-Type: application/json' \
         -d '{"query": "{ _meta { block { number } } }"}'
     ```
+
+### Subscriptions
+
+- Create a subscription
+
+    ```bash
+    cd build/edgeandnode/subscription-payments/cli
+    echo "${ACCOUNT0_SECRET_KEY}" | cargo run -- \
+        --subscriptions="$(jq -r '.contract' ../contract/contract-deployment.json)" \
+        --token="$(jq -r '.token' ../contract/contract-deployment.json)" \
+        subscribe --end="$(date -u '+%Y-%m-%dT%TZ' --date='60 min')" --rate=100000000000000
+    ```
