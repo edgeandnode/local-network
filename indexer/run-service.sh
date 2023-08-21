@@ -15,9 +15,9 @@ network_subgraph="$(curl "http://${host}:${CONTROLLER}/graph_subgraph_deployment
 echo "network_subgraph=${network_subgraph}"
 
 ../indexer-cli/bin/graph-indexer indexer connect "http://${host}:${INDEXER_MANAGEMENT}"
-../indexer-cli/bin/graph-indexer indexer rules set global \
+../indexer-cli/bin/graph-indexer --network=hardhat indexer rules set global \
   decisionBasis rules minSignal 0 allocationAmount 1
-../indexer-cli/bin/graph-indexer indexer rules set "${network_subgraph}" \
+../indexer-cli/bin/graph-indexer --network=hardhat indexer rules set "${network_subgraph}" \
   decisionBasis always
 
 export INDEXER_SERVICE_CLIENT_SIGNER_ADDRESS="0x5D0365E8DCBD1b00FC780b206e85c9d78159a865"
