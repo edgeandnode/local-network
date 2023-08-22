@@ -2,8 +2,8 @@
 set -euf
 
 if [ ! -d "build/graphprotocol/graph-node" ]; then
-    mkdir -p build/graphprotocol/graph-node
-    git clone git@github.com:graphprotocol/graph-node build/graphprotocol/graph-node --branch master
+  mkdir -p build/graphprotocol/graph-node
+  git clone git@github.com:graphprotocol/graph-node build/graphprotocol/graph-node --branch master
 fi
 
 . ./.env

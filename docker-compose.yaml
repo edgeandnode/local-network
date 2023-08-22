@@ -66,9 +66,9 @@ services:
       chain: { condition: service_healthy }
     ports:
       - ${GRAPH_NODE_GRAPHQL}:8000
-      - ${GRAPH_NODE_JRPC}:8030
+      - ${GRAPH_NODE_ADMIN}:8020
+      - ${GRAPH_NODE_STATUS}:8030
       - ${GRAPH_NODE_METRICS}:8040
-      - ${GRAPH_NODE_STATUS}:8020
 
   graph-contracts:
     container_name: graph-contracts

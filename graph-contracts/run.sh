@@ -46,7 +46,7 @@ cd ../graph-network-subgraph
 yarn
 
 npx graph create graph-network \
-    --node "http://${host}:${GRAPH_NODE_STATUS}"
+  --node "http://${host}:${GRAPH_NODE_ADMIN}"
 yarn prep:no-ipfs
 
 yarn add --dev ts-node
@@ -59,7 +59,7 @@ npx graph codegen --output-dir src/types/
 
 npx graph deploy graph-network \
   --ipfs "http://${host}:${IPFS_RPC}" \
-  --node "http://${host}:${GRAPH_NODE_STATUS}" \
+  --node "http://${host}:${GRAPH_NODE_ADMIN}" \
   --version-label "$(jq .label ../../../graph-contracts/versionMetadata.json)" | \
   tee deploy.txt
 

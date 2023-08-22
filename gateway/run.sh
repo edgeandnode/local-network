@@ -2,8 +2,8 @@
 set -euf
 
 if [ ! -d "build/edgeandnode/graph-gateway" ]; then
-    mkdir -p build/edgeandnode/graph-gateway
-    git clone git@github.com:edgeandnode/graph-gateway build/edgeandnode/graph-gateway --branch 'v13.3.0'
+  mkdir -p build/edgeandnode/graph-gateway
+  git clone git@github.com:edgeandnode/graph-gateway build/edgeandnode/graph-gateway --branch 'v13.4.0'
 fi
 
 . ./.env

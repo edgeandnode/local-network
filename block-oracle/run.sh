@@ -2,8 +2,8 @@
 set -euf
 
 if [ ! -d "build/graphprotocol/block-oracle" ]; then
-    mkdir -p build/graphprotocol/block-oracle
-    git clone git@github.com:graphprotocol/block-oracle build/graphprotocol/block-oracle --branch 'main'
+  mkdir -p build/graphprotocol/block-oracle
+  git clone git@github.com:graphprotocol/block-oracle build/graphprotocol/block-oracle --branch 'main'
 fi
 
 . ./.env
@@ -31,11 +31,14 @@ yarn prep:local
 yarn codegen
 npx graph build --network hardhat
 npx graph create block-oracle \
-    --node "http://${host}:${GRAPH_NODE_STATUS}"
+  --node "http://${host}:${GRAPH_NODE_ADMIN}"
 npx graph deploy block-oracle \
   --ipfs "http://${host}:${IPFS_RPC}" \
-  --node "http://${host}:${GRAPH_NODE_STATUS}" \
-  --version-label 'v0.0.1'
+  --node "http://${host}:${GRAPH_NODE_ADMIN}" \
+  --version-label 'v0.0.1' | \
+  tee deploy.txt
+
+deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
 
 cd ../../
 
@@ -51,5 +54,6 @@ cat config.toml
 export RUST_BACKTRACE='1'
 export RUST_LOG=debug
 curl "http://${host}:${CONTROLLER}/block_oracle_subgraph" -d "${SUBGRAPH_URL}"
+curl "http://${host}:${CONTROLLER}/block_oracle_subgraph_deployment" -d "${deployment_id}"
 sleep 5 # avoid indexing delay causing a long retry delay immediately
 cargo run -p block-oracle -- run config.toml

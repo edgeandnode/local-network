@@ -2,8 +2,8 @@
 set -euf
 
 if [ ! -d "build/graphprotocol/indexer" ]; then
-    mkdir -p build/graphprotocol/indexer
-    git clone git@github.com:graphprotocol/indexer build/graphprotocol/indexer --branch 'main'
+  mkdir -p build/graphprotocol/indexer
+  git clone git@github.com:graphprotocol/indexer build/graphprotocol/indexer --branch 'main'
 fi
 
 . ./.env
@@ -20,8 +20,8 @@ export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://${host}:${GRAPH_NODE_GRAPHQ
 export INDEXER_AGENT_ETHEREUM="http://${host}:${CHAIN_RPC}/"
 export INDEXER_AGENT_GAS_PRICE_MAX="10"
 export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://${host}:${GRAPH_NODE_GRAPHQL}"
-export INDEXER_AGENT_GRAPH_NODE_ADMIN_ENDPOINT="http://${host}:${GRAPH_NODE_STATUS}"
-export INDEXER_AGENT_GRAPH_NODE_STATUS_ENDPOINT="http://${host}:${GRAPH_NODE_JRPC}/graphql"
+export INDEXER_AGENT_GRAPH_NODE_ADMIN_ENDPOINT="http://${host}:${GRAPH_NODE_ADMIN}"
+export INDEXER_AGENT_GRAPH_NODE_STATUS_ENDPOINT="http://${host}:${GRAPH_NODE_STATUS}/graphql"
 export INDEXER_AGENT_INDEXER_MANAGEMENT_PORT="${INDEXER_MANAGEMENT}"
 export INDEXER_AGENT_INDEXER_ADDRESS="${ACCOUNT0_ADDRESS}"
 export INDEXER_AGENT_INDEXER_GEO_COORDINATES="-69.42069 69.42069"

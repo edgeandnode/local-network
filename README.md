@@ -78,7 +78,7 @@ A local graph network for integration testing
 
   ```bash
   curl "http://localhost:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
-    -H 'Content-Type: application/json' \
+    -H 'content-type: application/json' \
     -d '{"query": "{ subgraphs { id versions { subgraphDeployment { ipfsHash } } } }"}' | \
     jq '.'
   ```
@@ -87,7 +87,7 @@ A local graph network for integration testing
 
   ```bash
   curl "http://localhost:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
-    -H 'Content-Type: application/json' \
+    -H 'content-type: application/json' \
     -d '{"query": "{ allocations(where:{status:Active}) { id indexer { url } } }"}' | \
     jq '.'
   ```
@@ -100,7 +100,7 @@ A local graph network for integration testing
 
   ```bash
   curl "http://localhost:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle" \
-    -H 'Content-Type: application/json' \
+    -H 'content-type: application/json' \
     -d '{"query": "{ networks { id latestValidBlockNumber { id } } }"}'
   ```
 
@@ -121,7 +121,7 @@ A local graph network for integration testing
 
   ```bash
   curl "http://localhost:${GATEWAY}/api/${API_KEY}/deployments/id/$(curl -s http://localhost:${CONTROLLER}/graph_subgraph_deployment)" \
-    -H 'Content-Type: application/json' \
+    -H 'content-type: application/json' \
     -d '{"query": "{ _meta { block { number } } }"}'
   ```
 
@@ -129,7 +129,7 @@ A local graph network for integration testing
 
   ```bash
   curl "http://localhost:${GATEWAY}/api/${API_KEY}/subgraphs/id/$(curl -s http://localhost:${CONTROLLER}/graph_subgraph)" \
-    -H 'Content-Type: application/json' \
+    -H 'content-type: application/json' \
     -d '{"query": "{ _meta { block { number } } }"}'
   ```
 
