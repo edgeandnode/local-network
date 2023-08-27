@@ -12,11 +12,12 @@ export let addresses: Addresses = {
   graphToken: "{{hardhat.GraphToken.address}}",
   epochManager: "{{hardhat.EpochManager.address}}",
   disputeManager: "{{hardhat.DisputeManager.address}}",
-  staking: "{{hardhat.Staking.address}}",
+  staking: "{{hardhat.L1Staking.address}}",
+  stakingExtension: '{{hardhat.StakingExtension.address}}',
   curation: "{{hardhat.Curation.address}}",
   rewardsManager: "{{hardhat.RewardsManager.address}}",
   serviceRegistry: "{{hardhat.ServiceRegistry.address}}",
-  gns: "{{hardhat.GNS.address}}",
+  gns: "{{hardhat.L1GNS.address}}",
   ens: "{{hardhat.IENS.address}}",
   ensPublicResolver: "{{hardhat.IPublicResolver.address}}",
   blockNumber: "",
@@ -35,7 +36,7 @@ const main = (): void => {
     let output = JSON.parse(
       mustache.render(JSON.stringify(addresses), renameAddresses),
     );
-    output.blockNumber = "1"; // Hardcoded a few thousand blocks before 1st contract deployed
+    output.blockNumber = "1";
     output.bridgeBlockNumber = "1";
     output.network = "hardhat";
     output.useTokenLockManager = false;

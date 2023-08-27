@@ -2,12 +2,12 @@
 set -euf
 
 if [ ! -d "build/graphprotocol/contracts" ]; then
-    mkdir -p build/graphprotocol/contracts
-    git clone git@github.com:graphprotocol/contracts build/graphprotocol/contracts --branch 'v3.0.0'
+  mkdir -p build/graphprotocol/contracts
+  git clone git@github.com:graphprotocol/contracts build/graphprotocol/contracts --branch 'theodus/v5.1.0'
 fi
 if [ ! -d "build/graphprotocol/graph-network-subgraph" ]; then
-    mkdir -p build/graphprotocol/graph-network-subgraph
-    git clone git@github.com:graphprotocol/graph-network-subgraph build/graphprotocol/graph-network-subgraph --branch 'master'
+  mkdir -p build/graphprotocol/graph-network-subgraph
+  git clone git@github.com:graphprotocol/graph-network-subgraph build/graphprotocol/graph-network-subgraph --branch 'master'
 fi
 
 . ./.env
@@ -16,25 +16,24 @@ host="${DOCKER_GATEWAY_HOST:-host.docker.internal}"
 cd build/graphprotocol/contracts
 
 yarn
-yarn add graceful-fs # fixes a strange lockfile issue
 sed -i "s+http://localhost:8545+http://${host}:${CHAIN_RPC}+g" hardhat.config.ts
-yarn deploy --force --skip-confirmation --network localhost --graph-config config/graph.localhost.yml
+yarn deploy-localhost --skip-confirmation
 
 npx ts-node ./cli/cli.ts protocol set epochs-length 4 \
-    --provider-url "http://${host}:${CHAIN_RPC}"
+  --provider-url "http://${host}:${CHAIN_RPC}"
 npx ts-node ./cli/cli.ts protocol set subgraph-availability-oracle "${SAO_ADDRESS}" \
-    --provider-url "http://${host}:${CHAIN_RPC}"
+  --provider-url "http://${host}:${CHAIN_RPC}"
 npx ts-node ./cli/cli.ts protocol set controller-set-paused 0 \
-    --provider-url "http://${host}:${CHAIN_RPC}"
+  --provider-url "http://${host}:${CHAIN_RPC}"
 npx ts-node ./cli/cli.ts contracts graphToken approve \
   --provider-url "http://${host}:${CHAIN_RPC}" \
   --mnemonic "${ACCOUNT0_MNEMONIC}" \
-  --account "$(jq -r '."1337".Staking.address' addresses.json)" \
+  --account "$(jq -r '."1337".L1Staking.address' addresses.json)" \
   --amount 1000000
 npx ts-node ./cli/cli.ts contracts graphToken approve \
   --provider-url "http://${host}:${CHAIN_RPC}" \
   --mnemonic "${ACCOUNT0_MNEMONIC}" \
-  --account "$(jq -r '."1337".GNS.address' addresses.json)" \
+  --account "$(jq -r '."1337".L1GNS.address' addresses.json)" \
   --amount 1000000
 npx ts-node ./cli/cli.ts contracts staking stake \
   --provider-url "http://${host}:${CHAIN_RPC}" \
@@ -102,6 +101,7 @@ npx ts-node ./cli/cli.ts contracts gns mintSignal \
 
 epoch_manager="$(jq -r '."1337".EpochManager.address' addresses.json)"
 curl "http://${host}:${CONTROLLER}/graph_epoch_manager" -d "${epoch_manager}"
+curl "http://${host}:${CONTROLLER}/graph_addresses" -d "$(cat addresses.json | jq -r tostring)"
 curl "http://${host}:${CONTROLLER}/graph_subgraph" -d "${subgraph_id}"
 curl "http://${host}:${CONTROLLER}/graph_subgraph_deployment" -d "${deployment_id}"
 

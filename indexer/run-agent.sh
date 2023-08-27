@@ -3,17 +3,30 @@ set -euf
 
 if [ ! -d "build/graphprotocol/indexer" ]; then
   mkdir -p build/graphprotocol/indexer
-  git clone git@github.com:graphprotocol/indexer build/graphprotocol/indexer --branch 'main'
+  git clone git@github.com:graphprotocol/indexer build/graphprotocol/indexer --branch 'theodus/local-net'
 fi
+
+# TODO: temporary hack
+if [ ! -d "build/graphprotocol/common-ts" ]; then
+  mkdir -p build/graphprotocol/common-ts
+  git clone git@github.com:graphprotocol/common-ts build/graphprotocol/common-ts --branch 'theodus/local-net'
+fi
+(cd build/graphprotocol/common-ts/ && yarn)
 
 . ./.env
 host="${DOCKER_GATEWAY_HOST:-host.docker.internal}"
 
-cd build/graphprotocol/indexer/packages/indexer-agent
+curl "http://${host}:${CONTROLLER}/graph_addresses" > addresses.json
+
+cd build/graphprotocol/indexer
+yarn
+
+cd packages/indexer-agent
 
 network_subgraph="$(curl "http://${host}:${CONTROLLER}/graph_subgraph_deployment")"
 echo "network_subgraph=${network_subgraph}"
 
+export INDEXER_AGENT_ADDRESS_BOOK=../../../../../addresses.json
 export INDEXER_AGENT_ALLOCATE_ON_NETWORK_SUBGRAPH=true
 export INDEXER_AGENT_COLLECT_RECEIPTS_ENDPOINT="http://${host}:${GATEWAY}/collect-receipts"
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://${host}:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
@@ -39,6 +52,7 @@ export INDEXER_AGENT_POSTGRES_USERNAME=dev
 export INDEXER_AGENT_POSTGRES_PASSWORD=
 export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://${host}:${INDEXER_SERVICE}"
 export INDEXER_AGENT_REBATE_CLAIM_THRESHOLD=0.00001
+# export INDEXER_AGENT_REBATE_CLAIM_BATCH_THRESHOLD=0.00001
 export INDEXER_AGENT_RESTAKE_REWARDS="true"
 export INDEXER_AGENT_VOUCHER_REDEMPTION_BATCH_THRESHOLD=0.00001
 export INDEXER_AGENT_VOUCHER_REDEMPTION_THRESHOLD=0.00001
