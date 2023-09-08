@@ -4,7 +4,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/
-RUN git clone https://github.com/graphprotocol/contracts build/graphprotocol/contracts --branch 'v3.0.0'
+RUN git clone https://github.com/graphprotocol/contracts build/graphprotocol/contracts --branch 'theodus/v5.1.0'
 RUN cd build/graphprotocol/contracts && \
     yarn && yarn build
 RUN git clone https://github.com/graphprotocol/graph-network-subgraph build/graphprotocol/graph-network-subgraph --branch 'master'

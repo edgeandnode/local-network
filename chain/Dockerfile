@@ -6,7 +6,7 @@ RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
     chmod +x /usr/bin/yq
 
 WORKDIR /opt/
-RUN git clone https://github.com/graphprotocol/contracts build/graphprotocol/contracts --branch 'v3.0.0'
+RUN git clone https://github.com/graphprotocol/contracts build/graphprotocol/contracts --branch 'theodus/v5.1.0'
 RUN cd build/graphprotocol/contracts && \
     yarn && yarn build
 

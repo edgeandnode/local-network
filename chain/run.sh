@@ -2,8 +2,8 @@
 set -euf
 
 if [ ! -d "build/graphprotocol/contracts" ]; then
-    mkdir -p build/graphprotocol/contracts
-    git clone git@github.com:graphprotocol/contracts build/graphprotocol/contracts --branch 'v3.0.0'
+  mkdir -p build/graphprotocol/contracts
+  git clone git@github.com:graphprotocol/contracts build/graphprotocol/contracts --branch 'theodus/v5.1.0'
 fi
 
 cd build/graphprotocol/contracts
