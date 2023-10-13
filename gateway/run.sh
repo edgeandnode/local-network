@@ -15,6 +15,10 @@ studio_admin_auth="$(curl "http://${HOST}:${CONTROLLER}/studio_admin_auth")"
 echo "studio_admin_auth=${studio_admin_auth}"
 export STUDIO_AUTH="${studio_admin_auth}"
 
+dispute_manager="$(curl "http://localhost:${CONTROLLER}/graph_addresses" | jq -r '."1337".DisputeManager.address')"
+echo "dispute_manager=${dispute_manager}"
+export DISPUTE_MANAGER="${dispute_manager}"
+
 envsubst <../../../gateway/config.jsonnet >config.jsonnet
 jsonnet config.jsonnet >config.json
 export RUST_LOG=info,graph_gateway=trace

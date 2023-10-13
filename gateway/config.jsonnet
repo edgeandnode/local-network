@@ -1,5 +1,9 @@
 {
     api_key_payment_required: true,
+    attestations: {
+        chain_id: "1337",
+        dispute_manager: "${DISPUTE_MANAGER}",
+    },
     exchange_rate_provider: "1.0",
     // fisherman: "http://${HOST}:${FISHERMAN_PORT}",
     graph_env_id: "localnet",
