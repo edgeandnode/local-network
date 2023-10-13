@@ -3,7 +3,7 @@ set -euf
 
 if [ ! -d "build/edgeandnode/graph-gateway" ]; then
   mkdir -p build/edgeandnode/graph-gateway
-  git clone git@github.com:edgeandnode/graph-gateway build/edgeandnode/graph-gateway --branch 'v13.4.0'
+  git clone git@github.com:edgeandnode/graph-gateway build/edgeandnode/graph-gateway --branch 'v14.0.1'
 fi
 
 . ./.env

@@ -2,7 +2,6 @@
     api_key_payment_required: true,
     exchange_rate_provider: "1.0",
     // fisherman: "http://${HOST}:${FISHERMAN_PORT}",
-    gateway_instance_count: 1,
     graph_env_id: "localnet",
     indexer_selection_retry_limit: 2,
     ipfs: "http://${HOST}:${IPFS_RPC}/api/v0/cat?arg=",
@@ -12,8 +11,7 @@
     network_subgraph: "http://${HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network",
     port_api: 6700,
     port_metrics: 7301,
-    query_budget_discount: 0.5,
-    query_budget_scale: 1.5,
+    query_fees_target: 20e-6,
     # restricted_deployments: "${NETWORK_SUBGRAPH_DEPLOYMENT}=${ACCOUNT_ADDRESS}",
     signer_key: "${ACCOUNT0_MNEMONIC}",
     # special_api_keys:
