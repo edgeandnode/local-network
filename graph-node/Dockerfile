@@ -3,7 +3,7 @@ RUN apt-get update && \
     apt-get install -y git libpq-dev libssl-dev pkg-config protobuf-compiler && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/graphprotocol/graph-node /opt/build/graphprotocol/graph-node --branch 'v0.32.0'
+RUN git clone https://github.com/graphprotocol/graph-node /opt/build/graphprotocol/graph-node --branch 'v0.33.0'
 RUN --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.cargo/registry \
     cd /opt/build/graphprotocol/graph-node/ && \
