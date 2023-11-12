@@ -7,7 +7,10 @@ if [ ! -d "build/edgeandnode/subgraph-studio" ]; then
 fi
 
 . ./.env
-host="${DOCKER_GATEWAY_HOST:-host.docker.internal}"
+
+until curl -s "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; done
+echo "awaiting studio-api"
+until curl -s "http://${DOCKER_GATEWAY_HOST}:${STUDIO_API}"; do sleep 1; done
 
 cd build/edgeandnode/subgraph-studio
 cp ../../../studio/create-users.ts packages/shared/src/database/seeds/test-users.ts
@@ -25,9 +28,9 @@ fi
 
 auth_token="$(yarn issue-auth-token | grep Bearer | awk '{print $2}')"
 echo "auth_token=${auth_token}"
-curl "http://${host}:${CONTROLLER}/studio_admin_auth" -d "${auth_token}"
+curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/studio_admin_auth" -d "${auth_token}"
 
-export DB_HOST="${host}"
+export DB_HOST="${DOCKER_GATEWAY_HOST}"
 export DB_NAME=subgraph_studio
 export DB_PASS=
 export DB_PORT="${POSTGRES}"

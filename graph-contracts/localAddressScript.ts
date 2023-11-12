@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as mustache from "mustache";
-import * as networkAddresses from "../../contracts/addresses.json";
+import * as networkAddresses from "../graph_contracts.json";
 import { Addresses } from "./addresses.template";
 
 // mustache doesn't like numbered object keys
@@ -13,7 +13,7 @@ export let addresses: Addresses = {
   epochManager: "{{hardhat.EpochManager.address}}",
   disputeManager: "{{hardhat.DisputeManager.address}}",
   staking: "{{hardhat.L1Staking.address}}",
-  stakingExtension: '{{hardhat.StakingExtension.address}}',
+  stakingExtension: "{{hardhat.StakingExtension.address}}",
   curation: "{{hardhat.Curation.address}}",
   rewardsManager: "{{hardhat.RewardsManager.address}}",
   serviceRegistry: "{{hardhat.ServiceRegistry.address}}",
@@ -34,7 +34,7 @@ export let addresses: Addresses = {
 const main = (): void => {
   try {
     let output = JSON.parse(
-      mustache.render(JSON.stringify(addresses), renameAddresses),
+      mustache.render(JSON.stringify(addresses), renameAddresses)
     );
     output.blockNumber = "1";
     output.bridgeBlockNumber = "1";
@@ -42,7 +42,7 @@ const main = (): void => {
     output.useTokenLockManager = false;
     fs.writeFileSync(
       __dirname + "/generatedAddresses.json",
-      JSON.stringify(output, null, 2),
+      JSON.stringify(output, null, 2)
     );
   } catch (e) {
     console.log(`Error saving artifacts: ${e.message}`);

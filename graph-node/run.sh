@@ -7,7 +7,18 @@ if [ ! -d "build/graphprotocol/graph-node" ]; then
 fi
 
 . ./.env
-export ETHEREUM_RPC="hardhat:http://${DOCKER_GATEWAY_HOST:-host.docker.internal}:${CHAIN_RPC}"
+
+until curl -s "http://${DOCKER_GATEWAY_HOST}:${POSTGRES}"; [ $? = 52 ]; do sleep 1; done
+until curl -s "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; done
+until curl -s "http://${DOCKER_GATEWAY_HOST}:${IPFS_RPC}/api/v0/version" -X POST > /dev/null; do sleep 1; done
+
+# graph-node has issues if there isn't at least one block on the chain
+until curl -s "http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}" > /dev/null; do sleep 1; done
+curl "http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}" \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"anvil_mine","params":[]}'
+
+export ETHEREUM_RPC="hardhat:http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}"
 export GRAPH_ALLOW_NON_DETERMINISTIC_IPFS=true
 export GRAPH_ALLOW_NON_DETERMINISTIC_FULLTEXT_SEARCH=false
 export GRAPH_ETH_CALL_FULL_LOG=true
@@ -16,8 +27,9 @@ export GRAPH_EXPERIMENTAL_SUBGRAPH_VERSION_SWITCHING_MODE=synced
 export GRAPH_IPFS_TIMEOUT=10
 export GRAPH_LOG=debug
 export GRAPH_LOG_QUERY_TIMING=gql
-export IPFS="http://${DOCKER_GATEWAY_HOST:-host.docker.internal}:${IPFS_RPC}"
-export POSTGRES_URL="postgresql://dev:@${DOCKER_GATEWAY_HOST:-host.docker.internal}:${POSTGRES}/indexer_node_0"
+export GRAPH_NODE_ID=default
+export IPFS="http://${DOCKER_GATEWAY_HOST}:${IPFS_RPC}"
+export POSTGRES_URL="postgresql://dev:@${DOCKER_GATEWAY_HOST}:${POSTGRES}/graph_node_1"
 
 cd build/graphprotocol/graph-node
 cargo run -p graph-node

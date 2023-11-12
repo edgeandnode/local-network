@@ -8,10 +8,13 @@ fi
 
 . ./.env
 
+until curl -s "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; done
+until curl -s "http://${DOCKER_GATEWAY_HOST}:${POSTGRES}"; [ $? = 52 ]; do sleep 1; done
+
 cd build/edgeandnode/subgraph-studio
 cp ../../../studio/create-users.ts packages/shared/src/database/seeds/test-users.ts
 
-export DB_HOST="${DOCKER_GATEWAY_HOST:-host.docker.internal}"
+export DB_HOST="${DOCKER_GATEWAY_HOST}"
 export DB_NAME=subgraph_studio
 export DB_PASS=
 export DB_PORT="${POSTGRES}"

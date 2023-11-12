@@ -22,7 +22,7 @@ A local graph network for integration testing
 
 ## FAQ
 
-- Why not use Docker host networking, instead of using `${DOCKER_GATEWAY_HOST:-host.docker.internal}` everywhere?
+- Why not use Docker host networking, instead of using `${DOCKER_GATEWAY_HOST}` everywhere?
 
   Docker host networking isn't supported on Mac/Windows.
 
@@ -120,16 +120,8 @@ A local graph network for integration testing
 - Query gateway by deployment
 
   ```bash
-  curl "http://localhost:${GATEWAY}/api/${API_KEY}/deployments/id/$(curl -s http://localhost:${CONTROLLER}/graph_subgraph_deployment)" \
-    -H 'content-type: application/json' \
-    -d '{"query": "{ _meta { block { number } } }"}'
-  ```
-
-- Query gateway by subgraph
-
-  ```bash
-  curl "http://localhost:${GATEWAY}/api/${API_KEY}/subgraphs/id/$(curl -s http://localhost:${CONTROLLER}/graph_subgraph)" \
-    -H 'content-type: application/json' \
+  curl "http://localhost:${GATEWAY}/api/deployments/id/$(curl -s http://localhost:${CONTROLLER}/block_oracle_subgraph)" \
+    -H 'content-type: application/json' -H "Authorization: Bearer ${API_KEY}" \
     -d '{"query": "{ _meta { block { number } } }"}'
   ```
 
