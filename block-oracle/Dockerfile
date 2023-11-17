@@ -1,4 +1,4 @@
-FROM node:18-bullseye
+FROM node:16-bullseye
 RUN apt-get update && \
     apt-get install -y ca-certificates curl gettext-base git gnupg jq libssl-dev npm pkg-config wget yarn && \
     rm -rf /var/lib/apt/lists/*
