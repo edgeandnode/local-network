@@ -77,6 +77,10 @@ services:
     ports:
       - ${INDEXER_MANAGEMENT}:18000
 
+  tap-contracts:
+    container_name: tap-contracts
+    build: { dockerfile: tap-contracts/contracts.dockerfile }
+
   indexer-service:
     container_name: indexer-service
     build: { dockerfile: indexer/indexer-ts.dockerfile }
