@@ -87,8 +87,7 @@ services:
 
   indexer-service:
     container_name: indexer-service
-    build: { dockerfile: indexer/indexer-ts.dockerfile }
-    command: sh indexer/service.sh
+    build: { dockerfile: indexer-rs/indexer-service.dockerfile }
     ports:
       - ${INDEXER_SERVICE}:7600
 
