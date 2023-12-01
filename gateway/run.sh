@@ -25,10 +25,10 @@ studio_admin_auth="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/studio_ad
 echo "studio_admin_auth=${studio_admin_auth}"
 export STUDIO_AUTH="${studio_admin_auth}"
 
-export GATEWAY_SIGNER=${ACCOUNT1_SECRET_KEY#0x}
+export GATEWAY_SIGNER=${ACCOUNT1_SECRET_KEY}
 echo "GATEWAY_SIGNER=${GATEWAY_SIGNER}"
 
 envsubst <../../../gateway/config.jsonnet >config.jsonnet
 jsonnet config.jsonnet >config.json
-export RUST_LOG=info,graph_gateway=trace
+export RUST_LOG=info,graph_gateway=trace,graph_gateway::chains=debug
 cargo watch -x 'run --bin graph-gateway config.json'

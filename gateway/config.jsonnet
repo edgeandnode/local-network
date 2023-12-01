@@ -8,8 +8,6 @@
         {
             name: "hardhat",
             rpc: "http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}",
-            poll_hz: 3,
-            block_rate_hz: 0.5,
         },
     ],
     exchange_rate_provider: "1.0",
@@ -33,15 +31,4 @@
     },
     studio_auth: "${STUDIO_AUTH}",
     studio_url: "http://${DOCKER_GATEWAY_HOST}:${STUDIO_ADMIN}/admin/v1",
-
-    // subscriptions_contract: "${SUBSCRIPTIONS_CONTRACT}",
-    // subscriptions_chain_id: 1337,
-    // subscriptions_owner: "0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1",
-    // subscriptions_subgraph: "http://${DOCKER_GATEWAY_HOST}:8000/subgraphs/name/edgeandnode-subscriptions",
-    // subscriptions_subgraph: "http://${DOCKER_GATEWAY_HOST}:${GATEWAY_PORT}/api/deployments/id/${SUBSCRIPTIONS_DEPLOYMENT}",
-    // subscriptions_ticket: "oWZzaWduZXJUkPi_akefMg6tB0QRpLDnlE6oycEtTrC6JCzrddbf1iRRG7tiwosxzOq-Oy1gnKNmeThRiHoVSWA_d6wXVEoXN8d6eHk6dtcUG6fLBpyTyLSE8F0IHA",
-    // subscription_tiers: [
-    //     { payment_rate: "1", queries_per_minute: 10 },
-    //     { payment_rate: "10", queries_per_minute: 100 },
-    // ],
 }
