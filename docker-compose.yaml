@@ -120,6 +120,12 @@ services:
     ports:
       - ${STUDIO_ADMIN}:4003
 
+  gw-escrow-manager:
+    container_name: gw-escrow-manager
+    build:
+      dockerfile: gw-escrow-manager/Dockerfile
+      ssh: ['default']
+
   gateway:
     container_name: gateway
     build:
