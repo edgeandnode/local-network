@@ -29,7 +29,7 @@
     scalar: {
         chain_id: "1337",
         signer: "${GATEWAY_SIGNER}",
-        verifier: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+        verifier: "${TAP_VERIFIER}",
     },
     studio_auth: "${STUDIO_AUTH}",
     studio_url: "http://${DOCKER_GATEWAY_HOST}:${STUDIO_ADMIN}/admin/v1",
