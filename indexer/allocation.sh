@@ -12,9 +12,10 @@ fi
 
 . ./.env
 
+echo "awaiting controller"
 until curl -s "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; done
-echo "awaiting indexer-service"
-until curl -s "http://${DOCKER_GATEWAY_HOST}:${INDEXER_SERVICE}" >/dev/null; do sleep 1; done
+# echo "awaiting indexer-service"
+# until curl -s "http://${DOCKER_GATEWAY_HOST}:${INDEXER_SERVICE}" >/dev/null; do sleep 1; done
 echo "awaiting indexer-agent"
 until curl -s "http://${DOCKER_GATEWAY_HOST}:${INDEXER_MANAGEMENT}" >/dev/null; do sleep 1; done
 echo "awaiting graph_contracts"
@@ -22,6 +23,9 @@ graph_contracts="$(curl -s http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/graph_con
 echo "awaiting block_oracle_subgraph"
 block_oracle_subgraph="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/block_oracle_subgraph")"
 echo "block_oracle_subgraph=${block_oracle_subgraph}"
+echo "awaiting escrow subgraph"
+escrow_subgraph="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/escrow_subgraph")"
+echo "escrow_subgraph=${escrow_subgraph}"
 
 # deterministic subgraph ID for first subgraph created by account 0
 subgraph_id="F9NcUmUuzqMCNLFVfHfWP98dUGMFDL2opTdVnB8zFhLc"
@@ -67,7 +71,12 @@ cast send "--rpc-url=http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}" --confirmations
 cd ../indexer/packages/indexer-cli
 yarn
 ./bin/graph-indexer indexer connect "http://${DOCKER_GATEWAY_HOST}:${INDEXER_MANAGEMENT}"
+
+# allocate towards all published subgraph deployments
 ./bin/graph-indexer --network=hardhat indexer rules set global \
   decisionBasis rules minSignal 0 allocationAmount 1
+
+# always index the escrow subgraph deployment
+./bin/graph-indexer --network=hardhat indexer rules offchain "${escrow_subgraph}"
 
 curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/allocation_subgraph" -d "${subgraph_id}"
