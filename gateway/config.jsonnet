@@ -18,7 +18,7 @@
     ipfs: "http://${DOCKER_GATEWAY_HOST}:${IPFS_RPC}/api/v0/cat?arg=",
     ip_rate_limit: 100,
     kafka: {
-        "bootstrap.servers": "${DOCKER_GATEWAY_HOST}:${REDPANDA_KAFKA}",
+        "bootstrap.servers": "redpanda:${REDPANDA_KAFKA}",
     },
     log_json: false,
     min_indexer_version: "0.0.0",
