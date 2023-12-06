@@ -8,15 +8,12 @@ fi
 
 . ./.env
 
-host="${DOCKER_GATEWAY_HOST:-host.docker.internal}"
-echo "host=${host}"
-
 echo "awaiting network subgraph"
-export network_subgraph="$(curl "http://${host}:${CONTROLLER}/graph_subgraph")"
+export network_subgraph="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/graph_subgraph")"
 echo "network_subgraph=${network_subgraph}"
 
 echo "awaiting escrow subgraph"
-export escrow_subgraph="$(curl "http://${host}:${CONTROLLER}/escrow_subgraph")"
+export escrow_subgraph="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/escrow_subgraph")"
 echo "escrow_subgraph=${escrow_subgraph}"
 
 echo "awaiting graph_contracts"
@@ -24,7 +21,7 @@ graph_contracts="$(curl -s http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/graph_con
 token_contract="$(echo "${graph_contracts}" | jq -r '."1337".GraphToken.address')"
 
 echo "awaiting scalar-tap-contracts"
-tap_contracts="$(curl "http://${host}:${CONTROLLER}/scalar_tap_contracts")"
+tap_contracts="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/scalar_tap_contracts")"
 export escrow="$(echo "${tap_contracts}" | jq -r '.escrow')"
 echo "escrow=${escrow}"
 
