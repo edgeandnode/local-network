@@ -30,6 +30,6 @@
     scalar: {
         chain_id: "1337",
         signer: "${GATEWAY_SIGNER}",
-        verifier: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+        verifier: "${TAP_VERIFIER}",
     },
 }

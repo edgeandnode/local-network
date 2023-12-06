@@ -22,6 +22,19 @@ dispute_manager="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/graph_contr
 echo "dispute_manager=${dispute_manager}"
 export DISPUTE_MANAGER="${dispute_manager}"
 
+echo "awaiting scalar-tap-contracts"
+curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_contracts.json
+escrow=$(cat scalar_tap_contracts.json | jq -r '.escrow')
+echo "escrow=${escrow}"
+tap_verifier=$(cat scalar_tap_contracts.json | jq -r '.tap_verifier')
+echo "tap_verifier=${tap_verifier}"
+export TAP_VERIFIER="${tap_verifier}"
+
+echo "awaiting studio_admin_auth"
+studio_admin_auth="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/studio_admin_auth")"
+echo "studio_admin_auth=${studio_admin_auth}"
+export STUDIO_AUTH="${studio_admin_auth}"
+
 export GATEWAY_SIGNER=${ACCOUNT1_SECRET_KEY}
 echo "GATEWAY_SIGNER=${GATEWAY_SIGNER}"
 
