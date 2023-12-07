@@ -6,18 +6,32 @@ if [ ! -d "build/edgeandnode/subscription-payments" ]; then
     git clone git@github.com:edgeandnode/subscription-payments build/edgeandnode/subscription-payments --branch 'main'
 fi
 
-cd build/edgeandnode/subscription-payments/contract
+. ./.env
 
-yarn
-yarn build
-yarn deploy-local
+cd build/edgeandnode/subscription-payments/contracts
 
-contract_address="$(jq '.contract' contract-deployment.json)"
+# yarn
+# yarn build
+# yarn deploy-local
+
+contract_address="$(jq -r '.contract' contract-deployment.json)"
+token_address="$(jq -r '.token' contract-deployment.json)"
 
 cd ../subgraph
 
-yq ".dataSources[0].source.address |= ${contract_address}" -i subgraph.yaml
+yarn
+yarn prepare
+yq ".dataSources[0].source.address |= \"${contract_address}\"" -i subgraph.yaml
 yq ".dataSources[0].network |= \"hardhat\"" -i subgraph.yaml
 yarn
 yarn create-local
 yarn deploy-local
+
+cd ../cli
+
+echo "${ACCOUNT0_SECRET_KEY}" | cargo run -- \
+  --provider="http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}" \
+  --chain-id=1337 \
+  --subscriptions="${contract_address}" \
+  --token="${token_address}" \
+  ticket

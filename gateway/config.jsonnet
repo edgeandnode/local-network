@@ -4,9 +4,10 @@
         chain_id: "1337",
         dispute_manager: "${DISPUTE_MANAGER}",
     },
+    block_oracle_subgraph: "http://${DOCKER_GATEWAY_HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle",
     chains: [
         {
-            name: "hardhat",
+            names: ["hardhat"],
             rpc: "http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}",
         },
     ],
