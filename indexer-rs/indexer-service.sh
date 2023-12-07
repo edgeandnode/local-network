@@ -62,10 +62,13 @@ metrics_host_and_port = "0.0.0.0:${INDEXER_SERVICE_METRICS}"
 free_query_auth_token = "foo"
 
 [common.scalar]
-chain_id = 1
+chain_id = 1337
 receipts_verifier_address = "${tap_verifier}"
 EOT
 
 cat config.toml
+
+# Run migrations to ensure scalar TAP relations exist
+sqlx migrate run --database-url "postgresql://dev@${host}:${POSTGRES}/indexer_components_0"
 
 cargo run -p service -- --config config.toml
