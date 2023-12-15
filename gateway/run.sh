@@ -12,6 +12,8 @@ echo "awaiting graph_subgraph"
 until curl -s "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/graph_subgraph" >/dev/null; do sleep 1; done
 echo "awaiting allocation_subgraph"
 until curl -s "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/allocation_subgraph" >/dev/null; do sleep 1; done
+echo "awaiting block_oracle"
+until curl -s "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/block_oracle_subgraph" >/dev/null; do sleep 1; done
 
 cd build/edgeandnode/graph-gateway
 
