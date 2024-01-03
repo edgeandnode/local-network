@@ -59,4 +59,4 @@ jsonnet config.jsonnet >config.json
 cat config.json
 
 export RUST_LOG=info,gw_escrow_manager=trace
-cargo watch -x 'run --bin gw-escrow-manager config.json'
+cargo run --bin gw-escrow-manager config.json

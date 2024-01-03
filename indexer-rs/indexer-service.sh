@@ -3,7 +3,7 @@ set -eufx
 
 if [ ! -d "build/graphprotocol/indexer-rs" ]; then
   mkdir -p build/graphprotocol/indexer-rs
-  git clone git@github.com:graphprotocol/indexer-rs build/graphprotocol/indexer-rs --branch jannis/subgraph-service
+  git clone git@github.com:graphprotocol/indexer-rs build/graphprotocol/indexer-rs --branch main
 fi
 
 . ./.env
