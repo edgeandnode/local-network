@@ -20,6 +20,7 @@
         "bootstrap.servers": "${DOCKER_GATEWAY_HOST}:${REDPANDA_KAFKA}",
     },
     log_json: false,
+    min_graph_node_version: "0.33.0",
     min_indexer_version: "0.0.0",
     network_subgraph: "http://${DOCKER_GATEWAY_HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network",
     port_api: 6700,
