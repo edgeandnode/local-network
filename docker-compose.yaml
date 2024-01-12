@@ -116,16 +116,16 @@ services:
     ports:
       - ${STUDIO_ADMIN}:4003
 
-  gw-escrow-manager:
-    container_name: gw-escrow-manager
+  tap-escrow-manager:
+    container_name: tap-escrow-manager
     build:
-      dockerfile: gw-escrow-manager/Dockerfile
+      dockerfile: tap-escrow-manager/Dockerfile
       ssh: ['default']
 
-  # gateway:
-  #   container_name: gateway
-  #   build:
-  #     dockerfile: gateway/Dockerfile
-  #     ssh: ["default"]
-  #   ports:
-  #     - ${GATEWAY}:6700
+  gateway:
+    container_name: gateway
+    build:
+      dockerfile: gateway/Dockerfile
+      ssh: ["default"]
+    ports:
+      - ${GATEWAY}:6700

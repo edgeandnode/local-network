@@ -2,6 +2,15 @@
 
 A local graph network for integration testing
 
+## Requirements
+
+Make sure that your docker machine has at least 12 GB of RAM to build `graph-node`.
+
+Also, make sure to build `graph-node` before running the entire stack, because it requires a lot of resources and probably your computer won't handle building everything at once.
+
+Configure your default machine pubkey in Github to clone private repositories
+For podman, it looks like it's not possible to use --ssh with MacOS due to [this issue](https://github.com/containers/podman/issues/14074)
+
 ## Setup
 
 - Install [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/)
