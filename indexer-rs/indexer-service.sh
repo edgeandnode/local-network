@@ -53,6 +53,7 @@ query_url = "http://${host}:${GRAPH_NODE_GRAPHQL}/subgraphs/id/${escrow_subgraph
 syncing_interval = 60
 
 [common.graph_network]
+chain_id = 1337
 id = 1
 
 [common.server]

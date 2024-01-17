@@ -22,6 +22,10 @@ For podman, it looks like it's not possible to use --ssh with MacOS due to [this
 
 - When running a service outside docker compose, make sure to listen on all interfaces (0.0.0.0)
 - `node:16-bullseye-slim` images fail to build on MacOS hosts only (wat). So the non-slim image is used.
+- You can build them sequentially one by one by using the following command:
+```
+docker-compose config | yq '.services[] | key' | xargs -I {} docker-compose build {}
+```
 
 ## Debugging
 

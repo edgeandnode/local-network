@@ -1,4 +1,4 @@
-FROM node:16-bullseye
+FROM node:18-bullseye
 RUN apt-get update && \
     apt-get install -y ca-certificates curl gettext-base git gnupg jq libssl-dev npm pkg-config wget yarn && \
     rm -rf /var/lib/apt/lists/*
@@ -15,8 +15,11 @@ RUN --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.cargo/registry \
     cd /opt/build/graphprotocol/block-oracle && \
     cargo build -p block-oracle
-RUN cd build/graphprotocol/block-oracle/packages/contracts && yarn && \
-    cd ../subgraph && yarn
+RUN cd build/graphprotocol/block-oracle/packages/contracts && \
+      yarn && \
+      npx hardhat compile && \
+      cd ../subgraph && \
+      yarn
 
 COPY ./.env /opt/
 COPY ./block-oracle/ /opt/block-oracle/
