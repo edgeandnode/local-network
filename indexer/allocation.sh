@@ -36,7 +36,9 @@ yarn && yarn build
 
 echo '{"description":"test","label":"0.0.1"}' >version-metadata.json
 echo '{"description":"test","displayName":"test","image":"","codeRepository":"","website":""}' >subgraph-metadata.json
+echo "${graph_contracts}" > addresses.json
 npx ts-node ./cli/cli.ts contracts gns publishNewSubgraph \
+  --address-book addresses.json \
   --mnemonic "${MNEMONIC}" \
   --provider-url "http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}" \
   --ipfs "http://${DOCKER_GATEWAY_HOST}:${IPFS_RPC}/" \
