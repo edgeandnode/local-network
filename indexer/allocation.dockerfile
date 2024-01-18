@@ -10,7 +10,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 WORKDIR /opt/
 RUN git clone https://github.com/graphprotocol/contracts build/graphprotocol/contracts --branch 'v5.3.0'
 RUN cd build/graphprotocol/contracts && yarn && yarn build
-RUN git clone https://github.com/graphprotocol/indexer build/graphprotocol/indexer --branch 'ford/agora-upgrade'
+RUN git clone https://github.com/graphprotocol/indexer build/graphprotocol/indexer --branch 'gusinacio/agora-model-address-book-testnet'
 RUN cd build/graphprotocol/indexer && yarn
 
 COPY ./.env /opt/
