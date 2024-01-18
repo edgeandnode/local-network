@@ -11,15 +11,21 @@ RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 
 WORKDIR /opt/
 RUN git clone https://github.com/graphprotocol/block-oracle build/graphprotocol/block-oracle --branch 'main'
-RUN --mount=type=cache,target=/root/.cargo/git \
-    --mount=type=cache,target=/root/.cargo/registry \
-    cd /opt/build/graphprotocol/block-oracle && \
-    cargo build -p block-oracle
-RUN cd build/graphprotocol/block-oracle/packages/contracts && \
+RUN cd /opt/build/graphprotocol/block-oracle/packages/contracts && \
       yarn && \
       npx hardhat compile && \
       cd ../subgraph && \
       yarn
+
+
+ENV RUST_BACKTRACE='1'
+ENV RUST_LOG=debug
+# RUN 
+# --mount=type=cache,target=/root/.cargo/git \
+#     --mount=type=cache,target=/root/.cargo/registry \
+RUN    cd /opt/build/graphprotocol/block-oracle && \
+    cargo build -p block-oracle
+
 
 COPY ./.env /opt/
 COPY ./block-oracle/ /opt/block-oracle/

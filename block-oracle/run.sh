@@ -18,7 +18,6 @@ cd build/graphprotocol/block-oracle/packages/contracts
 
 sed -i "s+http://localhost:8545+http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}+g" hardhat.config.ts
 yarn
-npx hardhat --version
 npx hardhat --show-stack-traces run --network ganache scripts/deploy-local.ts | tee deploy.txt
 data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
 echo "data_edge=${data_edge}"
