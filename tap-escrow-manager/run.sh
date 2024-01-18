@@ -1,9 +1,9 @@
 #!/bin/sh
 set -euf
 
-if [ ! -d "build/edgeandnode/gw-escrow-manager" ]; then
-  mkdir -p build/edgeandnode/gw-escrow-manager
-  git clone git@github.com:edgeandnode/gw-escrow-manager build/edgeandnode/gw-escrow-manager --branch 'main'
+if [ ! -d "build/edgeandnode/tap-escrow-manager" ]; then
+  mkdir -p build/edgeandnode/tap-escrow-manager
+  git clone git@github.com:edgeandnode/tap-escrow-manager build/edgeandnode/tap-escrow-manager --branch 'main'
 fi
 
 . ./.env
@@ -52,11 +52,11 @@ cast send \
   "${escrow}" \
   '1000000000000000000000000'
 
-cd build/edgeandnode/gw-escrow-manager
+cd build/edgeandnode/tap-escrow-manager
 
-envsubst <../../../gw-escrow-manager/config.jsonnet >config.jsonnet
+envsubst <../../../tap-escrow-manager/config.jsonnet >config.jsonnet
 jsonnet config.jsonnet >config.json
 cat config.json
 
-export RUST_LOG=info,gw_escrow_manager=trace
-cargo run --bin gw-escrow-manager config.json
+export RUST_LOG=info,tap_escrow_manager=trace
+cargo run --bin tap-escrow-manager config.json
