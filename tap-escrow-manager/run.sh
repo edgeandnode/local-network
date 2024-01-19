@@ -28,6 +28,11 @@ echo "escrow=${escrow}"
 export GATEWAY_SIGNER=${GATEWAY_SIGNER_SECRET_KEY#0x}
 echo "GATEWAY_SIGNER=${GATEWAY_SIGNER}"
 
+
+export KAFKA_TOPIC="gateway_indexer_attempts"
+export BOOTSTRAP_SERVERS="${DOCKER_GATEWAY_HOST}:${REDPANDA_KAFKA}"
+rpk topic create $KAFKA_TOPIC --brokers=$BOOTSTRAP_SERVERS
+
 # Fund the gateway with ETH and GRT
 echo "Fund gateway with ETH"
 cast send \

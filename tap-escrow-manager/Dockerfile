@@ -1,7 +1,12 @@
 FROM rust:1.75.0-slim-bullseye
 RUN apt-get update && \
-    apt-get install -y build-essential cmake curl gettext-base git jq jsonnet librdkafka-dev libsasl2-dev libssl-dev pkg-config && \
+    apt-get install -y build-essential cmake curl gettext-base git jq jsonnet librdkafka-dev libsasl2-dev libssl-dev pkg-config unzip && \
     rm -rf /var/lib/apt/lists/*
+
+RUN curl -LO \ 
+      https://github.com/redpanda-data/redpanda/releases/latest/download/rpk-linux-amd64.zip && \
+      unzip rpk-linux-amd64.zip -d /usr/local/bin/
+
 
 RUN mkdir -p -m 0700 ~/.ssh && \
     ssh-keyscan github.com >> ~/.ssh/known_hosts
