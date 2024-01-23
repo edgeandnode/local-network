@@ -3,15 +3,8 @@ set -euf
 
 if [ ! -d "build/graphprotocol/indexer" ]; then
   mkdir -p build/graphprotocol/indexer
-  git clone git@github.com:graphprotocol/indexer build/graphprotocol/indexer --branch 'theodus/local-net'
+  git clone git@github.com:graphprotocol/indexer build/graphprotocol/indexer --branch 'main'
 fi
-
-# TODO: temporary hack. see https://github.com/graphprotocol/common-ts/pull/114, https://github.com/graphprotocol/indexer/pull/818
-if [ ! -d "build/graphprotocol/common-ts" ]; then
-  mkdir -p build/graphprotocol/common-ts
-  git clone git@github.com:graphprotocol/common-ts build/graphprotocol/common-ts --branch 'theodus/local-net'
-fi
-(cd build/graphprotocol/common-ts/ && yarn)
 
 . ./.env
 
