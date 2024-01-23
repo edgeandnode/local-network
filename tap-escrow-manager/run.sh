@@ -25,20 +25,20 @@ tap_contracts="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/scalar_tap_co
 export escrow="$(echo "${tap_contracts}" | jq -r '.escrow')"
 echo "escrow=${escrow}"
 
-export GATEWAY_SIGNER=${GATEWAY_SIGNER_SECRET_KEY#0x}
-echo "GATEWAY_SIGNER=${GATEWAY_SIGNER}"
+export GATEWAY_SENDER=${GATEWAY_SENDER_SECRET_KEY#0x}
+echo "GATEWAY_SENDER=${GATEWAY_SENDER}"
 
 
 export KAFKA_TOPIC="gateway_indexer_attempts"
 export BOOTSTRAP_SERVERS="${DOCKER_GATEWAY_HOST}:${REDPANDA_KAFKA}"
-rpk topic create $KAFKA_TOPIC --brokers=$BOOTSTRAP_SERVERS
+rpk topic create $KAFKA_TOPIC --brokers=$BOOTSTRAP_SERVERS || true
 
 # Fund the gateway with ETH and GRT
 echo "Fund gateway with ETH"
 cast send \
   --rpc-url="http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}" \
   --private-key="${ACCOUNT0_SECRET_KEY}" \
-  "${GATEWAY_SIGNER_ADDRESS}" \
+  "${GATEWAY_SENDER_ADDRESS}" \
   --value '1ether'
 echo "Fund gateway with GRT"
 cast send \
@@ -46,12 +46,12 @@ cast send \
   --private-key="${ACCOUNT0_SECRET_KEY}" \
   "${token_contract}" \
   'transfer(address,uint256)' \
-  "${GATEWAY_SIGNER_ADDRESS}" \
+  "${GATEWAY_SENDER_ADDRESS}" \
   '1000000000000000000000000'
 echo "Approve escrow contract to use GRT"
 cast send \
   --rpc-url="http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}" \
-  --private-key="${GATEWAY_SIGNER_SECRET_KEY}" \
+  --private-key="${GATEWAY_SENDER_SECRET_KEY}" \
   "${token_contract}" \
   'approve(address,uint256)' \
   "${escrow}" \

@@ -11,5 +11,5 @@
         topic: "gateway_indexer_attempts"
     },
     rpc_url: "http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}/",
-    secret_key: "${GATEWAY_SIGNER}",
+    secret_key: "${GATEWAY_SENDER}",
 }
