@@ -11,13 +11,14 @@
         }
     ],
     block_oracle_subgraph: "http://${DOCKER_GATEWAY_HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle",
-    exchange_rate_provider: 1.0,
+    bad_indexers: [],
+    exchange_rate_provider: "1.0",
     graph_env_id: "localnet",
     indexer_selection_retry_limit: 2,
     ipfs: "http://${DOCKER_GATEWAY_HOST}:${IPFS_RPC}/api/v0/cat?arg=",
     ip_rate_limit: 100,
     kafka: {
-        "bootstrap.servers": "redpanda:${REDPANDA_KAFKA}",
+        "bootstrap.servers": "${DOCKER_GATEWAY_HOST}:${REDPANDA_KAFKA}",
     },
     log_json: false,
     min_graph_node_version: "0.33.0",
