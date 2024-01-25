@@ -7,6 +7,7 @@ if [ ! -d "build/edgeandnode/tap-escrow-manager" ]; then
 fi
 
 . ./.env
+until curl -s "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; done
 
 echo "awaiting network subgraph"
 export network_subgraph="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/graph_subgraph")"
