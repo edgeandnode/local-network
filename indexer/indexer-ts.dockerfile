@@ -2,6 +2,8 @@ FROM --platform=linux/amd64 node:16-bullseye
 RUN apt-get update && \
     apt-get install -y jq libssl-dev && \
     rm -rf /var/lib/apt/lists/*
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /opt/
 # can't use release version until this is included:
