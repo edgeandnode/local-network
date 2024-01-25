@@ -84,6 +84,10 @@ services:
     container_name: tap-contracts
     build: { dockerfile: tap-contracts/contracts.dockerfile }
 
+  tap-contract-calls:
+    container_name: tap-contract-calls
+    build: { dockerfile: tap-contract-calls/Dockerfile }
+
   tap-subgraph:
     container_name: tap-subgraph
     build: { dockerfile: tap-subgraph/subgraph.dockerfile }

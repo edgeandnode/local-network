@@ -1,0 +1,7 @@
+eip712==0.2.1
+eth-account==0.8.0
+eth-utils==2.2.0
+web3==6.8.0
+requests==2.31.0
+backoff==2.2.1
+python-dotenv==1.0.1

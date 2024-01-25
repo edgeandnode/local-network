@@ -7,7 +7,7 @@ ENV PATH="$PATH:/root/.foundry/bin"
 RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && chmod +x /usr/bin/yq
 
 WORKDIR /opt/
-RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph build/semiotic-ai/timeline-aggregation-protocol-subgraph --branch main
+RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph build/semiotic-ai/timeline-aggregation-protocol-subgraph --branch local-network-test
 RUN cd build/semiotic-ai/timeline-aggregation-protocol-subgraph && yarn
 
 COPY ./.env /opt/
