@@ -18,7 +18,6 @@ curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/graph_contracts" >graph_contra
 
 yarn
 npx graph create graph-network --node "http://${DOCKER_GATEWAY_HOST}:${GRAPH_NODE_ADMIN}"
-yarn prep:no-ipfs
 
 yarn add --dev ts-node
 cp ../../../graph-contracts/localAddressScript.ts config/
