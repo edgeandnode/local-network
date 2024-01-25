@@ -5,7 +5,7 @@ RUN apt-get update && \
 
 RUN cargo install sqlx-cli --no-default-features --features native-tls,postgres
 
-RUN git clone https://github.com/graphprotocol/indexer-rs /opt/build/graphprotocol/indexer-rs --branch 'main'
+RUN git clone https://github.com/graphprotocol/indexer-rs /opt/build/graphprotocol/indexer-rs --branch 'gusinacio/test-network'
 RUN --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.cargo/registry \
     cd /opt/build/graphprotocol/indexer-rs/ && \
