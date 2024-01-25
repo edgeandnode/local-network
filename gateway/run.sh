@@ -35,7 +35,7 @@ studio_admin_auth="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/studio_ad
 echo "studio_admin_auth=${studio_admin_auth}"
 export STUDIO_AUTH="${studio_admin_auth}"
 
-export GATEWAY_SIGNER=${ACCOUNT1_SECRET_KEY}
+export GATEWAY_SIGNER=${GATEWAY_SIGNER_SECRET_KEY}
 echo "GATEWAY_SIGNER=${GATEWAY_SIGNER}"
 
 envsubst <../../../gateway/config.jsonnet >config.jsonnet

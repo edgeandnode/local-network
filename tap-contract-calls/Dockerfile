@@ -4,10 +4,12 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /opt/
 
+COPY ./tap-contract-calls/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+
 COPY ./tap-contract-calls /opt
 COPY ./.env /opt
-
-RUN pip install --no-cache-dir -r requirements.txt
 
 RUN chmod +x run.sh
 
