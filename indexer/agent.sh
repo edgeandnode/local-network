@@ -3,7 +3,7 @@ set -euf
 
 if [ ! -d "build/graphprotocol/indexer" ]; then
   mkdir -p build/graphprotocol/indexer
-  git clone git@github.com:graphprotocol/indexer build/graphprotocol/indexer --branch 'main'
+  git clone git@github.com:graphprotocol/indexer build/graphprotocol/indexer --branch 'theodus/local-net'
 fi
 
 . ./.env

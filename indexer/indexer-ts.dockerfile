@@ -6,9 +6,7 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /opt/
-# can't use release version until this is included:
-# https://github.com/graphprotocol/indexer/commit/d37964a1d1d14c5778faff605ffdc1eb0
-RUN git clone https://github.com/graphprotocol/indexer build/graphprotocol/indexer --branch 'main'
+RUN git clone https://github.com/graphprotocol/indexer build/graphprotocol/indexer --branch 'theodus/local-net'
 RUN cd build/graphprotocol/indexer && yarn --frozen-lockfile --non-interactive
 
 COPY ./.env /opt/
