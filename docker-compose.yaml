@@ -82,6 +82,9 @@ services:
   tap-agent:
     container_name: tap-agent
     build: { dockerfile: indexer-rs/tap-agent.dockerfile }
+  tap-aggregator:
+    container_name: tap-aggregator
+    build: { dockerfile: tap-aggregator/Dockerfile }
   tap-contracts:
     container_name: tap-contracts
     build: { dockerfile: tap-contracts/contracts.dockerfile }
