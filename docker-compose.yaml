@@ -79,7 +79,9 @@ services:
     command: sh indexer/agent.sh
     ports:
       - ${INDEXER_MANAGEMENT}:18000
-
+  tap-agent:
+    container_name: tap-agent
+    build: { dockerfile: indexer-rs/tap-agent.dockerfile }
   tap-contracts:
     container_name: tap-contracts
     build: { dockerfile: tap-contracts/contracts.dockerfile }
