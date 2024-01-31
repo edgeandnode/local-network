@@ -8,16 +8,21 @@ services:
 
   chain:
     container_name: chain
-    image: ghcr.io/foundry-rs/foundry:latest
+    # image: ghcr.io/foundry-rs/foundry:latest
+    build: { dockerfile: chain/Dockerfile }
     ports:
       - ${CHAIN_RPC}:8545
     command: ['anvil --host=0.0.0.0 --chain-id=1337 --mnemonic="${MNEMONIC}"']
+    healthcheck:
+      test: curl http://127.0.0.1:8545
 
   ipfs:
     container_name: ipfs
     image: ipfs/kubo:latest
     ports:
       - ${IPFS_RPC}:5001
+    # healthcheck:
+    #   test: wget http://0.0.0.0:5001/webui
 
   redpanda:
     container_name: redpanda
@@ -60,18 +65,38 @@ services:
       - ${GRAPH_NODE_ADMIN}:8020
       - ${GRAPH_NODE_STATUS}:8030
       - ${GRAPH_NODE_METRICS}:8040
+    healthcheck:
+      test: curl -f http://localhost:8000
+    depends_on:
+      - postgres
+      - ipfs
+      - chain
 
   graph-contracts:
     container_name: graph-contracts
     build: { dockerfile: graph-contracts/contracts.dockerfile }
+    depends_on:
+      - chain
 
   graph-subgraph:
     container_name: graph-subgraph
     build: { dockerfile: graph-contracts/subgraph.dockerfile }
+    depends_on:
+      ipfs: 
+        condition: service_healthy
+      graph-node: 
+        condition: service_healthy
+    #   graph-contracts:
+    #     condition: service_completed_successfully
 
   block-oracle:
     container_name: block-oracle
     build: { dockerfile: block-oracle/Dockerfile }
+    depends_on:
+      graph-node:
+        condition: service_healthy
+    #   graph-contracts:
+    #     condition: service_completed_successfully
 
   indexer-agent:
     container_name: indexer-agent
@@ -79,29 +104,63 @@ services:
     command: sh indexer/agent.sh
     ports:
       - ${INDEXER_MANAGEMENT}:18000
+    depends_on:
+      - graph-node
+      - ipfs
+      - chain
+      - controller
+      - postgres
+      - gateway
+      - indexer-service
+
   tap-agent:
     container_name: tap-agent
     build: { dockerfile: indexer-rs/tap-agent.dockerfile }
+
   tap-aggregator:
     container_name: tap-aggregator
     build: { dockerfile: tap-aggregator/Dockerfile }
+
   tap-contracts:
     container_name: tap-contracts
     build: { dockerfile: tap-contracts/contracts.dockerfile }
+    depends_on:
+      controller: 
+        condition: service_started
+      chain: 
+        condition: service_healthy
 
   tap-contract-calls:
     container_name: tap-contract-calls
     build: { dockerfile: tap-contract-calls/Dockerfile }
+    depends_on:
+      controller: 
+        condition: service_started
+      chain: 
+        condition: service_healthy
+    # depends_on:
+    #   tap-contracts: 
+    #     condition: service_completed_successfully
 
   tap-subgraph:
     container_name: tap-subgraph
     build: { dockerfile: tap-subgraph/subgraph.dockerfile }
+    depends_on:
+      # tap-contracts: 
+      #   condition: service_completed_successfully
+      ipfs: 
+        condition: service_healthy
+      graph-node: 
+        condition: service_healthy
 
   indexer-service:
     container_name: indexer-service
     build: { dockerfile: indexer-rs/indexer-service.dockerfile }
     ports:
       - ${INDEXER_SERVICE}:7600
+    depends_on:
+      graph-node:
+        condition: service_healthy
 
   indexer-allocation:
     container_name: indexer-allocation
@@ -130,6 +189,13 @@ services:
     build:
       dockerfile: tap-escrow-manager/Dockerfile
       ssh: ['default']
+    depends_on:
+      graph-node:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+      chain:
+        condition: service_healthy
 
   gateway:
     container_name: gateway
@@ -138,3 +204,18 @@ services:
       ssh: ["default"]
     ports:
       - ${GATEWAY}:6700
+    depends_on:
+      graph-node:
+        condition: service_healthy
+      # graph-subgraph:
+      #   condition: service_completed_successfully
+      # graph-contracts:
+      #   condition: service_completed_successfully
+      # tap-contracts:
+      #   condition: service_completed_successfully
+      # tap-contract-calls:
+      #   condition: service_completed_successfully
+      # indexer-allocation:
+      #   condition: service_completed_successfully
+      block-oracle:
+        condition: service_started

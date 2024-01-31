@@ -10,7 +10,7 @@ from web3.exceptions import ContractLogicError
 
 load_dotenv()
 ESCROW_ADDRESS = sys.argv[1]
-DOCKER_GATEWAY_HOST = os.getenv('DOCKER_GATEWAY_HOST')
+DOCKER_GATEWAY_HOST = os.getenv('CHAIN_HOST')
 CHAIN_RPC = os.getenv('CHAIN_RPC')
 GATEWAY_SENDER_ADDRESS = os.getenv('GATEWAY_SENDER_ADDRESS')
 GATEWAY_SIGNER_ADDRESS = os.getenv('GATEWAY_SIGNER_ADDRESS')

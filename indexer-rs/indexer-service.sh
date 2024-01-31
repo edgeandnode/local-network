@@ -46,7 +46,7 @@ postgres_url = "postgresql://dev@${host}:${POSTGRES}/indexer_components_0"
 
 [common.network_subgraph]
 query_url = "http://${host}:${GRAPH_NODE_GRAPHQL}/subgraphs/id/${network_subgraph}"
-syncing_interval = 60
+syncing_interval = 10
 
 [common.escrow_subgraph]
 query_url = "http://${host}:${GRAPH_NODE_GRAPHQL}/subgraphs/id/${escrow_subgraph}"
@@ -72,4 +72,5 @@ cat config.toml
 # Run migrations to ensure scalar TAP relations exist
 sqlx migrate run --database-url "postgresql://dev@${host}:${POSTGRES}/indexer_components_0"
 
-cargo run -p service -- --config config.toml
+export RUST_LOG=debug
+# cargo run -p service -- --config config.toml

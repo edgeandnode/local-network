@@ -1,6 +1,6 @@
 FROM node:16-bullseye
 RUN apt-get update && \
-    apt-get install -y jq && \
+    apt-get install -y jq libc-bin && \
     rm -rf /var/lib/apt/lists/*
 RUN curl -L https://foundry.paradigm.xyz | bash && . /root/.bashrc && foundryup
 ENV PATH="$PATH:/root/.foundry/bin"

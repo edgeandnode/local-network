@@ -43,7 +43,7 @@ receipts_verifier_address = "${tap_verifier}"
 [indexer_infrastructure]
 metrics_port = 7300
 graph_node_query_endpoint = "http://${host}:${GRAPH_NODE_GRAPHQL}"
-graph_node_status_endpoint = "http://${host}:${GRAPH_NODE_STATUS}"
+graph_node_status_endpoint = "http://${host}:${GRAPH_NODE_STATUS}/graphql"
 log_lever = "info"
 
 [postgres]
@@ -64,7 +64,7 @@ escrow_subgraph_endpoint = "http://${host}:${GRAPH_NODE_GRAPHQL}/subgraphs/id/${
 escrow_syncing_interval_ms = 60000
 
 [tap]
-rav_request_trigger_value = 10
+rav_request_trigger_value = 1
 rav_request_timestamp_buffer_ms = 1000
 rav_request_timeout_secs = 5
 sender_aggregator_endpoints_file = "endpoints.yaml"
@@ -76,4 +76,5 @@ cat <<-EOT > endpoints.yaml
 ${GATEWAY_SENDER_ADDRESS}: "http://${host}:${TAP_AGGREGATOR}"
 EOT
 
-config=config.toml cargo run -p indexer-tap-agent
+export RUST_LOG=debug
+# config=config.toml cargo run -p indexer-tap-agent

@@ -8,22 +8,50 @@ fi
 
 . ./.env
 
+dynamic_host_setup() {
+    if [ $# -eq 0 ]; then
+        echo "No name provided."
+        return 1
+    fi
+
+    # Convert the name to uppercase for the variable name
+    local name_upper=$(echo $1 | tr '-' '_' | tr '[:lower:]' '[:upper:]')
+    local export_name="${name_upper}_HOST"
+    local host_name="$1"
+
+    # Directly use 'eval' for dynamic variable assignment to avoid bad substitution
+    eval export ${export_name}="${host_name}"
+    if ! getent hosts "${host_name}" >/dev/null; then
+        eval export ${export_name}="\$DOCKER_GATEWAY_HOST"
+    fi
+
+    # Use 'eval' for echoing dynamic variable value
+    eval echo "${export_name} is set to \$${export_name}"
+}
+
+dynamic_host_setup controller
+dynamic_host_setup graph-node
+dynamic_host_setup chain
+dynamic_host_setup ipfs
+dynamic_host_setup redpanda
+dynamic_host_setup studio-admin
+
 echo "awaiting graph_subgraph"
-until curl -s "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/graph_subgraph" >/dev/null; do sleep 1; done
+until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}/graph_subgraph" >/dev/null; do sleep 1; done
 echo "awaiting allocation_subgraph"
-until curl -s "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/allocation_subgraph" >/dev/null; do sleep 1; done
+until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}/allocation_subgraph" >/dev/null; do sleep 1; done
 echo "awaiting block_oracle"
-until curl -s "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/block_oracle_subgraph" >/dev/null; do sleep 1; done
+until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}/block_oracle_subgraph" >/dev/null; do sleep 1; done
 
 cd build/edgeandnode/graph-gateway
 
 echo "awaiting graph_contracts"
-dispute_manager="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/graph_contracts" | jq -r '."1337".DisputeManager.address')"
+dispute_manager="$(curl "http://${CONTROLLER_HOST}:${CONTROLLER}/graph_contracts" | jq -r '."1337".DisputeManager.address')"
 echo "dispute_manager=${dispute_manager}"
 export DISPUTE_MANAGER="${dispute_manager}"
 
 echo "awaiting scalar-tap-contracts"
-curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_contracts.json
+curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_contracts.json
 escrow=$(cat scalar_tap_contracts.json | jq -r '.escrow')
 echo "escrow=${escrow}"
 tap_verifier=$(cat scalar_tap_contracts.json | jq -r '.tap_verifier')
@@ -31,7 +59,7 @@ echo "tap_verifier=${tap_verifier}"
 export TAP_VERIFIER="${tap_verifier}"
 
 echo "awaiting studio_admin_auth"
-studio_admin_auth="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/studio_admin_auth")"
+studio_admin_auth="$(curl "http://${CONTROLLER_HOST}:${CONTROLLER}/studio_admin_auth")"
 echo "studio_admin_auth=${studio_admin_auth}"
 export STUDIO_AUTH="${studio_admin_auth}"
 
