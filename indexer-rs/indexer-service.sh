@@ -8,25 +8,47 @@ fi
 
 . ./.env
 
-host="${DOCKER_GATEWAY_HOST:-host.docker.internal}"
-echo "host=${host}"
+dynamic_host_setup() {
+    if [ $# -eq 0 ]; then
+        echo "No name provided."
+        return 1
+    fi
+
+    # Convert the name to uppercase for the variable name
+    local name_upper=$(echo $1 | tr '-' '_' | tr '[:lower:]' '[:upper:]')
+    local export_name="${name_upper}_HOST"
+    local host_name="$1"
+
+    # Directly use 'eval' for dynamic variable assignment to avoid bad substitution
+    eval export ${export_name}="${host_name}"
+    if ! getent hosts "${host_name}" >/dev/null; then
+        eval export ${export_name}="\$DOCKER_GATEWAY_HOST"
+    fi
+
+    # Use 'eval' for echoing dynamic variable value
+    eval echo "${export_name} is set to \$${export_name}"
+}
+
+dynamic_host_setup controller
+dynamic_host_setup postgres
+dynamic_host_setup graph-node
 
 echo "awaiting controller"
-until curl -s "http://${host}:${CONTROLLER}" >/dev/null; do sleep 1; done
+until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; done
 
 echo "awaiting postgres"
-until curl -s "http://${host}:${POSTGRES}"; [ $? = 52 ]; do sleep 1; done
+until curl -s "http://${POSTGRES_HOST}:${POSTGRES}"; [ $? = 52 ]; do sleep 1; done
 
 echo "awaiting network subgraph"
-network_subgraph="$(curl "http://${host}:${CONTROLLER}/graph_subgraph")"
+network_subgraph="$(curl "http://${CONTROLLER_HOST}:${CONTROLLER}/graph_subgraph")"
 echo "network_subgraph=${network_subgraph}"
 
 echo "awaiting escrow subgraph"
-escrow_subgraph="$(curl "http://${host}:${CONTROLLER}/escrow_subgraph")"
+escrow_subgraph="$(curl "http://${CONTROLLER_HOST}:${CONTROLLER}/escrow_subgraph")"
 echo "escrow_subgraph=${escrow_subgraph}"
 
 echo "awaiting scalar-tap-contracts"
-curl "http://${host}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_contracts.json
+curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_contracts.json
 
 tap_verifier=$(cat scalar_tap_contracts.json | jq -r '.tap_verifier')
 echo "tap_verifier=${tap_verifier}"
@@ -38,18 +60,18 @@ indexer_address = "${ACCOUNT0_ADDRESS}"
 operator_mnemonic = "${MNEMONIC}"
 
 [common.graph_node]
-status_url = "http://${host}:${GRAPH_NODE_STATUS}/graphql"
-query_base_url = "http://${host}:${GRAPH_NODE_GRAPHQL}"
+status_url = "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_STATUS}/graphql"
+query_base_url = "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL}"
 
 [common.database]
-postgres_url = "postgresql://dev@${host}:${POSTGRES}/indexer_components_0"
+postgres_url = "postgresql://dev@${POSTGRES_HOST}:${POSTGRES}/indexer_components_0"
 
 [common.network_subgraph]
-query_url = "http://${host}:${GRAPH_NODE_GRAPHQL}/subgraphs/id/${network_subgraph}"
+query_url = "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/id/${network_subgraph}"
 syncing_interval = 10
 
 [common.escrow_subgraph]
-query_url = "http://${host}:${GRAPH_NODE_GRAPHQL}/subgraphs/id/${escrow_subgraph}"
+query_url = "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/id/${escrow_subgraph}"
 syncing_interval = 60
 
 [common.graph_network]
@@ -70,7 +92,7 @@ EOT
 cat config.toml
 
 # Run migrations to ensure scalar TAP relations exist
-sqlx migrate run --database-url "postgresql://dev@${host}:${POSTGRES}/indexer_components_0"
+sqlx migrate run --database-url "postgresql://dev@${POSTGRES_HOST}:${POSTGRES}/indexer_components_0"
 
 export RUST_LOG=debug
-# cargo run -p service -- --config config.toml
+cargo run -p service -- --config config.toml

@@ -116,6 +116,11 @@ services:
   tap-agent:
     container_name: tap-agent
     build: { dockerfile: indexer-rs/tap-agent.dockerfile }
+    depends_on:
+      - graph-node
+      - controller
+      - postgres
+      - tap-aggregator
 
   tap-aggregator:
     container_name: tap-aggregator
@@ -161,10 +166,19 @@ services:
     depends_on:
       graph-node:
         condition: service_healthy
+      controller:
+        condition: service_started
+      postgres:
+        condition: service_started
 
   indexer-allocation:
     container_name: indexer-allocation
     build: { dockerfile: indexer/allocation.dockerfile }
+    depends_on:
+      - controller
+      - indexer-agent
+      - ipfs
+      - chain
 
   studio-api:
     container_name: studio-api
