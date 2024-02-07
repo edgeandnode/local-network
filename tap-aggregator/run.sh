@@ -31,6 +31,9 @@ dynamic_host_setup() {
 
 dynamic_host_setup controller
 
+# echo "awaiting controller"
+sleep 1
+
 echo "awaiting scalar-tap-contracts"
 curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_contracts.json
 

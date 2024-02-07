@@ -108,4 +108,11 @@ ${GATEWAY_SENDER_ADDRESS}: "http://${TAP_AGGREGATOR_HOST}:${TAP_AGGREGATOR}"
 EOT
 
 export RUST_LOG=debug
-config=config.toml cargo run -p indexer-tap-agent -- --config config.toml
+
+if [ ! -f "./indexer-tap-agent" ]; then
+  cargo build -p indexer-tap-agent
+  cp target/debug/indexer-tap-agent .
+fi
+
+config=config.toml ./indexer-tap-agent --config config.toml
+

@@ -94,5 +94,12 @@ cat config.toml
 # Run migrations to ensure scalar TAP relations exist
 sqlx migrate run --database-url "postgresql://dev@${POSTGRES_HOST}:${POSTGRES}/indexer_components_0"
 
+if [ ! -f "./indexer-service" ]; then
+  cargo build -p service
+  cp target/debug/service ./indexer-service
+fi
+
 export RUST_LOG=debug
-cargo run -p service -- --config config.toml
+./indexer-service --config config.toml
+
+# cargo run -p service -- --config config.toml

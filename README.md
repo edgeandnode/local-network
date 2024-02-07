@@ -17,6 +17,7 @@ For podman, it looks like it's not possible to use --ssh with MacOS due to [this
 - On Mac/Windows, comment out the `DOCKER_GATEWAY_HOST` export in `.env`
 - `docker compose down && docker compose up --build`
 - Run component outside docker compose (e.g. gateway): `docker stop gateway && sh ./gateway/run.sh`
+- It might take a while for `tap-escrow-manager` to update the balances, you can speed up by restarting the component: `docker-compose restart tap-escrow-manager`
 
 ## Notes
 

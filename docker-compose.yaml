@@ -125,6 +125,8 @@ services:
   tap-aggregator:
     container_name: tap-aggregator
     build: { dockerfile: tap-aggregator/Dockerfile }
+    depends_on:
+      - controller
     ports:
       - ${TAP_AGGREGATOR}:9000
 
