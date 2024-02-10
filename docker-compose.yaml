@@ -21,26 +21,22 @@ services:
 
   redpanda:
     container_name: redpanda
-    image: docker.redpanda.com/redpandadata/redpanda:v23.2.17
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
     ports:
-      - ${REDPANDA_SCHEMA_REGISTRY}:8081
-      - ${REDPANDA_PANDAPROXY}:8082
       - ${REDPANDA_KAFKA}:9092
       - ${REDPANDA_ADMIN}:9644
+      - ${REDPANDA_PANDAPROXY}:8082
+      - ${REDPANDA_SCHEMA_REGISTRY}:8081
     command:
       - redpanda
       - start
       - --smp 1
       - --memory 1G
       - --mode dev-container
-      - --default-log-level debug
-      - --kafka-addr internal://redpanda:9092,external://localhost:9092
-      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:9092
-      - --pandaproxy-addr internal://redpanda:8082,external://localhost:8082
-      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:8082
-      - --schema-registry-addr internal://redpanda:8081,external://localhost:8081
-      - --rpc-addr redpanda:33145
-      - --advertise-rpc-addr redpanda:33145
+      - --default-log-level=debug
+      - --kafka-addr 0.0.0.0:9092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --schema-registry-addr 0.0.0.0:8081
 
   postgres:
     container_name: postgres
