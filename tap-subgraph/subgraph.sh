@@ -47,7 +47,7 @@ until curl -s "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_STATUS}" >/dev/null; do sl
 echo "awaiting scalar-tap-contracts"
 curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_contracts.json
 
-escrow=$(cat scalar_tap_contracts.json | jq -r '.escrow')
+escrow=$(cat scalar_tap_contracts.json | jq -r '."1337".escrow')
 echo "escrow=${escrow}"
 
 cd build/semiotic-ai/timeline-aggregation-protocol-subgraph

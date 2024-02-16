@@ -52,9 +52,9 @@ export DISPUTE_MANAGER="${dispute_manager}"
 
 echo "awaiting scalar-tap-contracts"
 curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_contracts.json
-escrow=$(cat scalar_tap_contracts.json | jq -r '.escrow')
+escrow=$(cat scalar_tap_contracts.json | jq -r '."1337".escrow')
 echo "escrow=${escrow}"
-tap_verifier=$(cat scalar_tap_contracts.json | jq -r '.tapVerifier')
+tap_verifier=$(cat scalar_tap_contracts.json | jq -r '."1337".tapVerifier')
 echo "tap_verifier=${tap_verifier}"
 export TAP_VERIFIER="${tap_verifier}"
 

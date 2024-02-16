@@ -54,7 +54,7 @@ curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_
 echo "awaiting indexer-agent"
 until curl -s "http://${INDEXER_AGENT_HOST}:${INDEXER_MANAGEMENT}" >/dev/null; do sleep 1; done
 
-tap_verifier=$(cat scalar_tap_contracts.json | jq -r '.tapVerifier')
+tap_verifier=$(cat scalar_tap_contracts.json | jq -r '."1337".tapVerifier')
 echo "tap_verifier=${tap_verifier}"
 
 cd build/graphprotocol/indexer-rs
