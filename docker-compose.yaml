@@ -12,7 +12,7 @@ services:
     build: { dockerfile: chain/Dockerfile }
     ports:
       - ${CHAIN_RPC}:8545
-    command: ['anvil --host=0.0.0.0 --chain-id=1337 --mnemonic="${MNEMONIC}"']
+    command: ['anvil --host=0.0.0.0 --chain-id=1337 --mnemonic="${MNEMONIC}" --state state.json']
     healthcheck:
       test: curl http://127.0.0.1:8545
 

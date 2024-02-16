@@ -8,6 +8,11 @@ fi
 
 . ./.env
 
+if [ ! -f /.dockerenv ]; then
+  echo "Not running in Docker, setting DOCKER_GATEWAY_HOST to 127.0.0.1"
+  export DOCKER_GATEWAY_HOST=127.0.0.1
+fi
+
 dynamic_host_setup() {
     if [ $# -eq 0 ]; then
         echo "No name provided."
@@ -30,13 +35,10 @@ dynamic_host_setup() {
 }
 
 dynamic_host_setup postgres
-dynamic_host_setup controller
 dynamic_host_setup ipfs
 dynamic_host_setup chain
 
-
 until curl -s "http://${POSTGRES_HOST}:${POSTGRES}"; [ $? = 52 ]; do sleep 1; done
-until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; done
 until curl -s "http://${IPFS_HOST}:${IPFS_RPC}/api/v0/version" -X POST > /dev/null; do sleep 1; done
 
 # graph-node has issues if there isn't at least one block on the chain
@@ -59,4 +61,9 @@ export IPFS="http://${IPFS_HOST}:${IPFS_RPC}"
 export POSTGRES_URL="postgresql://dev:@${POSTGRES_HOST}:${POSTGRES}/graph_node_1"
 
 cd build/graphprotocol/graph-node
-cargo run -p graph-node
+if [ ! -f "./graph-node" ]; then
+  cargo build -p graph-node
+  cp target/debug/graph-node ./graph-node
+fi
+
+./graph-node

@@ -32,6 +32,7 @@ dynamic_host_setup() {
 dynamic_host_setup controller
 dynamic_host_setup postgres
 dynamic_host_setup graph-node
+dynamic_host_setup indexer-agent
 
 echo "awaiting controller"
 until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; done
@@ -49,6 +50,9 @@ echo "escrow_subgraph=${escrow_subgraph}"
 
 echo "awaiting scalar-tap-contracts"
 curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_contracts.json
+
+echo "awaiting indexer-agent"
+until curl -s "http://${INDEXER_AGENT_HOST}:${INDEXER_MANAGEMENT}" >/dev/null; do sleep 1; done
 
 tap_verifier=$(cat scalar_tap_contracts.json | jq -r '.tap_verifier')
 echo "tap_verifier=${tap_verifier}"

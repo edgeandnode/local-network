@@ -44,39 +44,46 @@ epoch_manager="$(curl "http://${CONTROLLER_HOST}:${CONTROLLER}/graph_contracts" 
 
 cd build/graphprotocol/block-oracle/packages/contracts
 
-sed -i "s+http://localhost:8545+http://${CHAIN_HOST}:${CHAIN_RPC}+g" hardhat.config.ts
-yarn
-npx hardhat --show-stack-traces run --network ganache scripts/deploy-local.ts | tee deploy.txt
-data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
-echo "data_edge=${data_edge}"
+data_edge=$(curl -s --max-time 1 "http://${CONTROLLER_HOST}:${CONTROLLER}/data_edge" || true)
+if [ ! -n "$data_edge" ]; then
+  sed -i "s+http://localhost:8545+http://${CHAIN_HOST}:${CHAIN_RPC}+g" hardhat.config.ts
+  yarn
+  npx hardhat --show-stack-traces run --network ganache scripts/deploy-local.ts | tee deploy.txt
+  data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
 
-cast send "--rpc-url=http://${CHAIN_HOST}:${CHAIN_RPC}" --confirmations=0 "--mnemonic=${MNEMONIC}" \
-  "${data_edge}" \
-  '0xa1dce3320000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000f030103176569703135353a313333370000000000000000000000000000000000'
+  curl "http://${CONTROLLER_HOST}:${CONTROLLER}/data_edge" -d "${data_edge}"
+  echo "data_edge=${data_edge}"
 
+  cast send "--rpc-url=http://${CHAIN_HOST}:${CHAIN_RPC}" --confirmations=0 "--mnemonic=${MNEMONIC}" \
+    "${data_edge}" \
+    '0xa1dce3320000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000f030103176569703135353a313333370000000000000000000000000000000000'
+fi
 cd ../subgraph
 
-yarn
-tmp="$(jq <config/local.json ".epochManager |= \"${epoch_manager}\"")" && echo "${tmp}" >config/local.json
-yq -i ".hardhat.DataEdge.address |= \"${data_edge}\"" networks.json
-yarn prepare
-yarn prep:local
-yarn codegen
-npx graph build --network hardhat
-npx graph create block-oracle \
-  --node "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_ADMIN}"
-npx graph deploy block-oracle \
-  --ipfs "http://${IPFS_HOST}:${IPFS_RPC}" \
-  --node "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_ADMIN}" \
-  --version-label 'v0.0.1' | \
-  tee deploy.txt
+deployment_id=$(curl -s --max-time 1 "http://${CONTROLLER_HOST}:${CONTROLLER}/block_oracle_subgraph" || true)
+if [ ! -n "$deployment_id" ]; then
+  yarn
+  tmp="$(jq <config/local.json ".epochManager |= \"${epoch_manager}\"")" && echo "${tmp}" >config/local.json
+  yq -i ".hardhat.DataEdge.address |= \"${data_edge}\"" networks.json
+  yarn prepare
+  yarn prep:local
+  yarn codegen
+  npx graph build --network hardhat
+  npx graph create block-oracle \
+    --node "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_ADMIN}"
+  npx graph deploy block-oracle \
+    --ipfs "http://${IPFS_HOST}:${IPFS_RPC}" \
+    --node "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_ADMIN}" \
+    --version-label 'v0.0.1' | \
+    tee deploy.txt
 
-deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
-curl "http://${CONTROLLER_HOST}:${CONTROLLER}/block_oracle_subgraph" -d "${deployment_id}"
+  deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
+  curl "http://${CONTROLLER_HOST}:${CONTROLLER}/block_oracle_subgraph" -d "${deployment_id}"
 
-curl "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_ADMIN}" \
-  -H 'content-type: application/json' \
-  -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"subgraph_reassign\",\"params\":{\"node_id\":\"default\",\"ipfs_hash\":\"${deployment_id}\"}}"
+  curl "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_ADMIN}" \
+    -H 'content-type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"subgraph_reassign\",\"params\":{\"node_id\":\"default\",\"ipfs_hash\":\"${deployment_id}\"}}"
+fi
 
 cd ../../
 
@@ -90,5 +97,11 @@ envsubst <../../../block-oracle/config.toml >config.toml
 cat config.toml
 export RUST_BACKTRACE='1'
 export RUST_LOG=debug
+
+if [ ! -f "./block-oracle" ]; then
+  cargo build -p block-oracle
+  cp target/debug/block-oracle ./block-oracle
+fi
+
 sleep 5 # avoid indexing delay causing a long retry delay immediately
-cargo run -p block-oracle -- run config.toml
+./block-oracle run config.toml

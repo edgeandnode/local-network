@@ -1,7 +1,27 @@
 import { serve } from "https://deno.land/std@0.188.0/http/server.ts";
 import { sleep } from "https://deno.land/x/sleep@v1.2.1/sleep.ts";
 
-const state = new Map<string, string>();
+const filePath = "state.json";
+
+async function saveStateToFile(state: Map<string, string>): Promise<void> {
+  const jsonData = JSON.stringify(Object.fromEntries(state.entries()));
+  await Deno.writeTextFile(filePath, jsonData);
+}
+
+async function loadStateFromFile(): Promise<Map<string, string>> {
+  try {
+    const jsonData = await Deno.readTextFile(filePath);
+    const stateData = JSON.parse(jsonData);
+    return new Map(Object.entries(stateData));
+  } catch (error) {
+    console.error("Error loading state from file:", error);
+    return new Map<string, string>();
+  }
+}
+
+// Load the state from file and assign it to the 'state' variable
+
+const state = await loadStateFromFile();
 
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -13,7 +33,7 @@ async function handleRequest(request: Request): Promise<Response> {
       if (key == "") {
         return new Response(
           JSON.stringify(Object.fromEntries(state.entries())),
-          { status: 200 },
+          { status: 200 }
         );
       }
       while (!state.has(key)) {
@@ -26,6 +46,7 @@ async function handleRequest(request: Request): Promise<Response> {
         console.log("  WARN", { previousValue: state.get(key) });
       }
       state.set(key, body);
+      await saveStateToFile(state);
       return new Response(body, { status: 200 });
     }
     default:

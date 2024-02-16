@@ -3,11 +3,20 @@ RUN apt-get update && \
     apt-get install -y curl git libpq-dev libssl-dev pkg-config protobuf-compiler && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/graphprotocol/graph-node /opt/build/graphprotocol/graph-node --branch 'v0.34.1'
-RUN --mount=type=cache,target=/root/.cargo/git \
-    --mount=type=cache,target=/root/.cargo/registry \
+ENV COMMIT_HASH='b1bf41c'
+ENV REPOSITORY='https://github.com/graphprotocol/graph-node'
+
+RUN git clone $REPOSITORY \
+    /opt/build/graphprotocol/graph-node &&\
+    cd /opt/build/graphprotocol/graph-node  && \
+    git checkout $COMMIT_HASH 
+
+RUN --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/opt/build/graphprotocol/graph-node/target \
     cd /opt/build/graphprotocol/graph-node/ && \
-    cargo build -p graph-node
+    cargo build -p graph-node &&\
+    cp target/debug/graph-node ./graph-node
 
 COPY ./.env ./graph-node/run.sh /opt/
 WORKDIR /opt/
