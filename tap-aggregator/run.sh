@@ -31,8 +31,7 @@ dynamic_host_setup() {
 
 dynamic_host_setup controller
 
-# echo "awaiting controller"
-sleep 1
+until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; done
 
 echo "awaiting scalar-tap-contracts"
 curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_contracts.json
@@ -50,6 +49,13 @@ export TAP_DOMAIN_VERIFYING_CONTRACT="${tap_verifier}"
 
 export RUST_LOG=debug
 
-cargo run -p tap_aggregator -- \
+ls -la
+
+if [ ! -f "./tap-aggregator" ]; then
+  cargo build -p tap_aggregator
+  cp target/debug/tap-aggregator ./tap-aggregator
+fi
+
+./tap-aggregator \
   --private-key ${GATEWAY_SIGNER_SECRET_KEY} \
   --port ${TAP_AGGREGATOR}

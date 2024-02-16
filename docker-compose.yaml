@@ -111,7 +111,6 @@ services:
       - controller
       - postgres
       - gateway
-      - indexer-service
 
   tap-agent:
     container_name: tap-agent
@@ -173,6 +172,8 @@ services:
       controller:
         condition: service_started
       postgres:
+        condition: service_started
+      indexer-agent:
         condition: service_started
 
   indexer-allocation:

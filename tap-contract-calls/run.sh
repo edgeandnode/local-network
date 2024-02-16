@@ -34,4 +34,12 @@ tap_contracts="$(curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contra
 export escrow="$(echo "${tap_contracts}" | jq -r '.escrow')"
 echo "escrow=${escrow}"
 
-python contract-calls.py "$escrow"
+response=$(curl -s --max-time 1 "http://${CONTROLLER_HOST}:${CONTROLLER}/tap_contract_calls" || true)
+if [ ! -n "$response" ]; then
+    python contract-calls.py "$escrow"
+    curl "http://${CONTROLLER_HOST}:${CONTROLLER}/escrow_subgraph" -d "true"
+else
+    echo "tap_contract_calls already exists"
+fi
+
+

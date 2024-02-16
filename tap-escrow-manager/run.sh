@@ -91,5 +91,10 @@ envsubst <../../../tap-escrow-manager/config.jsonnet >config.jsonnet
 jsonnet config.jsonnet >config.json
 cat config.json
 
+if [ ! -f "./tap-escrow-manager" ]; then
+  cargo build -p tap-escrow-manager
+  cp target/debug/tap-escrow-manager ./tap-escrow-manager
+fi
+
 export RUST_LOG=info,tap_escrow_manager=trace
-cargo run --bin tap-escrow-manager config.json
+./tap-escrow-manager config.json

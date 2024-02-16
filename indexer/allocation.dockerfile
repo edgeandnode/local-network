@@ -9,9 +9,11 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /opt/
 RUN git clone https://github.com/graphprotocol/contracts build/graphprotocol/contracts --branch 'v5.3.0'
-RUN cd build/graphprotocol/contracts && yarn && yarn build
-RUN git clone https://github.com/graphprotocol/indexer build/graphprotocol/indexer --branch 'gusinacio/agora-model-address-book-testnet'
-RUN cd build/graphprotocol/indexer && yarn
+RUN git clone https://github.com/graphprotocol/indexer build/graphprotocol/indexer --branch 'gusinacio/collect-tap-ravs'
+
+RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6,sharing=locked \
+    cd build/graphprotocol/contracts && yarn && yarn build && \
+    cd ../indexer && yarn
 
 COPY ./.env /opt/
 COPY ./indexer/ /opt/indexer/

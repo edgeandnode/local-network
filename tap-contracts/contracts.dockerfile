@@ -8,7 +8,8 @@ RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 
 WORKDIR /opt/
 RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-contracts build/semiotic-ai/timeline-aggregation-protocol-contracts --branch main
-RUN cd build/semiotic-ai/timeline-aggregation-protocol-contracts && yarn && forge build
+RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6,sharing=locked \
+    cd build/semiotic-ai/timeline-aggregation-protocol-contracts && yarn && forge build
 
 COPY ./.env /opt/
 COPY ./tap-contracts/ /opt/tap-contracts/

@@ -45,10 +45,15 @@ cd packages/indexer-agent
 
 echo "awaiting graph_contracts"
 curl "http://${CONTROLLER_HOST}:${CONTROLLER}/graph_contracts" >addresses.json
+
 echo "awaiting graph_subgraph"
 network_subgraph="$(curl "http://${CONTROLLER_HOST}:${CONTROLLER}/graph_subgraph")"
 
+echo "awaiting tap_contracts"
+curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" > escrow_addresses.json
+
 export INDEXER_AGENT_ADDRESS_BOOK=addresses.json
+export INDEXER_AGENT_ESCROW_ADDRESS_BOOK=escrow_addresses.json
 export INDEXER_AGENT_ALLOCATE_ON_NETWORK_SUBGRAPH=true
 export INDEXER_AGENT_COLLECT_RECEIPTS_ENDPOINT="http://${GATEWAY_HOST}:${GATEWAY}/collect-receipts"
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"

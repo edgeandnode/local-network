@@ -1,4 +1,4 @@
-FROM node:16-bullseye
+FROM node:18-bullseye
 RUN apt-get update && \
     apt-get install -y jq libssl-dev && \
     rm -rf /var/lib/apt/lists/*
@@ -8,12 +8,12 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-
 WORKDIR /opt/
-# RUN git clone https://github.com/graphprotocol/common-ts build/graphprotocol/common-ts --branch 'theodus/local-net'
-# RUN cd build/graphprotocol/common-ts && yarn
-RUN git clone https://github.com/graphprotocol/indexer build/graphprotocol/indexer --branch 'gusinacio/agora-model-address-book-testnet'
-RUN cd build/graphprotocol/indexer && yarn --frozen-lockfile --non-interactive
+
+RUN git clone https://github.com/graphprotocol/indexer build/graphprotocol/indexer --branch 'gusinacio/collect-tap-ravs'
+
+RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6,sharing=locked \
+    cd build/graphprotocol/indexer && yarn --frozen-lockfile --non-interactive
 
 COPY ./.env /opt/
 COPY ./indexer/ /opt/indexer/
