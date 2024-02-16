@@ -3,7 +3,7 @@ RUN apt-get update && \
     apt-get install -y curl git libpq-dev libssl-dev pkg-config protobuf-compiler jq && \
     rm -rf /var/lib/apt/lists/*
 
-RUN cargo install sqlx-cli --no-default-features --features native-tls,postgres
+RUN cargo install --locked sqlx-cli --no-default-features --features native-tls,postgres
 
 RUN git clone https://github.com/graphprotocol/indexer-rs /opt/build/graphprotocol/indexer-rs --branch 'main'
 RUN --mount=type=cache,target=/usr/local/cargo/registry/ \
