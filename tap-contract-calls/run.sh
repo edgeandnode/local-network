@@ -31,7 +31,7 @@ until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; 
 
 echo "awaiting scalar-tap-contracts"
 tap_contracts="$(curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts")"
-export escrow="$(echo "${tap_contracts}" | jq -r '."1337".escrow')"
+export escrow="$(echo "${tap_contracts}" | jq -r '."1337".Escrow')"
 echo "escrow=${escrow}"
 
 response=$(curl -s --max-time 1 "http://${CONTROLLER_HOST}:${CONTROLLER}/tap_contract_calls" || true)

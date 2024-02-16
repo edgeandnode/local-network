@@ -36,7 +36,7 @@ until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; 
 echo "awaiting scalar-tap-contracts"
 curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_contracts.json
 
-tap_verifier=$(cat scalar_tap_contracts.json | jq -r '."1337".tapVerifier')
+tap_verifier=$(cat scalar_tap_contracts.json | jq -r '."1337".TAPVerifier')
 echo "tap_verifier=${tap_verifier}"
 
 

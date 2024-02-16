@@ -50,7 +50,7 @@ token_contract="$(echo "${graph_contracts}" | jq -r '."1337".GraphToken.address'
 
 echo "awaiting scalar-tap-contracts"
 tap_contracts="$(curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts")"
-export escrow="$(echo "${tap_contracts}" | jq -r '."1337".escrow')"
+export escrow="$(echo "${tap_contracts}" | jq -r '."1337".Escrow')"
 echo "escrow=${escrow}"
 
 export GATEWAY_SENDER=${GATEWAY_SENDER_SECRET_KEY#0x}
