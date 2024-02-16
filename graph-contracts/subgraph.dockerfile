@@ -13,16 +13,9 @@ WORKDIR /opt/
 RUN git clone https://github.com/graphprotocol/graph-network-subgraph build/graphprotocol/graph-network-subgraph --branch 'master'
 
 RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6,sharing=locked \
-    --mount=type=bind,source=graph-contracts/localAddressScript.ts,target=/opt/graph-contracts/localAddressScript.ts \
     cd build/graphprotocol/graph-network-subgraph && \
     yarn && \
-    yarn add --dev ts-node && \
-    cp ../../../graph-contracts/localAddressScript.ts config/ &&\
-    npx ts-node config/localAddressScript.ts &&\
-    npx mustache ./config/generatedAddresses.json ./config/addresses.template.ts > ./config/addresses.ts &&\
-    npx mustache ./config/generatedAddresses.json subgraph.template.yaml > subgraph.yaml &&\
-    npx graph codegen --output-dir src/types/ &&\
-    npx graph build
+    yarn add --dev ts-node
 
 COPY ./.env /opt/
 COPY ./graph-contracts/ /opt/graph-contracts/
