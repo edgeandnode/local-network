@@ -71,6 +71,12 @@ jsonnet config.jsonnet >config.json
 export RUST_LOG=info,graph_gateway=trace,gateway_framework=trace,gateway_framework::chains::ethereum::json_rpc=info
 if cargo --list | grep watch; then
   cargo watch -x 'run --bin graph-gateway config.json'
+else 
+  if [ ! -f "./gateway" ]; then
+    cargo build -p graph-gateway
+    cp target/debug/graph-gateway ./gateway
+  fi
+  ./gateway config.json
 else
   cargo run --bin graph-gateway config.json
 fi

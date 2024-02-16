@@ -8,11 +8,14 @@ RUN mkdir -p -m 0700 ~/.ssh && \
 RUN --mount=type=ssh \
     git clone git@github.com:edgeandnode/graph-gateway /opt/build/edgeandnode/graph-gateway --branch 'main'
 RUN --mount=type=ssh \
-    --mount=type=cache,target=/root/.cargo/git \
-    --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/opt/build/edgeandnode/graph-gateway/target \
+    cargo install cargo-watch && \
     cd /opt/build/edgeandnode/graph-gateway/ && \
     git checkout -b temp a7874e0acd59f29d947d8a9ef157e4179716058d && \
-    cargo build -p graph-gateway
+    cargo build -p graph-gateway && \
+    cp target/debug/graph-gateway ./gateway
 
 COPY ./.env ./gateway/run.sh /opt/
 COPY ./gateway/ /opt/gateway/

@@ -29,15 +29,13 @@ dynamic_host_setup() {
     eval echo "${export_name} is set to \$${export_name}"
 }
 
-dynamic_host_setup controller
-dynamic_host_setup postgres
-dynamic_host_setup graph-node
-dynamic_host_setup indexer-agent
 
 echo "awaiting controller"
+dynamic_host_setup controller
 until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; done
 
 echo "awaiting postgres"
+dynamic_host_setup postgres
 until curl -s "http://${POSTGRES_HOST}:${POSTGRES}"; [ $? = 52 ]; do sleep 1; done
 
 echo "awaiting network subgraph"
@@ -51,11 +49,14 @@ echo "escrow_subgraph=${escrow_subgraph}"
 echo "awaiting scalar-tap-contracts"
 curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" >scalar_tap_contracts.json
 
+dynamic_host_setup indexer-agent
 echo "awaiting indexer-agent"
 until curl -s "http://${INDEXER_AGENT_HOST}:${INDEXER_MANAGEMENT}" >/dev/null; do sleep 1; done
 
 tap_verifier=$(cat scalar_tap_contracts.json | jq -r '."1337".TAPVerifier')
 echo "tap_verifier=${tap_verifier}"
+
+dynamic_host_setup graph-node
 
 cd build/graphprotocol/indexer-rs
 cat <<-EOT > config.toml
