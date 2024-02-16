@@ -11,7 +11,7 @@
             rpc: "http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}",
         },
     ],
-    exchange_rate_provider: "1.0",
+    exchange_rate_provider: 1.0,
     graph_env_id: "localnet",
     indexer_selection_retry_limit: 2,
     ipfs: "http://${DOCKER_GATEWAY_HOST}:${IPFS_RPC}/api/v0/cat?arg=",
