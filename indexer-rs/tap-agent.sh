@@ -100,7 +100,7 @@ escrow_subgraph_endpoint = "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL}/subg
 escrow_syncing_interval_ms = 60000
 
 [tap]
-rav_request_trigger_value = 1
+rav_request_trigger_value = 40000000000000
 rav_request_timestamp_buffer_ms = 1000
 rav_request_timeout_secs = 5
 sender_aggregator_endpoints_file = "endpoints.yaml"
