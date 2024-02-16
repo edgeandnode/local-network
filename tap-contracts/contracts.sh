@@ -68,7 +68,7 @@ if [ ! -n "$response" ]; then
     escrow=$(echo "${escrow_deployment}" | jq -r '.deployedTo')
     echo "escrow=${escrow}"
 
-    curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" -d "{\"allocation_tracker\":\"${allocation_tracker}\",\"tap_verifier\":\"${tap_verifier}\",\"escrow\":\"${escrow}\"}"
+    curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" -d "{\"allocationIDTracker\":\"${allocation_tracker}\",\"tapVerifier\":\"${tap_verifier}\",\"escrow\":\"${escrow}\"}"
 else
     echo "already deployed response=${response}"
 fi
