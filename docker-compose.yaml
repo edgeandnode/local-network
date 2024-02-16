@@ -221,6 +221,8 @@ services:
     build:
       dockerfile: gateway/Dockerfile
       ssh: ["default"]
+    volumes: 
+      - ../gateway:/opt/build/graphprotocol/gateway
     ports:
       - ${GATEWAY}:6700
     depends_on:

@@ -11,6 +11,7 @@ RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.cargo/registry \
     cd /opt/build/edgeandnode/graph-gateway/ && \
+    git checkout -b temp a7874e0acd59f29d947d8a9ef157e4179716058d && \
     cargo build -p graph-gateway
 
 COPY ./.env ./gateway/run.sh /opt/
