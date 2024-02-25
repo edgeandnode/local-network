@@ -15,6 +15,7 @@ RUN --mount=type=ssh \
     --mount=type=cache,target=/opt/build/edgeandnode/graph-gateway/target \
     cargo install cargo-watch && \
     cd /opt/build/edgeandnode/graph-gateway/ && \
+    git checkout dcf62f6 && \
     cargo build -p graph-gateway && \
     cp target/debug/graph-gateway ./gateway
 
