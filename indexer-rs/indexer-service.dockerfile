@@ -1,4 +1,4 @@
-FROM rust:1.70.0-slim-bullseye
+FROM rust:1.76.0-slim-bullseye
 RUN apt-get update && \
     apt-get install -y curl git libpq-dev libssl-dev pkg-config protobuf-compiler jq && \
     rm -rf /var/lib/apt/lists/*
