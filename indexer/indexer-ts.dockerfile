@@ -1,6 +1,6 @@
-FROM node:18-bullseye
+FROM node:18-bookworm
 RUN apt-get update && \
-    apt-get install -y jq libssl-dev && \
+    apt-get install -y jq libssl-dev build-essential && \
     rm -rf /var/lib/apt/lists/*
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
