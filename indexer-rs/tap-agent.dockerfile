@@ -8,7 +8,7 @@ RUN cargo install --locked sqlx-cli --no-default-features --features native-tls,
 RUN git clone https://github.com/graphprotocol/indexer-rs /opt/build/graphprotocol/indexer-rs --branch 'main'
 RUN --mount=type=cache,target=/usr/local/cargo/registry/ \
     --mount=type=cache,target=/usr/local/cargo/git/ \
-    --mount=type=cache,target=/opt/build/graphprotocol/indexer-rs/target \
+    --mount=type=cache,target=/opt/build/graphprotocol/indexer-rs/target,sharing=locked \
     cd /opt/build/graphprotocol/indexer-rs/ && \
     cargo build -p indexer-tap-agent && \
     cp target/debug/indexer-tap-agent ./indexer-tap-agent && \
