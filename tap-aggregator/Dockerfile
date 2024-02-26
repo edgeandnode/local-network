@@ -4,7 +4,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 
-RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol /opt/build/semiotic-ai/timeline-aggregation-protocol --branch 'aasseman/tap_core_0_7_0_fix_toolshed_dep'
+RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol /opt/build/semiotic-ai/timeline-aggregation-protocol --branch 'main'
 RUN --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/opt/build/semiotic-ai/timeline-aggregation-protocol/target \
