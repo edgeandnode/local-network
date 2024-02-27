@@ -8,7 +8,8 @@
     chains: [
         {
             names: ["hardhat"],
-            rpc: "http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}",
+            rpc_type: "ethereum",
+            rpc_url: "http://${DOCKER_GATEWAY_HOST}:${CHAIN_RPC}",
         },
     ],
     exchange_rate_provider: 1.0,
@@ -25,7 +26,7 @@
     network_subgraph: "http://${DOCKER_GATEWAY_HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network",
     port_api: 6700,
     port_metrics: 7301,
-    query_fees_target: 20e-6,
+    query_fees_target: 30e-6,
     scalar: {
         chain_id: "1337",
         signer: "${GATEWAY_SIGNER}",

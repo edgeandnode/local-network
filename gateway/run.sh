@@ -32,7 +32,7 @@ echo "GATEWAY_SIGNER=${GATEWAY_SIGNER}"
 
 envsubst <../../../gateway/config.jsonnet >config.jsonnet
 jsonnet config.jsonnet >config.json
-export RUST_LOG=info,graph_gateway=trace,graph_gateway::chains=debug
+export RUST_LOG=info,graph_gateway=trace,gateway_framework=trace
 if cargo --list | grep watch; then
   cargo watch -x 'run --bin graph-gateway config.json'
 else
