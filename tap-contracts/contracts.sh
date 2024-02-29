@@ -60,7 +60,7 @@ if [ ! -n "$response" ]; then
     allocation_tracker=$(echo "${allocation_tracker_deployment}" | jq -r '.deployedTo')
     echo "allocation_tracker=${allocation_tracker}"
 
-    tap_verifier_deployment=$(forge create --rpc-url "http://${CHAIN_HOST}:${CHAIN_RPC}" --private-key "${GATEWAY_SIGNER_SECRET_KEY}" src/TAPVerifier.sol:TAPVerifier --constructor-args 'tapVerifier' '1.0' --json)
+    tap_verifier_deployment=$(forge create --rpc-url "http://${CHAIN_HOST}:${CHAIN_RPC}" --private-key "${GATEWAY_SIGNER_SECRET_KEY}" src/TAPVerifier.sol:TAPVerifier --constructor-args 'TAP' '1' --json)
     tap_verifier=$(echo "${tap_verifier_deployment}" | jq -r '.deployedTo')
     echo "tap_verifier=${tap_verifier}"
 
