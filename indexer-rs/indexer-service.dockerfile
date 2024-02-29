@@ -10,6 +10,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry/ \
     --mount=type=cache,target=/usr/local/cargo/git/ \
     --mount=type=cache,target=/opt/build/graphprotocol/indexer-rs/target,sharing=locked \
     cd /opt/build/graphprotocol/indexer-rs/ && \
+    git checkout 04960d6 && \
     cargo build -p service && \
     cp target/debug/service ./indexer-service && \
     chmod +x ./indexer-service
