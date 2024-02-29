@@ -53,7 +53,7 @@ ls -la
 
 if [ ! -f "./tap-aggregator" ]; then
   cargo build -p tap_aggregator
-  cp target/debug/tap-aggregator ./tap-aggregator
+  cp target/debug/tap_aggregator ./tap-aggregator
 fi
 
 ./tap-aggregator \

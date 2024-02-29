@@ -7,11 +7,11 @@ if [ ! -d "build/graphprotocol/indexer-rs" ]; then
 fi
 
 . ./.env
-if ! grep -q docker /proc/1/cgroup; then 
+
+if [ ! -f /.dockerenv ]; then
+  echo "Not running in Docker, setting DOCKER_GATEWAY_HOST to 127.0.0.1"
   export DOCKER_GATEWAY_HOST=127.0.0.1
 fi
-
-
 
 dynamic_host_setup() {
     if [ $# -eq 0 ]; then

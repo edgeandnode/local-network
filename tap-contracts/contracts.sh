@@ -39,7 +39,7 @@ until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; 
 echo "awaiting contracts"
 curl "http://${CONTROLLER_HOST}:${CONTROLLER}/graph_contracts" >graph_contracts.json
 
-staking=$(cat graph_contracts.json | jq -r '."1337".StakingExtension.address')
+staking=$(cat graph_contracts.json | jq -r '."1337".L1Staking.address')
 echo "staking=${staking}"
 graph_token=$(cat graph_contracts.json | jq -r '."1337".GraphToken.address')
 echo "graph_token=${graph_token}"
