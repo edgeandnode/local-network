@@ -53,7 +53,7 @@ if [ ! -n "$response" ]; then
     export HARDHAT_DISABLE_TELEMETRY_PROMPT=true
     yarn install
     forge build
-
+    
     cast send --rpc-url "http://${CHAIN_HOST}:${CHAIN_RPC}" --private-key "${ACCOUNT0_SECRET_KEY}" --from "${ACCOUNT0_ADDRESS}" --value "0.01ether" "${GATEWAY_SIGNER_ADDRESS}"
 
     allocation_tracker_deployment=$(forge create --rpc-url "http://${CHAIN_HOST}:${CHAIN_RPC}" --private-key "${GATEWAY_SIGNER_SECRET_KEY}" src/AllocationIDTracker.sol:AllocationIDTracker --json)
@@ -67,6 +67,11 @@ if [ ! -n "$response" ]; then
     escrow_deployment=$(forge create --rpc-url "http://${CHAIN_HOST}:${CHAIN_RPC}" --private-key "${GATEWAY_SIGNER_SECRET_KEY}" src/Escrow.sol:Escrow --constructor-args "${graph_token}" "${staking}" "${tap_verifier}" "${allocation_tracker}" 10 15 --json)
     escrow=$(echo "${escrow_deployment}" | jq -r '.deployedTo')
     echo "escrow=${escrow}"
+
+    echo "Setting the asset holder"
+
+    cast send "--rpc-url=http://${CHAIN_HOST}:${CHAIN_RPC}" --confirmations=0 "--mnemonic=${MNEMONIC}" \
+      "${staking}" 'setAssetHolder(address,bool)' "${escrow}" "true"
 
     curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" -d "{ \"1337\": { \"AllocationIDTracker\":\"${allocation_tracker}\",\"TAPVerifier\":\"${tap_verifier}\",\"Escrow\":\"${escrow}\"}}"
 else
