@@ -104,24 +104,13 @@ A local graph network for integration testing
     -d '{"query": "{ networks { id latestValidBlockNumber { id } } }"}'
   ```
 
-### Studio
-
-- Get API key
-
-  ```bash
-  API_KEY=$(curl -s "http://localhost:${STUDIO_ADMIN}/admin/v1/gateway-api-keys" \
-    -H "Authorization: Bearer $(curl -s http://localhost:${CONTROLLER}/studio_admin_auth)" \
-    | jq '.api_keys[0].key' -r) && \
-    echo ${API_KEY}
-  ```
-
 ### Gateway
 
 - Query gateway by deployment
 
   ```bash
   curl "http://localhost:${GATEWAY}/api/deployments/id/$(curl -s http://localhost:${CONTROLLER}/block_oracle_subgraph)" \
-    -H 'content-type: application/json' -H "Authorization: Bearer ${API_KEY}" \
+    -H 'content-type: application/json' -H "Authorization: Bearer deadbeefdeadbeefdeadbeefdeadbeef" \
     -d '{"query": "{ _meta { block { number } } }"}'
   ```
 

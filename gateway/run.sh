@@ -22,17 +22,12 @@ dispute_manager="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/graph_contr
 echo "dispute_manager=${dispute_manager}"
 export DISPUTE_MANAGER="${dispute_manager}"
 
-echo "awaiting studio_admin_auth"
-studio_admin_auth="$(curl "http://${DOCKER_GATEWAY_HOST}:${CONTROLLER}/studio_admin_auth")"
-echo "studio_admin_auth=${studio_admin_auth}"
-export STUDIO_AUTH="${studio_admin_auth}"
-
 export GATEWAY_SIGNER=${ACCOUNT1_SECRET_KEY}
 echo "GATEWAY_SIGNER=${GATEWAY_SIGNER}"
 
 envsubst <../../../gateway/config.jsonnet >config.jsonnet
 jsonnet config.jsonnet >config.json
-export RUST_LOG=info,graph_gateway=trace,gateway_framework=trace
+export RUST_LOG=info,graph_gateway=trace,gateway_framework=trace,gateway_framework::chains::ethereum::json_rpc=info
 if cargo --list | grep watch; then
   cargo watch -x 'run --bin graph-gateway config.json'
 else
