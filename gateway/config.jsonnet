@@ -10,7 +10,6 @@
             query_status: "ACTIVE",
         }
     ],
-    chains: [],
     block_oracle_subgraph: "http://${DOCKER_GATEWAY_HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle",
     exchange_rate_provider: 1.0,
     graph_env_id: "localnet",
