@@ -56,6 +56,12 @@ A local graph network for integration testing
     '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest", false],"id":1}'
   ```
 
+- Mine block
+
+  ```bash
+  cast rpc evm_mine
+  ```
+
 ### Postgres
 
 - Login
