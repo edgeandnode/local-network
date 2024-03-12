@@ -1,8 +1,9 @@
-FROM ghcr.io/foundry-rs/foundry:latest
-RUN apk update && \
-    apk upgrade && \
-    apk add curl nodejs npm jq yarn && \
-    rm -rf /var/cache/apk/*
+FROM node:20-bookworm
+RUN apt-get update && \
+    apt-get install -y curl jq yarn && \
+    rm -rf /var/lib/apt/lists/*
+RUN curl -L https://foundry.paradigm.xyz | bash && . /root/.bashrc && foundryup
+ENV PATH="$PATH:/root/.foundry/bin"
 
 WORKDIR /opt/
 RUN git clone https://github.com/graphprotocol/graph-network-subgraph build/graphprotocol/graph-network-subgraph --branch 'master'
