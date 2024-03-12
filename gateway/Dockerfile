@@ -6,7 +6,7 @@ RUN apt-get update && \
 RUN mkdir -p -m 0700 ~/.ssh && \
     ssh-keyscan github.com >> ~/.ssh/known_hosts
 RUN --mount=type=ssh \
-    git clone git@github.com:edgeandnode/graph-gateway /opt/build/edgeandnode/graph-gateway --branch 'v18.2.0'
+    git clone git@github.com:edgeandnode/graph-gateway /opt/build/edgeandnode/graph-gateway --branch 'v19.0.0'
 RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.cargo/registry \
