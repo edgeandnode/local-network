@@ -33,7 +33,7 @@ services:
       - --smp 1
       - --memory 1G
       - --mode dev-container
-      - --default-log-level=debug
+      - --default-log-level=info
       - --kafka-addr 0.0.0.0:9092
       - --pandaproxy-addr 0.0.0.0:8082
       - --schema-registry-addr 0.0.0.0:8081
