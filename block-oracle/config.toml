@@ -1,3 +1,4 @@
+blockmeta_auth_token = ""
 owner_address = "$BLOCK_ORACLE_OWNER_ADDRESS"
 owner_private_key = "$BLOCK_ORACLE_OWNER_SECRET_KEY"
 data_edge_address = "$DATA_EDGE_CONTRACT_ADDRESS"
