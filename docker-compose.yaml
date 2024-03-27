@@ -184,24 +184,6 @@ services:
       - ipfs
       - chain
 
-  studio-api:
-    container_name: studio-api
-    build:
-      dockerfile: studio/Dockerfile
-      ssh: ["default"]
-    command: sh studio/api.sh
-    ports:
-      - ${STUDIO_API}:4000
-
-  studio-admin:
-    container_name: studio-admin
-    build:
-      dockerfile: studio/Dockerfile
-      ssh: ["default"]
-    command: sh studio/admin.sh
-    ports:
-      - ${STUDIO_ADMIN}:4003
-
   tap-escrow-manager:
     container_name: tap-escrow-manager
     build:

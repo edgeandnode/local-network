@@ -29,11 +29,8 @@ dynamic_host_setup() {
     eval echo "${export_name} is set to \$${export_name}"
 }
 
-dynamic_host_setup controller
-dynamic_host_setup chain
-dynamic_host_setup redpanda
-dynamic_host_setup graph-node
 
+dynamic_host_setup controller
 until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}" >/dev/null; do sleep 1; done
 
 echo "awaiting network subgraph"
@@ -57,10 +54,12 @@ export GATEWAY_SENDER=${GATEWAY_SENDER_SECRET_KEY#0x}
 echo "GATEWAY_SENDER=${GATEWAY_SENDER}"
 
 
+dynamic_host_setup redpanda
 export KAFKA_TOPIC="gateway_indexer_attempts"
 export BOOTSTRAP_SERVERS="${REDPANDA_HOST}:${REDPANDA_KAFKA}"
 rpk topic create $KAFKA_TOPIC --brokers=$BOOTSTRAP_SERVERS || true
 
+dynamic_host_setup chain
 # Fund the gateway with ETH and GRT
 echo "Fund gateway with ETH"
 cast send \
@@ -86,6 +85,8 @@ cast send \
   '1000000000000000000000000'
 
 cd build/edgeandnode/tap-escrow-manager
+
+dynamic_host_setup graph-node
 
 envsubst <../../../tap-escrow-manager/config.jsonnet >config.jsonnet
 jsonnet config.jsonnet >config.json

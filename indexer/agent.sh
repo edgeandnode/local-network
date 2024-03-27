@@ -57,8 +57,12 @@ network_subgraph="$(curl "http://${CONTROLLER_HOST}:${CONTROLLER}/graph_subgraph
 echo "awaiting tap_contracts"
 curl "http://${CONTROLLER_HOST}:${CONTROLLER}/scalar_tap_contracts" > escrow_addresses.json
 
+echo "awaiting escrow subgraph"
+escrow_subgraph="$(curl "http://${CONTROLLER_HOST}:${CONTROLLER}/escrow_subgraph")"
+echo "escrow_subgraph=${escrow_subgraph}"
+
 export INDEXER_AGENT_ADDRESS_BOOK=addresses.json
-export INDEXER_AGENT_ESCROW_ADDRESS_BOOK=escrow_addresses.json
+export INDEXER_AGENT_TAP_ADDRESS_BOOK=escrow_addresses.json
 export INDEXER_AGENT_ALLOCATE_ON_NETWORK_SUBGRAPH=true
 export INDEXER_AGENT_COLLECT_RECEIPTS_ENDPOINT="http://${GATEWAY_HOST}:${GATEWAY}/collect-receipts"
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
@@ -73,6 +77,8 @@ export INDEXER_AGENT_INDEXER_GEO_COORDINATES="-69.42069 69.42069"
 export INDEXER_AGENT_INDEX_NODE_IDS=default
 export INDEXER_AGENT_LOG_LEVEL=trace
 export INDEXER_AGENT_MNEMONIC="${MNEMONIC}"
+export INDEXER_AGENT_TAP_SUBGRAPH_DEPLOYMENT="${escrow_subgraph}"
+export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/id/${escrow_subgraph}"
 export INDEXER_AGENT_NETWORK_SUBGRAPH_DEPLOYMENT="${network_subgraph}"
 export INDEXER_AGENT_NETWORK_SUBGRAPH_ENDPOINT="http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/id/${network_subgraph}"
 export INDEXER_AGENT_POI_DISPUTE_MONITORING="false"

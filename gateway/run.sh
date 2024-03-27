@@ -34,7 +34,6 @@ dynamic_host_setup graph-node
 dynamic_host_setup chain
 dynamic_host_setup ipfs
 dynamic_host_setup redpanda
-dynamic_host_setup studio-admin
 
 echo "awaiting graph_subgraph"
 until curl -s "http://${CONTROLLER_HOST}:${CONTROLLER}/graph_subgraph" >/dev/null; do sleep 1; done
@@ -58,11 +57,6 @@ tap_verifier=$(cat scalar_tap_contracts.json | jq -r '."1337".TAPVerifier')
 echo "tap_verifier=${tap_verifier}"
 export TAP_VERIFIER="${tap_verifier}"
 
-echo "awaiting studio_admin_auth"
-studio_admin_auth="$(curl "http://${CONTROLLER_HOST}:${CONTROLLER}/studio_admin_auth")"
-echo "studio_admin_auth=${studio_admin_auth}"
-export STUDIO_AUTH="${studio_admin_auth}"
-
 export GATEWAY_SIGNER=${GATEWAY_SIGNER_SECRET_KEY}
 echo "GATEWAY_SIGNER=${GATEWAY_SIGNER}"
 
@@ -77,6 +71,4 @@ else
     cp target/debug/graph-gateway ./gateway
   fi
   ./gateway config.json
-else
-  cargo run --bin graph-gateway config.json
 fi
