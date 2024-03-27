@@ -10,6 +10,5 @@ WORKDIR /opt/
 RUN git clone https://github.com/graphprotocol/contracts build/graphprotocol/contracts --branch 'v5.3.0'
 RUN cd build/graphprotocol/contracts && yarn && yarn build
 
-COPY ./.env /opt/
-COPY ./graph-contracts/ /opt/graph-contracts/
-CMD sh ./graph-contracts/contracts.sh
+COPY . /opt/
+CMD sh ./contracts.sh

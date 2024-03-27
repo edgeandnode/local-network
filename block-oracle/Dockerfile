@@ -18,6 +18,5 @@ RUN --mount=type=cache,target=/root/.cargo/git \
 RUN cd build/graphprotocol/block-oracle/packages/contracts && yarn && \
     cd ../subgraph && yarn
 
-COPY ./.env /opt/
-COPY ./block-oracle/ /opt/block-oracle/
-CMD sh ./block-oracle/run.sh
+COPY . /opt/
+CMD sh ./run.sh

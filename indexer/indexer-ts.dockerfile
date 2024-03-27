@@ -9,5 +9,4 @@ WORKDIR /opt/
 RUN git clone https://github.com/graphprotocol/indexer build/graphprotocol/indexer --branch 'theodus/local-net'
 RUN cd build/graphprotocol/indexer && yarn --frozen-lockfile --non-interactive
 
-COPY ./.env /opt/
-COPY ./indexer/ /opt/indexer/
+COPY . /opt/

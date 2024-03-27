@@ -9,6 +9,5 @@ WORKDIR /opt/
 RUN git clone https://github.com/graphprotocol/graph-network-subgraph build/graphprotocol/graph-network-subgraph --branch 'master'
 RUN cd build/graphprotocol/graph-network-subgraph && yarn
 
-COPY ./.env /opt/
-COPY ./graph-contracts/ /opt/graph-contracts/
-ENTRYPOINT sh ./graph-contracts/subgraph.sh
+COPY . /opt/
+ENTRYPOINT sh ./subgraph.sh

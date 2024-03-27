@@ -5,6 +5,11 @@ services:
     build: { dockerfile: controller/Dockerfile }
     ports:
       - ${CONTROLLER}:6001
+    healthcheck:
+      test: "curl -f http://localhost:${CONTROLLER}/"
+      interval: 2s
+      timeout: 2s
+      retries: 10
 
   chain:
     container_name: chain
@@ -23,10 +28,9 @@ services:
     container_name: redpanda
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
     ports:
+      - ${REDPANDA_PANDAPROXY}:8082
       - ${REDPANDA_KAFKA}:9092
       - ${REDPANDA_ADMIN}:9644
-      - ${REDPANDA_PANDAPROXY}:8082
-      - ${REDPANDA_SCHEMA_REGISTRY}:8081
     command:
       - redpanda
       - start
@@ -35,8 +39,9 @@ services:
       - --mode dev-container
       - --default-log-level=info
       - --kafka-addr 0.0.0.0:9092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
       - --pandaproxy-addr 0.0.0.0:8082
-      - --schema-registry-addr 0.0.0.0:8081
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
 
   postgres:
     container_name: postgres
@@ -49,52 +54,114 @@ services:
     environment:
       POSTGRES_INITDB_ARGS: "--encoding UTF8 --locale=C"
       POSTGRES_HOST_AUTH_METHOD: trust
-      POSTGRES_USER: dev
+      POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD:
 
   graph-node:
     container_name: graph-node
-    build: { dockerfile: graph-node/Dockerfile }
+    build:
+      context: graph-node
+      dockerfile: Dockerfile
+    depends_on:
+      controller: { condition: service_healthy }
+      ipfs: { condition: service_started }
+      postgres: { condition: service_started }
+    volumes:
+      - ./.env:/opt/.env:ro
     ports:
       - ${GRAPH_NODE_GRAPHQL}:8000
       - ${GRAPH_NODE_ADMIN}:8020
       - ${GRAPH_NODE_STATUS}:8030
       - ${GRAPH_NODE_METRICS}:8040
+    healthcheck:
+      test: "curl -f http://localhost:${GRAPH_NODE_STATUS}/"
+      interval: 2s
+      timeout: 2s
+      retries: 10
 
   graph-contracts:
     container_name: graph-contracts
-    build: { dockerfile: graph-contracts/contracts.dockerfile }
+    build:
+      context: graph-contracts
+      dockerfile: contracts.dockerfile
+    depends_on:
+      graph-node: { condition: service_healthy }
+    volumes:
+      - ./.env:/opt/.env:ro
 
   graph-subgraph:
     container_name: graph-subgraph
-    build: { dockerfile: graph-contracts/subgraph.dockerfile }
+    build:
+      context: graph-contracts
+      dockerfile: subgraph.dockerfile
+    depends_on:
+      graph-contracts: { condition: service_completed_successfully }
+    volumes:
+      - ./.env:/opt/.env:ro
 
   block-oracle:
     container_name: block-oracle
-    build: { dockerfile: block-oracle/Dockerfile }
+    build:
+      context: block-oracle
+      dockerfile: Dockerfile
+    depends_on:
+      graph-subgraph: { condition: service_completed_successfully }
+    volumes:
+      - ./.env:/opt/.env:ro
+    healthcheck:
+      test: "curl http://controller:${CONTROLLER}/block_oracle_subgraph"
+      interval: 2s
+      timeout: 2s
+      retries: 10
 
   indexer-agent:
     container_name: indexer-agent
-    build: { dockerfile: indexer/indexer-ts.dockerfile }
-    command: sh indexer/agent.sh
+    build:
+      context: indexer
+      dockerfile: indexer-ts.dockerfile
+    depends_on:
+      block-oracle: { condition: service_healthy }
+    command: sh agent.sh
+    volumes:
+      - ./.env:/opt/.env:ro
     ports:
       - ${INDEXER_MANAGEMENT}:18000
+    healthcheck:
+      test: "curl -f http://localhost:${INDEXER_MANAGEMENT}"
+      interval: 2s
+      timeout: 2s
+      retries: 10
 
   indexer-service:
     container_name: indexer-service
-    build: { dockerfile: indexer/indexer-ts.dockerfile }
-    command: sh indexer/service.sh
+    build:
+      context: indexer
+      dockerfile: indexer-ts.dockerfile
+    command: sh service.sh
+    volumes:
+      - ./.env:/opt/.env:ro
     ports:
       - ${INDEXER_SERVICE}:7600
 
   indexer-allocation:
     container_name: indexer-allocation
-    build: { dockerfile: indexer/allocation.dockerfile }
+    build:
+      context: indexer
+      dockerfile: allocation.dockerfile
+    depends_on:
+      indexer-agent: { condition: service_healthy }
+    volumes:
+      - ./.env:/opt/.env:ro
 
   gateway:
     container_name: gateway
     build:
-      dockerfile: gateway/Dockerfile
+      context: gateway
+      dockerfile: Dockerfile
       ssh: ["default"]
+    depends_on:
+      graph-subgraph: { condition: service_completed_successfully }
+    volumes:
+      - ./.env:/opt/.env:ro
     ports:
       - ${GATEWAY}:6700

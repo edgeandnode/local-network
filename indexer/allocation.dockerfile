@@ -13,6 +13,5 @@ RUN cd build/graphprotocol/contracts && yarn && yarn build
 RUN git clone https://github.com/graphprotocol/indexer build/graphprotocol/indexer --branch 'v0.20.23'
 RUN cd build/graphprotocol/indexer && yarn
 
-COPY ./.env /opt/
-COPY ./indexer/ /opt/indexer/
-CMD sh ./indexer/allocation.sh
+COPY . /opt/
+CMD sh ./allocation.sh

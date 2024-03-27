@@ -45,14 +45,14 @@ A local graph network for integration testing
 - Enable logging
 
   ```bash
-  curl "localhost:8545" -X POST --data \
+  curl "localhost:${CHAIN_RPC}" -X POST --data \
     '{"jsonrpc":"2.0","method":"hardhat_setLoggingEnabled","params":[true],"id":1}'
   ```
 
 - Check chain head
 
   ```bash
-  curl "localhost:8545" -X POST --data \
+  curl "localhost:${CHAIN_RPC}" -X POST --data \
     '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest", false],"id":1}'
   ```
 
