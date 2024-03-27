@@ -14,7 +14,6 @@ RUN git clone https://github.com/graphprotocol/block-oracle build/graphprotocol/
 # Install dependencies
 # Compile contracts
 # Compile subgraph
-RUN 
 
 RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6,sharing=locked \
     cd /opt/build/graphprotocol/block-oracle/packages/contracts && \

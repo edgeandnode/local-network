@@ -9,7 +9,6 @@ RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 
 WORKDIR /opt/
 RUN git clone https://github.com/graphprotocol/contracts build/graphprotocol/contracts --branch 'v5.3.0'
-RUN 
 
 RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6,sharing=locked \
     cd build/graphprotocol/contracts && yarn && yarn build
