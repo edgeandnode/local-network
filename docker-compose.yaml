@@ -95,6 +95,5 @@ services:
     container_name: gateway
     build:
       dockerfile: gateway/Dockerfile
-      ssh: ["default"]
     ports:
       - ${GATEWAY}:6700
