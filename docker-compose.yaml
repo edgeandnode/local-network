@@ -158,7 +158,6 @@ services:
     build:
       context: gateway
       dockerfile: Dockerfile
-      ssh: ["default"]
     depends_on:
       graph-subgraph: { condition: service_completed_successfully }
     volumes:
