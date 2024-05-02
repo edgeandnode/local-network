@@ -5,3 +5,9 @@ services:
     ports: ["${CHAIN_RPC}:8545"]
     command: ["anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0"]
     healthcheck: { interval: 1s, retries: 10, test: cast block }
+
+  ipfs:
+    container_name: ipfs
+    image: ipfs/kubo:v0.27.0
+    ports: ["${IPFS_RPC}:5001"]
+    healthcheck: { interval: 1s, retries: 10, test: ipfs id }
