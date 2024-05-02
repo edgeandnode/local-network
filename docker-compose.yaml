@@ -51,3 +51,17 @@ services:
     volumes:
       - ./.env:/opt/.env:ro
       - ./graph-contracts.json:/opt/graph-contracts.json:ro
+
+  block-oracle:
+    container_name: block-oracle
+    build: { context: block-oracle }
+    depends_on:
+      graph-contracts: { condition: service_completed_successfully }
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./graph-contracts.json:/opt/graph-contracts.json:ro
+    healthcheck:
+      interval: 1s
+      retries: 600
+      test: curl -f http://127.0.0.1:9090/metrics
