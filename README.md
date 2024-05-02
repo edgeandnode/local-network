@@ -77,3 +77,8 @@ a local Graph network for debugging & integration tests
     }
   }
   ```
+
+## indexer-agent
+
+- `graph indexer connect http://localhost:7600`
+- `graph indexer --network=hardhat status`
