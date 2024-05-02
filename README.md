@@ -31,3 +31,32 @@ a local Graph network for debugging & integration tests
 ## graph-node
 
 - GraphiQL interface: http://localhost:8000/subgraphs/name/${subgraph_name}/graphql
+
+## graph-contracts
+
+- subgraph: http://localhost:8000/subgraphs/name/graph-network
+  ```graphql
+  {
+    indexers {
+      id
+      url
+    }
+    subgraphs {
+      id
+      versions {
+        subgraphDeployment {
+          ipfsHash
+          indexerAllocations {
+            id
+            status
+            indexer { id }
+          }
+        }
+      }
+    }
+    _meta {
+      block { number }
+      deployment
+    }
+  }
+  ```
