@@ -35,6 +35,7 @@ a local Graph network for debugging & integration tests
 ## graph-contracts
 
 - subgraph: http://localhost:8000/subgraphs/name/graph-network
+
   ```graphql
   {
     indexers {
@@ -53,6 +54,22 @@ a local Graph network for debugging & integration tests
           }
         }
       }
+    }
+    _meta {
+      block { number }
+      deployment
+    }
+  }
+  ```
+
+## block-oracle
+
+- subgraph: http://localhost:8000/subgraphs/name/block-oracle
+
+  ```graphql
+  {
+    networks {
+      id
     }
     _meta {
       block { number }
