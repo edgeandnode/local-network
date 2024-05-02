@@ -27,3 +27,7 @@ a local Graph network for debugging & integration tests
 ## postgres
 
 - `psql -h localhost -U postgres`
+
+## graph-node
+
+- GraphiQL interface: http://localhost:8000/subgraphs/name/${subgraph_name}/graphql
