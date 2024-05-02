@@ -89,3 +89,14 @@ services:
     volumes:
       - ./.env:/opt/.env:ro
       - ./graph-contracts.json:/opt/graph-contracts.json:ro
+
+  indexer-service-ts:
+    container_name: indexer-service-ts
+    build: { context: indexer-service-ts }
+    depends_on:
+      block-oracle: { condition: service_healthy }
+    ports: ["${INDEXER_SERVICE}:7601"]
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./graph-contracts.json:/opt/graph-contracts.json:ro
