@@ -11,3 +11,16 @@ services:
     image: ipfs/kubo:v0.27.0
     ports: ["${IPFS_RPC}:5001"]
     healthcheck: { interval: 1s, retries: 10, test: ipfs id }
+
+  postgres:
+    container_name: postgres
+    image: postgres:14.5-alpine
+    ports: ["${POSTGRES}:5432"]
+    command: ["postgres", "-cshared_preload_libraries=pg_stat_statements"]
+    volumes:
+      - ./postgres/setup.sql:/docker-entrypoint-initdb.d/setup.sql:ro
+    environment:
+      POSTGRES_INITDB_ARGS: "--encoding UTF8 --locale=C"
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: postgres
+    healthcheck: { interval: 1s, retries: 10, test: pg_isready -U postgres }
