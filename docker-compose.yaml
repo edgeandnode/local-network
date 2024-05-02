@@ -42,3 +42,12 @@ services:
       - ./.env:/opt/.env:ro
     healthcheck:
       { interval: 1s, retries: 10, test: curl -f http://127.0.0.1:8030 }
+
+  graph-contracts:
+    container_name: graph-contracts
+    build: { context: graph-contracts }
+    depends_on:
+      graph-node: { condition: service_healthy }
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./graph-contracts.json:/opt/graph-contracts.json:ro
