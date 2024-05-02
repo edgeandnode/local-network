@@ -24,3 +24,21 @@ services:
       POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_USER: postgres
     healthcheck: { interval: 1s, retries: 10, test: pg_isready -U postgres }
+
+  graph-node:
+    container_name: graph-node
+    build: { context: "graph-node" }
+    depends_on:
+      chain: { condition: service_healthy }
+      ipfs: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    stop_signal: SIGKILL
+    ports:
+      - ${GRAPH_NODE_GRAPHQL}:8000
+      - ${GRAPH_NODE_ADMIN}:8020
+      - ${GRAPH_NODE_STATUS}:8030
+      - ${GRAPH_NODE_METRICS}:8040
+    volumes:
+      - ./.env:/opt/.env:ro
+    healthcheck:
+      { interval: 1s, retries: 10, test: curl -f http://127.0.0.1:8030 }
