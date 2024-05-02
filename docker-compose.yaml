@@ -65,3 +65,18 @@ services:
       interval: 1s
       retries: 600
       test: curl -f http://127.0.0.1:9090/metrics
+
+  indexer-agent:
+    container_name: indexer-agent
+    build: { context: indexer-agent }
+    depends_on:
+      block-oracle: { condition: service_healthy }
+    ports: ["${INDEXER_MANAGEMENT}:7600"]
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./graph-contracts.json:/opt/graph-contracts.json:ro
+    healthcheck:
+      interval: 10s
+      retries: 600
+      test: curl -f http://127.0.0.1:7600/
