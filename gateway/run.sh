@@ -4,7 +4,7 @@ set -eu
 
 cd gateway
 export $(cat /opt/.env | sed 's/^#.*$//g' | xargs)
-export DISPUTE_MANAGER="$(jq -r '."1337".DisputeManager.address' /opt/graph-contracts.json)"
+export DISPUTE_MANAGER="$(jq -r '."1337".DisputeManager.address' /opt/contracts.json)"
 envsubst </opt/config.json >config.json
 cat config.json
 

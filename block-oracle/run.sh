@@ -15,7 +15,7 @@ cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${
 
 cd ../subgraph
 yarn
-graph_epoch_manager="$(jq -r '."1337".EpochManager.address' /opt/graph-contracts.json)"
+graph_epoch_manager="$(jq -r '."1337".EpochManager.address' /opt/contracts.json)"
 yq -i ".epochManager |= \"${graph_epoch_manager}\"" config/local.json
 yq -i ".permissionList[0].address |= \"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266\"" config/local.json
 cat config/local.json

@@ -20,25 +20,25 @@ sed -i "s/myth like bonus scare over problem client lizard pioneer submit female
 yarn deploy-localhost
 
 cat addresses-local.json
-test "$(jq '."1337".Controller.address' /opt/graph-contracts.json)" = "$(jq '."1337".Controller.address' addresses-local.json)"
-test "$(jq '."1337".EpochManager.address' /opt/graph-contracts.json)" = "$(jq '."1337".EpochManager.address' addresses-local.json)"
-test "$(jq '."1337".GraphToken.address' /opt/graph-contracts.json)" = "$(jq '."1337".GraphToken.address' addresses-local.json)"
-test "$(jq '."1337".DisputeManager.address' /opt/graph-contracts.json)" = "$(jq '."1337".DisputeManager.address' addresses-local.json)"
-test "$(jq '."1337".L1Staking.address' /opt/graph-contracts.json)" = "$(jq '."1337".L1Staking.address' addresses-local.json)"
-test "$(jq '."1337".StakingExtension.address' /opt/graph-contracts.json)" = "$(jq '."1337".StakingExtension.address' addresses-local.json)"
-test "$(jq '."1337".Curation.address' /opt/graph-contracts.json)" = "$(jq '."1337".Curation.address' addresses-local.json)"
-test "$(jq '."1337".RewardsManager.address' /opt/graph-contracts.json)" = "$(jq '."1337".RewardsManager.address' addresses-local.json)"
-test "$(jq '."1337".ServiceRegistry.address' /opt/graph-contracts.json)" = "$(jq '."1337".ServiceRegistry.address' addresses-local.json)"
-test "$(jq '."1337".L1GNS.address' /opt/graph-contracts.json)" = "$(jq '."1337".L1GNS.address' addresses-local.json)"
-test "$(jq '."1337".SubgraphNFT.address' /opt/graph-contracts.json)" = "$(jq '."1337".SubgraphNFT.address' addresses-local.json)"
-test "$(jq '."1337".L1GraphTokenGateway.address' /opt/graph-contracts.json)" = "$(jq '."1337".L1GraphTokenGateway.address' addresses-local.json)"
+test "$(jq '."1337".Controller.address' /opt/contracts.json)" = "$(jq '."1337".Controller.address' addresses-local.json)"
+test "$(jq '."1337".EpochManager.address' /opt/contracts.json)" = "$(jq '."1337".EpochManager.address' addresses-local.json)"
+test "$(jq '."1337".GraphToken.address' /opt/contracts.json)" = "$(jq '."1337".GraphToken.address' addresses-local.json)"
+test "$(jq '."1337".DisputeManager.address' /opt/contracts.json)" = "$(jq '."1337".DisputeManager.address' addresses-local.json)"
+test "$(jq '."1337".L1Staking.address' /opt/contracts.json)" = "$(jq '."1337".L1Staking.address' addresses-local.json)"
+test "$(jq '."1337".StakingExtension.address' /opt/contracts.json)" = "$(jq '."1337".StakingExtension.address' addresses-local.json)"
+test "$(jq '."1337".Curation.address' /opt/contracts.json)" = "$(jq '."1337".Curation.address' addresses-local.json)"
+test "$(jq '."1337".RewardsManager.address' /opt/contracts.json)" = "$(jq '."1337".RewardsManager.address' addresses-local.json)"
+test "$(jq '."1337".ServiceRegistry.address' /opt/contracts.json)" = "$(jq '."1337".ServiceRegistry.address' addresses-local.json)"
+test "$(jq '."1337".L1GNS.address' /opt/contracts.json)" = "$(jq '."1337".L1GNS.address' addresses-local.json)"
+test "$(jq '."1337".SubgraphNFT.address' /opt/contracts.json)" = "$(jq '."1337".SubgraphNFT.address' addresses-local.json)"
+test "$(jq '."1337".L1GraphTokenGateway.address' /opt/contracts.json)" = "$(jq '."1337".L1GraphTokenGateway.address' addresses-local.json)"
 
 printf "\naddresses match"
 
 cd /opt/graph-network-subgraph
 sed -i 's/sepolia/local/g' ./config/sepoliaAddressScript.ts
 sed -i 's/11155111/1337/g' ./config/sepoliaAddressScript.ts
-sed -i 's+@graphprotocol/contracts/addresses.json+/opt/graph-contracts.json+g' ./config/sepoliaAddressScript.ts
+sed -i 's+@graphprotocol/contracts/addresses.json+/opt/contracts.json+g' ./config/sepoliaAddressScript.ts
 sed -i 's/4454000/1/g' ./config/sepoliaAddressScript.ts
 npx ts-node config/sepoliaAddressScript.ts
 npx mustache ./config/generatedAddresses.json ./config/addresses.template.ts > ./config/addresses.ts

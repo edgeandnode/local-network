@@ -4,7 +4,7 @@ set -eu
 
 cd /opt/indexer/packages/indexer-service
 
-export INDEXER_SERVICE_ADDRESS_BOOK=/opt/graph-contracts.json
+export INDEXER_SERVICE_ADDRESS_BOOK=/opt/contracts.json
 export INDEXER_SERVICE_CLIENT_SIGNER_ADDRESS="${ACCOUNT0_ADDRESS}"
 export INDEXER_SERVICE_ETHEREUM="http://chain:${CHAIN_RPC}"
 export INDEXER_SERVICE_ETHEREUM_NETWORK=hardhat

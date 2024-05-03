@@ -56,13 +56,17 @@ a local Graph network for debugging & integration tests
           indexerAllocations {
             id
             status
-            indexer { id }
+            indexer {
+              id
+            }
           }
         }
       }
     }
     _meta {
-      block { number }
+      block {
+        number
+      }
       deployment
     }
   }
@@ -78,7 +82,9 @@ a local Graph network for debugging & integration tests
       id
     }
     _meta {
-      block { number }
+      block {
+        number
+      }
       deployment
     }
   }
@@ -102,3 +108,27 @@ curl "http://localhost:7700/api/subgraphs/id/BFr2mx7FgkJ36Y6pE5BiXs1KmNUmVDCnL82
 ```bash
 docker exec -it redpanda rpk topic consume gateway_client_query_results --brokers="localhost:9092"
 ```
+
+## tap-contracts
+
+- subgraph: http://localhost:8000/subgraphs/name/semiotic/tap
+
+  ```graphql
+  {
+    escrowAccounts {
+      balance
+      sender {
+        id
+      }
+      receiver {
+        id
+      }
+    }
+    _meta {
+      block {
+        number
+      }
+      deployment
+    }
+  }
+  ```

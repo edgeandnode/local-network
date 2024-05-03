@@ -50,7 +50,7 @@ services:
       graph-node: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./graph-contracts.json:/opt/graph-contracts.json:ro
+      - ./contracts.json:/opt/contracts.json:ro
 
   block-oracle:
     container_name: block-oracle
@@ -60,7 +60,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./graph-contracts.json:/opt/graph-contracts.json:ro
+      - ./contracts.json:/opt/contracts.json:ro
     healthcheck:
       interval: 1s
       retries: 600
@@ -75,7 +75,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./graph-contracts.json:/opt/graph-contracts.json:ro
+      - ./contracts.json:/opt/contracts.json:ro
     healthcheck:
       interval: 10s
       retries: 600
@@ -88,7 +88,7 @@ services:
       indexer-agent: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./graph-contracts.json:/opt/graph-contracts.json:ro
+      - ./contracts.json:/opt/contracts.json:ro
 
   indexer-service-ts:
     container_name: indexer-service-ts
@@ -100,7 +100,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./graph-contracts.json:/opt/graph-contracts.json:ro
+      - ./contracts.json:/opt/contracts.json:ro
 
   gateway:
     container_name: gateway
@@ -111,7 +111,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./graph-contracts.json:/opt/graph-contracts.json:ro
+      - ./contracts.json:/opt/contracts.json:ro
 
   redpanda:
     container_name: redpanda
@@ -131,3 +131,12 @@ services:
       - --advertise-kafka-addr redpanda:9092
       - --pandaproxy-addr 0.0.0.0:8082
       - --schema-registry-addr 0.0.0.0:8081
+
+  tap-contracts:
+    container_name: tap-contracts
+    build: { context: tap-contracts }
+    depends_on:
+      block-oracle: { condition: service_healthy }
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./contracts.json:/opt/contracts.json:ro

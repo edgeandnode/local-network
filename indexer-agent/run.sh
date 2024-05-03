@@ -2,8 +2,8 @@
 set -eu
 . /opt/.env
 
-token_address=$(jq -r '."1337".GraphToken.address' /opt/graph-contracts.json)
-staking_address=$(jq -r '."1337".L1Staking.address' /opt/graph-contracts.json)
+token_address=$(jq -r '."1337".GraphToken.address' /opt/contracts.json)
+staking_address=$(jq -r '."1337".L1Staking.address' /opt/contracts.json)
 indexer_staked="$(cast call "--rpc-url=http://chain:${CHAIN_RPC}" \
   "${staking_address}" 'hasStake(address) (bool)' "${RECEIVER_ADDRESS}")"
 echo "indexer_staked=${indexer_staked}"
@@ -22,7 +22,7 @@ if [ "${indexer_staked}" = "false" ]; then
 fi
 
 cd /opt/indexer/packages/indexer-agent
-export INDEXER_AGENT_ADDRESS_BOOK=/opt/graph-contracts.json
+export INDEXER_AGENT_ADDRESS_BOOK=/opt/contracts.json
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
 export INDEXER_AGENT_GATEWAY_ENDPOINT="http://gateway:${GATEWAY}"
 export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}"

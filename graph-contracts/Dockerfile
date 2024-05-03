@@ -4,7 +4,6 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 RUN npm install --global corepack yarn \
   && corepack enable && corepack install -g yarn@4.0.2
-RUN curl -L https://foundry.paradigm.xyz | bash && /root/.foundry/bin/foundryup
 
 WORKDIR /opt
 RUN git clone https://github.com/graphprotocol/contracts --branch '@graphprotocol/contracts@6.2.1' && \
