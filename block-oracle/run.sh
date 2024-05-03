@@ -36,13 +36,24 @@ curl "http://graph-node:${GRAPH_NODE_ADMIN}" \
   echo ""
 
 cd ../..
-export BLOCK_ORACLE_OWNER_ADDRESS="90F8bf6A479f320ead074411a4B0e7944Ea8c9C1"
-export BLOCK_ORACLE_OWNER_SECRET_KEY="4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d"
-export DATA_EDGE_CONTRACT_ADDRESS="${data_edge#0x}"
-export EPOCH_MANAGER_CONTRACT_ADDRESS="${graph_epoch_manager#0x}"
-export SUBGRAPH_URL="http://graph-node:8000/subgraphs/name/block-oracle"
-export PROTOCOL_CHAIN_JRPC_URL="http://chain:8545"
-envsubst </opt/config.toml >config.toml
+cat >config.toml <<-EOF
+blockmeta_auth_token = ""
+owner_address = "90F8bf6A479f320ead074411a4B0e7944Ea8c9C1"
+owner_private_key = "4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d"
+data_edge_address = "${data_edge#0x}"
+epoch_manager_address = "${graph_epoch_manager#0x}"
+subgraph_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
+bearer_token = "TODO"
+log_level = "trace"
+
+[protocol_chain]
+name = "eip155:1337"
+jrpc = "http://chain:8545"
+polling_interval_in_seconds = 20
+
+[indexed_chains]
+"eip155:1337" = "http://chain:8545"
+EOF
 cat config.toml
 sleep 5 # avoid indexing delay causing a long retry delay immediately
 /opt/block-oracle/block-oracle run config.toml

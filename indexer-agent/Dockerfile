@@ -6,5 +6,4 @@ RUN apt-get update \
 RUN curl -L https://foundry.paradigm.xyz | bash && /root/.foundry/bin/foundryup
 
 COPY ./run.sh /opt/run.sh
-COPY ./config.yaml /opt/config/config.yaml
 ENTRYPOINT bash -cl /opt/run.sh

@@ -41,8 +41,22 @@ export INDEXER_AGENT_POSTGRES_PORT="${POSTGRES}"
 export INDEXER_AGENT_POSTGRES_USERNAME=postgres
 export INDEXER_AGENT_POSTGRES_PASSWORD=
 export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service-ts:${INDEXER_SERVICE}"
-
 mkdir -p ./config/
-cp /opt/config/config.yaml ./config/config.yaml
+cat >./config/config.yaml <<-EOF
+networkIdentifier: "hardhat"
+indexerOptions:
+  geoCoordinates: [48.4682, -123.524]
+  defaultAllocationAmount: 10000
+  allocationManagementMode: "auto"
+  restakeRewards: true
+  poiDisputeMonitoring: false
+  voucherRedemptionThreshold: 0.00001
+  voucherRedemptionBatchThreshold: 10
+  rebateClaimThreshold: 0.00001
+  rebateClaimBatchThreshold: 10
+subgraphs:
+  maxBlockDistance: 5000
+  freshnessSleepMilliseconds: 1000
+EOF
 cat config/config.yaml
 node ./dist/index.js start

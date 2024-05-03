@@ -52,11 +52,20 @@ services:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
 
+  tap-contracts:
+    container_name: tap-contracts
+    build: { context: tap-contracts }
+    depends_on:
+      graph-contracts: { condition: service_completed_successfully }
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./contracts.json:/opt/contracts.json:ro
+
   block-oracle:
     container_name: block-oracle
     build: { context: block-oracle }
     depends_on:
-      graph-contracts: { condition: service_completed_successfully }
+      tap-contracts: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
@@ -131,12 +140,3 @@ services:
       - --advertise-kafka-addr redpanda:9092
       - --pandaproxy-addr 0.0.0.0:8082
       - --schema-registry-addr 0.0.0.0:8081
-
-  tap-contracts:
-    container_name: tap-contracts
-    build: { context: tap-contracts }
-    depends_on:
-      block-oracle: { condition: service_healthy }
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
