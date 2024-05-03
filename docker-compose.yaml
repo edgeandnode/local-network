@@ -94,7 +94,8 @@ services:
     container_name: indexer-service-ts
     build: { context: indexer-service-ts }
     depends_on:
-      block-oracle: { condition: service_healthy }
+      subgraph-deploy: { condition: service_completed_successfully }
+    restart: unless-stopped # recover from segfaults on startup
     ports: ["${INDEXER_SERVICE}:7601"]
     stop_signal: SIGKILL
     volumes:
@@ -105,7 +106,7 @@ services:
     container_name: gateway
     build: { context: gateway }
     depends_on:
-      graph-contracts: { condition: service_completed_successfully }
+      subgraph-deploy: { condition: service_completed_successfully }
     ports: ["${GATEWAY}:7700"]
     stop_signal: SIGKILL
     volumes:

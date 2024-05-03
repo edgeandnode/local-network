@@ -43,3 +43,12 @@ while ! graph-indexer indexer --network=hardhat actions get | grep 'allocate'; d
   cast rpc --rpc-url="http://chain:${CHAIN_RPC}" evm_mine
   sleep 2
 done
+
+# wait for an active allocation
+while ! curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
+  -H 'content-type: application/json' \
+  -d '{"query": "{ allocations(where:{status:Active}) { indexer { id } } }" }' \
+  | grep -i "${RECEIVER_ADDRESS}"
+do
+  sleep 2
+done
