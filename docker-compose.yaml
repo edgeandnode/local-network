@@ -100,3 +100,33 @@ services:
     volumes:
       - ./.env:/opt/.env:ro
       - ./graph-contracts.json:/opt/graph-contracts.json:ro
+
+  gateway:
+    container_name: gateway
+    build: { context: gateway }
+    depends_on:
+      graph-contracts: { condition: service_completed_successfully }
+    ports: ["${GATEWAY}:7700"]
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./graph-contracts.json:/opt/graph-contracts.json:ro
+
+  redpanda:
+    container_name: redpanda
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+    ports:
+      - ${REDPANDA_KAFKA}:9092
+      - ${REDPANDA_ADMIN}:9644
+      - ${REDPANDA_PANDAPROXY}:8082
+      - ${REDPANDA_SCHEMA_REGISTRY}:8081
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 1G
+      - --mode dev-container
+      - --default-log-level=info
+      - --kafka-addr 0.0.0.0:9092
+      - --advertise-kafka-addr redpanda:9092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --schema-registry-addr 0.0.0.0:8081

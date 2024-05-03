@@ -82,3 +82,17 @@ a local Graph network for debugging & integration tests
 
 - `graph indexer connect http://localhost:7600`
 - `graph indexer --network=hardhat status`
+
+## gateway
+
+```bash
+curl "http://localhost:7700/api/subgraphs/id/BFr2mx7FgkJ36Y6pE5BiXs1KmNUmVDCnL82KUSdcLW1g" \
+  -H 'content-type: application/json' -H "Authorization: Bearer deadbeefdeadbeefdeadbeefdeadbeef" \
+  -d '{"query": "{ _meta { block { number } } }"}'
+```
+
+## redpanda
+
+```bash
+docker exec -it redpanda rpk topic consume gateway_client_query_results --brokers="localhost:9092"
+```
