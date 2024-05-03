@@ -140,3 +140,13 @@ services:
       - --advertise-kafka-addr redpanda:9092
       - --pandaproxy-addr 0.0.0.0:8082
       - --schema-registry-addr 0.0.0.0:8081
+
+  tap-agent:
+    container_name: tap-agent
+    build: { context: tap-agent }
+    depends_on:
+      tap-contracts: { condition: service_completed_successfully }
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./contracts.json:/opt/contracts.json:ro
