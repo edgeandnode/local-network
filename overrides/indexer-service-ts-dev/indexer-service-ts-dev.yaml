@@ -1,0 +1,8 @@
+services:
+  indexer-service-ts:
+    entrypoint: bash -cl /opt/run-override.sh
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./contracts.json:/opt/contracts.json:ro
+      - ${INDEXER_SERVICE_SOURCE_ROOT}:/opt/indexer-service-source-root
+      - ./overrides/indexer-service-ts-dev/run-override.sh:/opt/run-override.sh:ro
