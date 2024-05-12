@@ -161,3 +161,13 @@ services:
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
+
+  tap-escrow-manager:
+    container_name: tap-escrow-manager
+    build: { context: tap-escrow-manager }
+    depends_on:
+      tap-contracts: { condition: service_completed_successfully }
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./contracts.json:/opt/contracts.json:ro
