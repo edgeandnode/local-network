@@ -25,7 +25,9 @@ cat >config.json <<-EOF
   },
   "network_subgraph": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network",
   "rpc_url": "http://chain:${CHAIN_RPC}",
-  "secret_key": "${ACCOUNT0_SECRET}"
+  "signers": ["${ACCOUNT0_SECRET}"],
+  "secret_key": "${ACCOUNT0_SECRET}",
+  "update_interval_seconds": 10
 }
 EOF
 cat config.json

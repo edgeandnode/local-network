@@ -1,5 +1,5 @@
 # latest release doesn't support address book override
-FROM ghcr.io/graphprotocol/indexer-agent:sha-cbece82
+FROM ghcr.io/graphprotocol/indexer-agent:sha-ed0b25a
 RUN apt-get update \
   && apt-get install -y jq \
   && rm -rf /var/lib/apt/lists/*

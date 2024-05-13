@@ -3,6 +3,7 @@ set -eu
 . /opt/.env
 
 cd /opt
+tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)
 cat >config.json <<-EOF
 {
   "attestations": {
@@ -34,7 +35,7 @@ cat >config.json <<-EOF
   "scalar": {
     "chain_id": "1337",
     "signer": "${ACCOUNT0_SECRET}",
-    "verifier": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+    "verifier": "${tap_verifier}"
   }
 }
 EOF
