@@ -8,6 +8,8 @@ tap_escrow="$(jq -r '."1337".TAPEscrow.address' /opt/contracts.json)"
 cast send "--rpc-url=http://chain:${CHAIN_RPC}" "--mnemonic=${MNEMONIC}" \
   "${grt}" 'approve(address,uint256)' "${tap_escrow}" 1000000000000000000000000
 
+rpk topic create gateway_indexer_attempts --brokers="redpanda:${REDPANDA_KAFKA}" || true
+
 cat >config.json <<-EOF
 {
   "chain_id": 1337,

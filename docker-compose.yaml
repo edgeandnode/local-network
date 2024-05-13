@@ -140,6 +140,21 @@ services:
       - --advertise-kafka-addr redpanda:9092
       - --pandaproxy-addr 0.0.0.0:8082
       - --schema-registry-addr 0.0.0.0:8081
+    healthcheck:
+      interval: 1s
+      retries: 600
+      test: rpk topic list --brokers="localhost:9092"
+
+  tap-escrow-manager:
+    container_name: tap-escrow-manager
+    build: { context: tap-escrow-manager }
+    depends_on:
+      tap-contracts: { condition: service_completed_successfully }
+      redpanda: { condition: service_healthy }
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./contracts.json:/opt/contracts.json:ro
 
   tap-agent:
     container_name: tap-agent
@@ -157,16 +172,6 @@ services:
     depends_on:
       tap-contracts: { condition: service_completed_successfully }
     ports: ["${TAP_AGGREGATOR}:7610"]
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
-
-  tap-escrow-manager:
-    container_name: tap-escrow-manager
-    build: { context: tap-escrow-manager }
-    depends_on:
-      tap-contracts: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro

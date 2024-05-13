@@ -1,9 +1,10 @@
 FROM debian:bookworm-slim
 RUN apt-get update \
-  && apt-get install -y clang cmake curl git jq libsasl2-dev libssl-dev pkg-config \
+  && apt-get install -y clang cmake curl git jq libsasl2-dev libssl-dev pkg-config zip \
   && rm -rf /var/lib/apt/lists/*
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 RUN curl -L https://foundry.paradigm.xyz | bash && /root/.foundry/bin/foundryup
+RUN curl -LO https://github.com/redpanda-data/redpanda/releases/latest/download/rpk-linux-amd64.zip && unzip rpk-linux-amd64.zip -d /usr/local/bin/
 
 WORKDIR /opt
 RUN git clone https://github.com/edgeandnode/tap-escrow-manager --branch 'main' && \
