@@ -94,6 +94,7 @@ postgres_password = ""
 network_subgraph_deployment = "${network_subgraph}"
 network_subgraph_endpoint = "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL}/subgraphs/id/${network_subgraph}"
 allocation_syncing_interval_ms = 60000
+recently_closed_allocation_buffer_seconds = 3600
 
 [escrow_subgraph]
 escrow_subgraph_deployment = "${escrow_subgraph}"
@@ -105,6 +106,8 @@ rav_request_trigger_value = 40000000000000
 rav_request_timestamp_buffer_ms = 1000
 rav_request_timeout_secs = 5
 sender_aggregator_endpoints_file = "endpoints.yaml"
+rav_request_receipt_limit = 10000
+max_unnaggregated_fees_per_sender = 20
 EOT
 
 cat config.toml
