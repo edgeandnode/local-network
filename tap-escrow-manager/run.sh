@@ -53,6 +53,9 @@ echo "escrow=${escrow}"
 export GATEWAY_SENDER=${GATEWAY_SENDER_SECRET_KEY#0x}
 echo "GATEWAY_SENDER=${GATEWAY_SENDER}"
 
+export GATEWAY_SIGNER=${GATEWAY_SIGNER_SECRET_KEY#0x}
+echo "GATEWAY_SIGNER=${GATEWAY_SIGNER}"
+
 
 dynamic_host_setup redpanda
 export KAFKA_TOPIC="gateway_indexer_attempts"

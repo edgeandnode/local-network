@@ -13,4 +13,6 @@
     },
     rpc_url: "http://${CHAIN_HOST}:${CHAIN_RPC}/",
     secret_key: "${GATEWAY_SENDER}",
+    signers: ["${GATEWAY_SIGNER}",],
+    update_interval_seconds: 10
 }
