@@ -10,7 +10,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /opt/
 
-RUN git clone https://github.com/graphprotocol/indexer build/graphprotocol/indexer --branch 'gusinacio/collect-tap-ravs'
+RUN git clone https://github.com/graphprotocol/indexer build/graphprotocol/indexer --branch 'main'
 
 RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6,sharing=locked \
     cd build/graphprotocol/indexer && yarn --frozen-lockfile --non-interactive
