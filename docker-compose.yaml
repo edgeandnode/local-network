@@ -149,8 +149,8 @@ services:
     container_name: tap-escrow-manager
     build: { context: tap-escrow-manager }
     depends_on:
-      tap-contracts: { condition: service_completed_successfully }
       redpanda: { condition: service_healthy }
+      subgraph-deploy: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
@@ -160,7 +160,7 @@ services:
     container_name: tap-agent
     build: { context: tap-agent }
     depends_on:
-      tap-contracts: { condition: service_completed_successfully }
+      indexer-agent: { condition: service_healthy }
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
@@ -172,6 +172,17 @@ services:
     depends_on:
       tap-contracts: { condition: service_completed_successfully }
     ports: ["${TAP_AGGREGATOR}:7610"]
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./contracts.json:/opt/contracts.json:ro
+
+  indexer-service-rs:
+    container_name: indexer-service-rs
+    build: { context: indexer-service-rs }
+    depends_on:
+      indexer-agent: { condition: service_healthy }
+    ports: ["${INDEXER_SERVICE_RS}:7602"]
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro

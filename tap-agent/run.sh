@@ -2,10 +2,6 @@
 set -eu
 . /opt/.env
 
-cd /opt/indexer-rs
-export DATABASE_URL="postgresql://postgres:@postgres:${POSTGRES}/indexer_components_2"
-sqlx migrate run
-
 cd /opt
 tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)
 cat >endpoints.yaml <<-EOF

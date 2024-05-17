@@ -44,4 +44,10 @@ yq ".dataSources[].network |= \"local\"" -i subgraph.yaml
 yarn codegen
 yarn build
 yarn create-local
-yarn deploy-local --version-label v0.0.1
+yarn deploy-local --version-label v0.0.1 | tee deploy.txt
+deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
+echo "${deployment_id}"
+curl "http://graph-node:${GRAPH_NODE_ADMIN}" \
+  -H 'content-type: application/json' \
+  -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"subgraph_reassign\",\"params\":{\"node_id\":\"default\",\"ipfs_hash\":\"${deployment_id}\"}}" && \
+  echo ""

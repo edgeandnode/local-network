@@ -23,6 +23,7 @@ fi
 
 cd /opt/indexer/packages/indexer-agent
 export INDEXER_AGENT_ADDRESS_BOOK=/opt/contracts.json
+export INDEXER_AGENT_TAP_ADDRESS_BOOK=./tap-contracts.json
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
 export INDEXER_AGENT_GATEWAY_ENDPOINT="http://gateway:${GATEWAY}"
 export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}"
@@ -41,6 +42,7 @@ export INDEXER_AGENT_POSTGRES_PORT="${POSTGRES}"
 export INDEXER_AGENT_POSTGRES_USERNAME=postgres
 export INDEXER_AGENT_POSTGRES_PASSWORD=
 export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service-ts:${INDEXER_SERVICE}"
+export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/semiotic/tap"
 mkdir -p ./config/
 cat >./config/config.yaml <<-EOF
 networkIdentifier: "hardhat"
@@ -59,4 +61,14 @@ subgraphs:
   freshnessSleepMilliseconds: 1000
 EOF
 cat config/config.yaml
+cat >./tap-contracts.json <<-EOF
+{
+  "1337": {
+    "TAPVerifier": "$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)",
+    "AllocationIDTracker": "$(jq -r '."1337".TAPAllocationIDTracker.address' /opt/contracts.json)",
+    "Escrow": "$(jq -r '."1337".TAPEscrow.address' /opt/contracts.json)"
+  }
+}
+EOF
+cat tap-contracts.json
 node ./dist/index.js start

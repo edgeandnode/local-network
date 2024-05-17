@@ -19,11 +19,16 @@ block_oracle_deployment="$(curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgrap
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
   | jq -r '.data._meta.deployment')"
+tap_deployment="$(curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap" \
+  -H 'content-type: application/json' \
+  -d '{"query": "{ _meta { deployment } }" }' \
+  | jq -r '.data._meta.deployment')"
 
 # force index block oracle subgraph & network subgraph
 graph-indexer indexer connect "http://indexer-agent:${INDEXER_MANAGEMENT}"
 graph-indexer indexer --network=hardhat rules prepare "${network_subgraph_deployment}"
 graph-indexer indexer --network=hardhat rules prepare "${block_oracle_deployment}"
+graph-indexer indexer --network=hardhat rules prepare "${tap_deployment}"
 
 deployment_hex="$(curl -X POST "http://ipfs:${IPFS_RPC}/api/v0/cid/format?arg=${block_oracle_deployment}&b=base16" \
   | jq -r '.Formatted')"
