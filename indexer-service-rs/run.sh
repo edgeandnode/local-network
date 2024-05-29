@@ -23,7 +23,7 @@ host_and_port = "0.0.0.0:${INDEXER_SERVICE_RS}"
 url_prefix = "/"
 
 [common.database]
-postgres_url = "postgresql://postgres@postgres:${POSTGRES}/indexer_components_2"
+postgres_url = "postgresql://postgres@postgres:${POSTGRES}/indexer_components_1"
 
 [common.graph_node]
 query_base_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}"
