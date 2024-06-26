@@ -2,18 +2,20 @@
 set -eu
 . /opt/.env
 
-cd /opt/block-oracle/packages/contracts
+cd /opt/contracts/packages/data-edge
 sed -i "s/localhost/chain/g" hardhat.config.ts
-sed -i "s/'myth like bonus scare over problem client lizard pioneer submit female collect'/'${MNEMONIC}'/g" hardhat.config.ts
+export MNEMONIC="${MNEMONIC}"
 yarn
-npx hardhat run --network ganache scripts/deploy-local.ts | tee deploy.txt
+cat hardhat.config.ts
+yarn build
+npx hardhat data-edge:deploy --contract EventfulDataEdge --deploy-name EBO --network ganache | tee deploy.txt
 data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
 # [ { "add": ["eip155:1337"], "message": "RegisterNetworks", "remove": [] } ]
 cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${MNEMONIC}" \
   "${data_edge}" \
   '0xa1dce3320000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000f030103176569703135353a313333370000000000000000000000000000000000'
 
-cd ../subgraph
+cd /opt/block-oracle/packages/subgraph
 yarn
 graph_epoch_manager="$(jq -r '."1337".EpochManager.address' /opt/contracts.json)"
 yq -i ".epochManager |= \"${graph_epoch_manager}\"" config/local.json
