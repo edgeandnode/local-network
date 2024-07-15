@@ -4,6 +4,10 @@ set -eu
 
 cd /opt
 tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)
+network_subgraph_deployment=$(curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
+  -H 'content-type: application/json' \
+  -d '{"query": "{ _meta { deployment } }" }' \
+  | jq -r '.data._meta.deployment')
 cat >config.json <<-EOF
 {
   "attestations": {
@@ -27,7 +31,12 @@ cat >config.json <<-EOF
   "log_json": false,
   "min_graph_node_version": "0.0.0",
   "min_indexer_version": "0.0.0",
-  "network_subgraph": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network",
+  "trusted_indexers": [
+    {
+      "url": "http://indexer-service-ts:${INDEXER_SERVICE}/subgraphs/${network_subgraph_deployment}",
+      "auth": "freestuff"
+    }
+  ],
   "payment_required": true,
   "port_api": 7700,
   "port_metrics": 7301,
