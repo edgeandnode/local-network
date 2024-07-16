@@ -33,7 +33,7 @@ cat >config.json <<-EOF
   "min_indexer_version": "0.0.0",
   "trusted_indexers": [
     {
-      "url": "http://indexer-service-ts:${INDEXER_SERVICE}/subgraphs/${network_subgraph_deployment}",
+      "url": "http://indexer-service-ts:${INDEXER_SERVICE}/subgraphs/id/${network_subgraph_deployment}",
       "auth": "freestuff"
     }
   ],
