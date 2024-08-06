@@ -41,7 +41,7 @@ export INDEXER_AGENT_POSTGRES_HOST=postgres
 export INDEXER_AGENT_POSTGRES_PORT="${POSTGRES}"
 export INDEXER_AGENT_POSTGRES_USERNAME=postgres
 export INDEXER_AGENT_POSTGRES_PASSWORD=
-export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service-ts:${INDEXER_SERVICE}"
+export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://localhost:${INDEXER_SERVICE}"
 export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/semiotic/tap"
 mkdir -p ./config/
 cat >./config/config.yaml <<-EOF

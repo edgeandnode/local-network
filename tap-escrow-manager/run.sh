@@ -13,9 +13,12 @@ rpk topic create gateway_indexer_attempts --brokers="redpanda:${REDPANDA_KAFKA}"
 cat >config.json <<-EOF
 {
   "chain_id": 1337,
+  "debts": {},
   "escrow_contract": "${tap_escrow}",
   "escrow_subgraph": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap",
   "graph_env": "local",
+  "grt_allowance": 1000,
+  "grt_contract": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
   "kafka": {
     "cache": "/opt/cache.json",
     "config": {
@@ -24,6 +27,7 @@ cat >config.json <<-EOF
     "topic": "gateway_indexer_attempts"
   },
   "network_subgraph": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network",
+  "query_auth": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
   "rpc_url": "http://chain:${CHAIN_RPC}",
   "signers": ["${ACCOUNT0_SECRET}"],
   "secret_key": "${ACCOUNT0_SECRET}",

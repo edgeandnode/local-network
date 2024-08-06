@@ -1,0 +1,36 @@
+{
+  "attestations": {
+    "chain_id": "1337",
+    "dispute_manager": "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE"
+  },
+  "api_keys": [
+    {
+      "key": "deadbeefdeadbeefdeadbeefdeadbeef",
+      "user_address": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+      "query_status": "ACTIVE"
+    }
+  ],
+  "api_key_rate_limit": 1,
+  "exchange_rate_provider": 1.0,
+  "graph_env_id": "local",
+  "indexer_selection_retry_limit": 2,
+  "ip_rate_limit": 100,
+  "log_json": false,
+  "min_graph_node_version": "0.0.0",
+  "min_indexer_version": "0.0.0",
+  "payment_required": true,
+  "port_api": 7700,
+  "port_metrics": 7301,
+  "query_fees_target": 40e-6,
+  "scalar": {
+    "chain_id": "1337",
+    "signer": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    "verifier": "0x8198f5d8F8CfFE8f9C413d98a0A55aEB8ab9FbB7"
+  },
+  "trusted_indexers": [
+    {
+      "auth": "freestuff",
+      "url": "http://localhost:7601/subgraphs/id/QmfVaeTxHGQVtEc9hKPMdtvQeaFYPUSfGWr8HXU8rSsB49"
+    }
+  ]
+}

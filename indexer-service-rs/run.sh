@@ -4,52 +4,44 @@ set -eu
 
 tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)
 
-network_subgraph_deployment=$(curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
-  -H 'content-type: application/json' \
-  -d '{"query": "{ _meta { deployment } }" }' \
-  | jq -r '.data._meta.deployment')
-escrow_deployment=$(curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap" \
-  -H 'content-type: application/json' \
-  -d '{"query": "{ _meta { deployment } }" }' \
-  | jq -r '.data._meta.deployment')
-
 cat >config.toml <<-EOF
-[common.indexer]
+[indexer]
 indexer_address = "${RECEIVER_ADDRESS}"
 operator_mnemonic = "${INDEXER_MNEMONIC}"
 
-[common.server]
-host_and_port = "0.0.0.0:${INDEXER_SERVICE_RS}"
-url_prefix = "/"
-
-[common.database]
+[database]
 postgres_url = "postgresql://postgres@postgres:${POSTGRES}/indexer_components_1"
 
-[common.graph_node]
-query_base_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}"
+[graph_node]
+query_url = "http://host.docker.internal:8001"
 status_url = "http://graph-node:${GRAPH_NODE_STATUS}/graphql"
 
-[common.network_subgraph]
-deployment = "${network_subgraph_deployment}"
+[subgraphs.network]
 query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network"
-recently_closed_allocation_buffer_seconds = 60
-serve_subgraph = true
-syncing_interval = 30
+recently_closed_allocation_buffer_secs = 60
+syncing_interval_secs = 30
 
-[common.escrow_subgraph]
-deployment = "${escrow_deployment}"
+[subgraphs.escrow]
 query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap"
-serve_subgraph = true
-syncing_interval = 30
+syncing_interval_secs = 30
 
-[common.graph_network]
-id = 1
-chain_id = 1337
-
-[common.scalar]
+[blockchain]
 chain_id = 1337
 receipts_verifier_address = "${tap_verifier}"
-timestamp_error_tolerance = 30
+
+[service]
+host_and_port = "0.0.0.0:${INDEXER_SERVICE_RS}"
+url_prefix = "/"
+serve_network_subgraph = false
+serve_escrow_subgraph = false
+
+[tap]
+max_amount_willing_to_lose_grt = 1000
+[tap.rav_request]
+timestamp_buffer_secs = 100000
+[tap.sender_aggregator_endpoints]
+${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
+
 EOF
 cat config.toml
 
