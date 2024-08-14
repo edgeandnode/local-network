@@ -5,25 +5,26 @@ set -eu
 grt="$(jq -r '."1337".GraphToken.address' /opt/contracts.json)"
 tap_escrow="$(jq -r '."1337".TAPEscrow.address' /opt/contracts.json)"
 
-cast send "--rpc-url=http://chain:${CHAIN_RPC}" "--mnemonic=${MNEMONIC}" \
-  "${grt}" 'approve(address,uint256)' "${tap_escrow}" 1000000000000000000000000
-
 rpk topic create gateway_indexer_attempts --brokers="redpanda:${REDPANDA_KAFKA}" || true
 
 cat >config.json <<-EOF
 {
   "chain_id": 1337,
+  "debts": {},
   "escrow_contract": "${tap_escrow}",
   "escrow_subgraph": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap",
   "graph_env": "local",
+  "grt_allowance": 1000000,
+  "grt_contract": "${grt}",
   "kafka": {
-    "cache": "/opt/cache.json",
+    "cache": "/opt/cache.json.gz",
     "config": {
       "bootstrap.servers": "redpanda:${REDPANDA_KAFKA}"
     },
     "topic": "gateway_indexer_attempts"
   },
   "network_subgraph": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network",
+  "query_auth": "freestuff",
   "rpc_url": "http://chain:${CHAIN_RPC}",
   "signers": ["${ACCOUNT0_SECRET}"],
   "secret_key": "${ACCOUNT0_SECRET}",
