@@ -9,36 +9,42 @@ ${ACCOUNT0_ADDRESS}: "http://tap-aggregator:${TAP_AGGREGATOR}"
 EOF
 
 cat >config.toml <<-EOF
-[ethereum]
+[indexer]
 indexer_address = "${RECEIVER_ADDRESS}"
+operator_mnemonic = "${INDEXER_MNEMONIC}"
 
-[receipts]
-receipts_verifier_chain_id = 1337
+[database]
+postgres_url = "postgresql://postgres@postgres:${POSTGRES}/indexer_components_1"
+
+[graph_node]
+query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}"
+status_url = "http://graph-node:${GRAPH_NODE_STATUS}/graphql"
+
+[subgraphs.network]
+query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network"
+recently_closed_allocation_buffer_secs = 60
+syncing_interval_secs = 30
+
+[subgraphs.escrow]
+query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap"
+syncing_interval_secs = 30
+
+[blockchain]
+chain_id = 1337
 receipts_verifier_address = "${tap_verifier}"
 
-[indexer_infrastructure]
-graph_node_query_endpoint = "http://graph-node:${GRAPH_NODE_GRAPHQL}"
-graph_node_status_endpoint = "http://graph-node:${GRAPH_NODE_STATUS}/graphql"
-log_level = "info"
-
-[postgres]
-postgres_host = "postgres"
-postgres_database = "indexer_components_1"
-postgres_username = "postgres"
-postgres_password = ""
-postgres_port = ${POSTGRES}
-
-[network_subgraph]
-allocation_syncing_interval_ms = 10000
-network_subgraph_endpoint = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network"
-
-[escrow_subgraph]
-escrow_subgraph_endpoint = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap"
-escrow_syncing_interval_ms = 10000
-
+[service]
+host_and_port = "0.0.0.0:${INDEXER_SERVICE_RS}"
+url_prefix = "/"
+serve_network_subgraph = false
+serve_escrow_subgraph = false
 [tap]
-rav_request_trigger_value = 100
-sender_aggregator_endpoints_file = "endpoints.yaml"
+max_amount_willing_to_lose_grt = 1000
+[tap.rav_request]
+timestamp_buffer_secs = 1000
+[tap.sender_aggregator_endpoints]
+${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
+
 EOF
 cat config.toml
 
