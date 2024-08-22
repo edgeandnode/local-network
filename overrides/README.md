@@ -6,7 +6,8 @@ Graph node development works with the local network by mounting the source direc
 
 Build artifacts are mounted at /tmp/graph-node-docker-build (host and container), and `CARGO_HOME` is set to `/tmp/graph-node-cargo-home` to reduce build times.
 
-If the env var `WAIT_FOR_DEBUG` is set, we will execute the `graph-node` binary in a gdb server exposed on :2345.
+### Debugging
+Local debugging of the service can be enabled, allowing source-level debug with gdb or an IDE. With the env var `WAIT_FOR_DEBUG` is not an empty string, we will execute the `graph-node` binary in a gdb server exposed on :2345.
 
 ### Example vscode launch.json
 ```json 
