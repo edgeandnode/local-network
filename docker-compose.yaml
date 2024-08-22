@@ -16,7 +16,7 @@ services:
     container_name: postgres
     image: postgres:14.5-alpine
     ports: ["${POSTGRES}:5432"]
-    command: ["postgres", "-cshared_preload_libraries=pg_stat_statements"]
+    command: postgres -c 'max_connections=1000' -c 'shared_preload_libraries=pg_stat_statements'
     volumes:
       - ./postgres/setup.sql:/docker-entrypoint-initdb.d/setup.sql:ro
     environment:

@@ -25,6 +25,7 @@ export CARGO_TARGET_DIR=/tmp/graph-node-docker-build
 export CARGO_HOME=/tmp/graph-node-cargo-home
 
 handle_error() {
+    echo "\n"
     echo "Error in process, pausing docker container to allow for inspecting the container state"
     tail -f /dev/null
 }
@@ -35,9 +36,11 @@ cargo build --bin graph-node
 
 # Conditionally wrap the binary in gdb if the WAIT_FOR_DEBUG environment variable is set
 if [ -n "${WAIT_FOR_DEBUG:-}" ]; then
+    echo "\n"
     echo "Waiting for debugger to attach to graph-node..."
     gdbserver :2345 /tmp/graph-node-docker-build/debug/graph-node
 else 
+    echo "\n"
     echo "Running graph-node without debugger..."
     /tmp/graph-node-docker-build/debug/graph-node
 fi
