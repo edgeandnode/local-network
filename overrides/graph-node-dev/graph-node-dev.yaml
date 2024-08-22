@@ -1,0 +1,14 @@
+services:
+  graph-node:
+    entrypoint: bash -cl /opt/run-override.sh
+    build: 
+      context: "./overrides/graph-node-dev"
+      dockerfile: Dockerfile
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./overrides/graph-node-dev/run-override.sh:/opt/run-override.sh:ro
+      - /tmp/graph-node-cargo-home:/tmp/graph-node-cargo-home
+      - /tmp/graph-node-docker-build:/tmp/graph-node-docker-build
+      - ${GRAPH_NODE_SOURCE_ROOT}:/opt/graph-node-source-root
+    healthcheck:
+      { interval: 10s, retries: 100, test: curl -f http://127.0.0.1:8030 }
