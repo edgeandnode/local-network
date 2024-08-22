@@ -12,3 +12,7 @@ services:
       - ${GRAPH_NODE_SOURCE_ROOT}:/opt/graph-node-source-root
     healthcheck:
       { interval: 10s, retries: 100, test: curl -f http://127.0.0.1:8030 }
+    ports:
+      - "2345:2345"  # Port for remote debugging if needed
+    environment:
+      - WAIT_FOR_DEBUG=${WAIT_FOR_DEBUG}
