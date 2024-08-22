@@ -31,6 +31,15 @@ handle_error() {
 
 trap handle_error ERR
 
-cargo run --bin graph-node
+cargo build --bin graph-node
+
+# Conditionally wrap the binary in gdb if the WAIT_FOR_DEBUG environment variable is set
+if [ -n "${WAIT_FOR_DEBUG:-}" ]; then
+    echo "Waiting for debugger to attach to graph-node..."
+    gdbserver :2345 /tmp/graph-node-docker-build/debug/graph-node
+else 
+    echo "Running graph-node without debugger..."
+    /tmp/graph-node-docker-build/debug/graph-node
+fi
 
 echo "cargo and graph-node exited without error"
