@@ -1,4 +1,8 @@
-# Indexer Agent (Hotload Dev Environment)
+# Development Environments build on local-network
+
+## graph-node 
+
+## indexer-agent, indexer-service (ts) (Hotload Dev Environment)
 
 This is a draft/POC of a hotload dev environment for the indexer agent. It's intended to provide a quick and easy way to iterate on the indexer codebase without having to rebuild the docker image and restart the stack.
 
