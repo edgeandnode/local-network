@@ -34,7 +34,7 @@ chain_id = 1337
 receipts_verifier_address = "${tap_verifier}"
 
 [service]
-host_and_port = "0.0.0.0:${INDEXER_SERVICE_RS}"
+host_and_port = "0.0.0.0:${INDEXER_SERVICE}"
 url_prefix = "/"
 serve_network_subgraph = false
 serve_escrow_subgraph = false

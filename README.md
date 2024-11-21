@@ -132,12 +132,3 @@ docker exec -it redpanda rpk topic consume gateway_client_query_results --broker
     }
   }
   ```
-
-## indxexer-service-rs
-
-setup:
-
-- indexer-agent/run.sh:
-  - `export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service-rs:${INDEXER_SERVICE_RS}"`
-- `docker compose up --build -d indexer-agent`
-- `cast rpc evm_mine` (potentially necessary to update registration URL on-chain)

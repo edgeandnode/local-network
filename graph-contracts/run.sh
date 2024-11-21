@@ -3,7 +3,7 @@ set -eu
 . /opt/.env
 
 # don't rerun when retriggered via a service_completed_successfully condition
-if curl http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network \
+if curl "http://host.docker.internal:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' | \
   grep "_meta"
@@ -44,5 +44,5 @@ npx ts-node config/sepoliaAddressScript.ts
 npx mustache ./config/generatedAddresses.json ./config/addresses.template.ts > ./config/addresses.ts
 npx mustache ./config/generatedAddresses.json subgraph.template.yaml > subgraph.yaml
 npx graph codegen --output-dir src/types/
-npx graph create graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN}"
-npx graph deploy graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN}" --ipfs="http://ipfs:${IPFS_RPC}" --version-label=v0.0.1
+npx graph create graph-network --node="http://host.docker.internal:${GRAPH_NODE_ADMIN}"
+npx graph deploy graph-network --node="http://host.docker.internal:${GRAPH_NODE_ADMIN}" --ipfs="http://host.docker.internal:${IPFS_RPC}" --version-label=v0.0.1

@@ -33,6 +33,7 @@ services:
       ipfs: { condition: service_healthy }
       postgres: { condition: service_healthy }
     stop_signal: SIGKILL
+    extra_hosts: ["host.docker.internal:host-gateway"]
     ports:
       - ${GRAPH_NODE_GRAPHQL}:8000
       - ${GRAPH_NODE_ADMIN}:8020
@@ -48,6 +49,7 @@ services:
     build: { context: graph-contracts }
     depends_on:
       graph-node: { condition: service_healthy }
+    extra_hosts: ["host.docker.internal:host-gateway"]
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
@@ -57,6 +59,7 @@ services:
     build: { context: tap-contracts }
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
+    extra_hosts: ["host.docker.internal:host-gateway"]
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
@@ -67,6 +70,7 @@ services:
     depends_on:
       tap-contracts: { condition: service_completed_successfully }
     stop_signal: SIGKILL
+    extra_hosts: ["host.docker.internal:host-gateway"]
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
@@ -82,6 +86,7 @@ services:
       block-oracle: { condition: service_healthy }
     ports: ["${INDEXER_MANAGEMENT}:7600"]
     stop_signal: SIGKILL
+    extra_hosts: ["host.docker.internal:host-gateway"]
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
@@ -95,28 +100,18 @@ services:
     build: { context: subgraph-deploy }
     depends_on:
       indexer-agent: { condition: service_healthy }
+    extra_hosts: ["host.docker.internal:host-gateway"]
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
 
-  indexer-service-ts:
-    container_name: indexer-service-ts
-    build: { context: indexer-service-ts }
+  indexer-service:
+    container_name: indexer-service
+    build: { context: indexer-service }
     depends_on:
-      subgraph-deploy: { condition: service_completed_successfully }
-    restart: unless-stopped # recover from segfaults on startup
+      indexer-agent: { condition: service_healthy }
+    extra_hosts: ["host.docker.internal:host-gateway"]
     ports: ["${INDEXER_SERVICE}:7601"]
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
-
-  gateway:
-    container_name: gateway
-    build: { context: gateway }
-    depends_on:
-      subgraph-deploy: { condition: service_completed_successfully }
-    ports: ["${GATEWAY}:7700"]
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
@@ -145,45 +140,46 @@ services:
       retries: 600
       test: rpk topic list --brokers="localhost:9092"
 
-  tap-escrow-manager:
-    container_name: tap-escrow-manager
-    build: { context: tap-escrow-manager }
+  gateway:
+    container_name: gateway
+    build: { context: gateway }
     depends_on:
-      redpanda: { condition: service_healthy }
       subgraph-deploy: { condition: service_completed_successfully }
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    ports: ["${GATEWAY}:7700"]
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
 
-  tap-agent:
-    container_name: tap-agent
-    build: { context: tap-agent }
-    depends_on:
-      indexer-agent: { condition: service_healthy }
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+  # tap-escrow-manager:
+  #   container_name: tap-escrow-manager
+  #   build: { context: tap-escrow-manager }
+  #   depends_on:
+  #     redpanda: { condition: service_healthy }
+  #     subgraph-deploy: { condition: service_completed_successfully }
+  #   stop_signal: SIGKILL
+  #   volumes:
+  #     - ./.env:/opt/.env:ro
+  #     - ./contracts.json:/opt/contracts.json:ro
 
-  tap-aggregator:
-    container_name: tap-aggregator
-    build: { context: tap-aggregator }
-    depends_on:
-      tap-contracts: { condition: service_completed_successfully }
-    ports: ["${TAP_AGGREGATOR}:7610"]
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+  # tap-agent:
+  #   container_name: tap-agent
+  #   build: { context: tap-agent }
+  #   depends_on:
+  #     indexer-agent: { condition: service_healthy }
+  #   stop_signal: SIGKILL
+  #   volumes:
+  #     - ./.env:/opt/.env:ro
+  #     - ./contracts.json:/opt/contracts.json:ro
 
-  indexer-service-rs:
-    container_name: indexer-service-rs
-    build: { context: indexer-service-rs }
-    depends_on:
-      indexer-agent: { condition: service_healthy }
-    ports: ["${INDEXER_SERVICE_RS}:7602"]
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+  # tap-aggregator:
+  #   container_name: tap-aggregator
+  #   build: { context: tap-aggregator }
+  #   depends_on:
+  #     tap-contracts: { condition: service_completed_successfully }
+  #   ports: ["${TAP_AGGREGATOR}:7610"]
+  #   stop_signal: SIGKILL
+  #   volumes:
+  #     - ./.env:/opt/.env:ro
+  #     - ./contracts.json:/opt/contracts.json:ro

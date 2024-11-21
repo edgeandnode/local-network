@@ -4,7 +4,7 @@ set -eu
 
 cd /opt
 tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)
-network_subgraph_deployment=$(curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
+network_subgraph_deployment=$(curl "http://host.docker.internal:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
   | jq -r '.data._meta.deployment')
@@ -33,7 +33,7 @@ cat >config.json <<-EOF
   "min_indexer_version": "0.0.0",
   "trusted_indexers": [
     {
-      "url": "http://indexer-service-ts:${INDEXER_SERVICE}/subgraphs/id/${network_subgraph_deployment}",
+      "url": "http://host.docker.internal:${INDEXER_SERVICE}/subgraphs/id/${network_subgraph_deployment}",
       "auth": "freestuff"
     }
   ],
@@ -41,7 +41,7 @@ cat >config.json <<-EOF
   "port_api": 7700,
   "port_metrics": 7301,
   "query_fees_target": 40e-6,
-  "scalar": {
+  "receipts": {
     "chain_id": "1337",
     "signer": "${ACCOUNT0_SECRET}",
     "verifier": "${tap_verifier}"
@@ -50,4 +50,4 @@ cat >config.json <<-EOF
 EOF
 cat config.json
 export RUST_LOG=info,gateway_framework=trace,graph_gateway=trace
-graph-gateway ./config.json
+/opt/gateway/target/release/graph-gateway ./config.json
