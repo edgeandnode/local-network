@@ -24,6 +24,10 @@ tap_deployment="$(curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/s
   -d '{"query": "{ _meta { deployment } }" }' \
   | jq -r '.data._meta.deployment')"
 
+echo "network_subgraph_deployment=${network_subgraph_deployment}"
+echo "block_oracle_deployment=${block_oracle_deployment}"
+echo "tap_deployment=${tap_deployment}"
+
 # force index block oracle subgraph & network subgraph
 graph-indexer indexer connect "http://indexer-agent:${INDEXER_MANAGEMENT}"
 graph-indexer indexer --network=hardhat rules prepare "${network_subgraph_deployment}"
@@ -44,7 +48,7 @@ cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${
 graph-indexer indexer --network=hardhat rules set "${block_oracle_deployment}" decisionBasis always
 
 # mine blocks in case the indexer-agent is stuck waiting for registration confirmations
-while ! graph-indexer indexer --network=hardhat actions get | grep 'allocate'; do
+while ! graph-indexer indexer --network=hardhat actions get -o json | grep 'allocate'; do
   cast rpc --rpc-url="http://chain:${CHAIN_RPC}" evm_mine
   sleep 2
 done
