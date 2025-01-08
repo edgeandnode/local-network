@@ -22,11 +22,13 @@ if [ "${indexer_staked}" = "false" ]; then
 fi
 
 export INDEXER_AGENT_ADDRESS_BOOK=/opt/contracts.json
+export INDEXER_AGENT_TAP_ADDRESS_BOOK=./tap-contracts.json
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
 export INDEXER_AGENT_GATEWAY_ENDPOINT="http://gateway:${GATEWAY}"
 export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}"
 export INDEXER_AGENT_GRAPH_NODE_ADMIN_ENDPOINT="http://graph-node:${GRAPH_NODE_ADMIN}"
 export INDEXER_AGENT_GRAPH_NODE_STATUS_ENDPOINT="http://graph-node:${GRAPH_NODE_STATUS}/graphql"
+export INDEXER_AGENT_IPFS_ENDPOINT="http://ipfs:${IPFS_RPC}"
 export INDEXER_AGENT_INDEXER_ADDRESS="${RECEIVER_ADDRESS}"
 export INDEXER_AGENT_INDEXER_MANAGEMENT_PORT="${INDEXER_MANAGEMENT}"
 export INDEXER_AGENT_INDEX_NODE_IDS=default
@@ -40,9 +42,13 @@ export INDEXER_AGENT_POSTGRES_PORT="${POSTGRES}"
 export INDEXER_AGENT_POSTGRES_USERNAME=postgres
 export INDEXER_AGENT_POSTGRES_PASSWORD=
 export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service-ts:${INDEXER_SERVICE}"
+export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/semiotic/tap"
+# export INDEXER_AGENT_MULTINETWORK_MODE=true
 
-mkdir -p /opt/network-configs/
-cat >/opt/network-configs/config.yaml <<-EOF
+cd /opt/indexer-agent-source-root
+#cp -r /opt/indexer-agent-source-root/network-configs /opt/network-configs
+mkdir -p ./config/
+cat >./config/config.yaml <<-EOF
 networkIdentifier: "hardhat"
 indexerOptions:
   geoCoordinates: [48.4682, -123.524]
@@ -58,9 +64,19 @@ subgraphs:
   maxBlockDistance: 5000
   freshnessSleepMilliseconds: 1000
 EOF
+cat config/config.yaml
+cat >./tap-contracts.json <<-EOF
+{
+  "1337": {
+    "TAPVerifier": "$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)",
+    "AllocationIDTracker": "$(jq -r '."1337".TAPAllocationIDTracker.address' /opt/contracts.json)",
+    "Escrow": "$(jq -r '."1337".TAPEscrow.address' /opt/contracts.json)"
+  }
+}
+EOF
+cat tap-contracts.json
 
-cat /opt/network-configs/config.yaml
-cd /opt/indexer-agent-source-root
+cat ./config/config.yaml
 echo "Current PWD $PWD"
 nodemon --watch . \
 --ext js \
