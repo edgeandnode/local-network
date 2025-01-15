@@ -1,6 +1,9 @@
 services:
   indexer-agent:
     entrypoint: bash -cl /opt/run-override.sh
+    ports:
+      - "${INDEXER_MANAGEMENT}:7600"
+      - 9229:9229
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
