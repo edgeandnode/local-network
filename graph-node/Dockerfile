@@ -1,4 +1,5 @@
-FROM graphprotocol/graph-node:v0.35.0
+# v0.36.0 has a janky IPFS client
+FROM graphprotocol/graph-node:9fdfdca
 RUN apt-get update && apt-get install -y \
   curl \
   && rm -rf /var/lib/apt/lists/*

@@ -24,7 +24,6 @@ cat >config.json <<-EOF
   "exchange_rate_provider": 1.0,
   "graph_env_id": "local",
   "indexer_selection_retry_limit": 2,
-  "ip_rate_limit": 100,
   "kafka": {
     "bootstrap.servers": "redpanda:${REDPANDA_KAFKA}"
   },
@@ -33,7 +32,7 @@ cat >config.json <<-EOF
   "min_indexer_version": "0.0.0",
   "trusted_indexers": [
     {
-      "url": "http://indexer-service-ts:${INDEXER_SERVICE}/subgraphs/id/${network_subgraph_deployment}",
+      "url": "http://indexer-service:${INDEXER_SERVICE}/subgraphs/id/${network_subgraph_deployment}",
       "auth": "freestuff"
     }
   ],
@@ -41,7 +40,7 @@ cat >config.json <<-EOF
   "port_api": 7700,
   "port_metrics": 7301,
   "query_fees_target": 40e-6,
-  "scalar": {
+  "receipts": {
     "chain_id": "1337",
     "signer": "${ACCOUNT0_SECRET}",
     "verifier": "${tap_verifier}"

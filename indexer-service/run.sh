@@ -30,7 +30,8 @@ chain_id = 1337
 receipts_verifier_address = "${tap_verifier}"
 
 [service]
-host_and_port = "0.0.0.0:${INDEXER_SERVICE_RS}"
+free_query_auth_token = "freestuff"
+host_and_port = "0.0.0.0:${INDEXER_SERVICE}"
 url_prefix = "/"
 serve_network_subgraph = false
 serve_escrow_subgraph = false
@@ -46,4 +47,4 @@ cat config.toml
 
 export RUST_LOG="info,service=debug"
 
-service --config=config.toml
+indexer-service-rs --config=config.toml
