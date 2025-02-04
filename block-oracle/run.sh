@@ -1,5 +1,5 @@
-#!/bin/sh
-set -eu
+#!/bin/bash
+set -xeu
 . /opt/.env
 
 cd /opt/contracts/packages/data-edge
@@ -15,9 +15,26 @@ data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
 
 # https://graphprotocol.github.io/block-oracle/
 # [ { "add": ["eip155:1337"], "message": "RegisterNetworks", "remove": [] } ]
-cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${MNEMONIC}" \
-  "${data_edge}" \
-  '0xa1dce3320000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000f030103176569703135353a313333370000000000000000000000000000000000'
+# output=$(cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${MNEMONIC}" \
+#   "${data_edge}" \
+#   '0xa1dce3320000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000f030103176569703135353a313333370000000000000000000000000000000000' 2>&1)
+
+calldata=$(cast abi-encode "registerNetworks(string[])" '["eip155:1337"]')
+function_selector=$(cast sig "registerNetworks(string[])")  # Get function selector
+
+full_calldata="${function_selector}${calldata:2}"  # Concatenate function selector
+
+output=$(cast send --rpc-url="http://chain:${CHAIN_RPC}" \
+  --confirmations=0 --mnemonic="${MNEMONIC}" \
+  "${data_edge}" "$full_calldata" 2>&1)
+
+exit_code=$?
+
+if [ $exit_code -ne 0 ]; then
+  echo "Error during cast send: $output" | tee -a error.log
+else
+  echo "$output"
+fi
 
 cd /opt/block-oracle/packages/subgraph
 yarn

@@ -1,7 +1,7 @@
 services:
   chain:
     container_name: chain
-    image: ghcr.io/foundry-rs/foundry:nightly-cafc2606a2187a42b236df4aa65f4e8cdfcea970
+    image: ghcr.io/foundry-rs/foundry:nightly-0e519ffde8ab5babde7dffa96fca28cfa3608b59
     ports: ["${CHAIN_RPC}:8545"]
     command: ["anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0"]
     healthcheck: { interval: 1s, retries: 10, test: cast block }
@@ -70,6 +70,8 @@ services:
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
+    environment:
+      RUST_BACKTRACE: full
     healthcheck:
       interval: 1s
       retries: 600

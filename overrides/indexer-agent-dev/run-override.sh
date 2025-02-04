@@ -79,13 +79,13 @@ cat tap-contracts.json
 cat ./config/config.yaml
 echo "Current PWD $PWD"
 
-# NODE_OPTIONS=\"--inspect-brk=0.0.0.0:9229\" \
 nodemon --watch . \
 --ext js \
 --legacy-watch \
 --delay 4 \
 --verbose \
 --exec "
+NODE_OPTIONS=\"--inspect=0.0.0.0:9230\"
 ts-node \
   packages/indexer-agent/src/index.ts start \
   --network-specifications-directory /opt/network-configs/"

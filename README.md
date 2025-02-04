@@ -1,11 +1,18 @@
 # local-network
 
-a local Graph network for debugging & integration tests
+A local Graph network for debugging & integration tests.
+
+Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance (foundry installation required)
+
+## notes
+
+- The network id for manifests is `local`.
 
 ## setup
 
 1. install Docker & Docker Compose
 2. `docker compose down && docker compose up --build`
+3. install foundry on the host for mining blocks
 
 ## useful commands
 
