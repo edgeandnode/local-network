@@ -36,7 +36,7 @@ test "$(jq '."1337".L1GraphTokenGateway.address' /opt/contracts.json)" = "$(jq '
 printf "\naddresses match"
 
 cd /opt/graph-network-subgraph
-sed -i 's/sepolia/local/g' ./config/sepoliaAddressScript.ts
+sed -i 's/sepolia/hardhat/g' ./config/sepoliaAddressScript.ts
 sed -i 's/11155111/1337/g' ./config/sepoliaAddressScript.ts
 sed -i 's+@graphprotocol/contracts/addresses.json+/opt/contracts.json+g' ./config/sepoliaAddressScript.ts
 sed -i 's/4454000/1/g' ./config/sepoliaAddressScript.ts
