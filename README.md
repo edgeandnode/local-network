@@ -44,6 +44,7 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 ## graph-node
 
 - GraphiQL interface: http://localhost:8000/subgraphs/name/${subgraph_name}/graphql
+- Status endpoint: http://localhost:8030/graphql/playground
 
 ## graph-contracts
 
