@@ -34,11 +34,13 @@ yq -i ".epochManager |= \"${graph_epoch_manager}\"" config/local.json
 yq -i ".permissionList[0].address |= \"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266\"" config/local.json
 cat config/local.json
 yq -i ".hardhat.DataEdge.address |= \"${data_edge}\"" networks.json
+echo "networks.json"
+cat networks.json
 yarn prepare
 yarn prep:local
 yarn codegen
 npx graph build --network hardhat
-yq -i ".dataSources[0].network |= \"local\"" subgraph.yaml
+yq -i ".dataSources[0].network |= \"hardhat\"" subgraph.yaml
 cat subgraph.yaml
 npx graph create block-oracle --node="http://graph-node:${GRAPH_NODE_ADMIN}"
 npx graph deploy block-oracle --node="http://graph-node:${GRAPH_NODE_ADMIN}" --ipfs="http://ipfs:${IPFS_RPC}" --version-label 'v0.0.1' | tee deploy.txt

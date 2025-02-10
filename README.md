@@ -6,7 +6,7 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 
 ## notes
 
-- The network id for manifests is `local`.
+- The network id for manifests is `hardhat`.
 
 ## setup
 
