@@ -1,11 +1,18 @@
 # local-network
 
-a local Graph network for debugging & integration tests
+A local Graph network for debugging & integration tests.
+
+Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance (foundry installation required)
+
+## notes
+
+- The network id for manifests is `hardhat`.
 
 ## setup
 
 1. install Docker & Docker Compose
 2. `docker compose down && docker compose up --build`
+3. install foundry on the host for mining blocks
 
 ## useful commands
 
@@ -37,6 +44,7 @@ a local Graph network for debugging & integration tests
 ## graph-node
 
 - GraphiQL interface: http://localhost:8000/subgraphs/name/${subgraph_name}/graphql
+- Status endpoint: http://localhost:8030/graphql/playground
 
 ## graph-contracts
 

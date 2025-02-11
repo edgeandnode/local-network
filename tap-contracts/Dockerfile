@@ -3,7 +3,8 @@ RUN apt-get update \
   && apt-get install -y curl git jq nodejs npm \
   && rm -rf /var/lib/apt/lists/*
 RUN npm install --global yarn
-RUN curl -L https://foundry.paradigm.xyz | bash && /root/.foundry/bin/foundryup
+RUN curl -L https://foundry.paradigm.xyz | bash && \
+  /root/.foundry/bin/foundryup --install nightly-0e519ffde8ab5babde7dffa96fca28cfa3608b59
 RUN curl https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -L -o /usr/bin/yq && \
   chmod +x /usr/bin/yq
 

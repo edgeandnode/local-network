@@ -1,5 +1,5 @@
-#!/bin/sh
-set -eu
+#!/bin/bash
+set -xeu
 . /opt/.env
 
 token_address=$(jq -r '."1337".GraphToken.address' /opt/contracts.json)
@@ -21,7 +21,6 @@ if [ "${indexer_staked}" = "false" ]; then
     "${staking_address}" 'stake(uint256)' '100000000000000000000000'
 fi
 
-cd /opt/indexer/packages/indexer-agent
 export INDEXER_AGENT_ADDRESS_BOOK=/opt/contracts.json
 export INDEXER_AGENT_TAP_ADDRESS_BOOK=./tap-contracts.json
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
@@ -42,8 +41,10 @@ export INDEXER_AGENT_POSTGRES_HOST=postgres
 export INDEXER_AGENT_POSTGRES_PORT="${POSTGRES}"
 export INDEXER_AGENT_POSTGRES_USERNAME=postgres
 export INDEXER_AGENT_POSTGRES_PASSWORD=
-export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service-rs:${INDEXER_SERVICE}"
+export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service-ts:${INDEXER_SERVICE}"
 export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/semiotic/tap"
+
+cd /opt/indexer-agent-source-root
 mkdir -p ./config/
 cat >./config/config.yaml <<-EOF
 networkIdentifier: "hardhat"
@@ -72,4 +73,19 @@ cat >./tap-contracts.json <<-EOF
 }
 EOF
 cat tap-contracts.json
-node ./dist/index.js start
+
+cat ./config/config.yaml
+echo "Current PWD $PWD"
+
+nodemon --watch . \
+--ext js \
+--legacy-watch \
+--delay 4 \
+--verbose \
+--exec "
+NODE_OPTIONS=\"--inspect=0.0.0.0:9230\"
+ts-node \
+  packages/indexer-agent/src/index.ts start
+
+# TODO: port this script to use a config file...
+# --network-specifications-directory /opt/network-configs/"

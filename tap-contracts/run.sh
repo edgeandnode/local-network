@@ -40,7 +40,7 @@ cd /opt/timeline-aggregation-protocol-subgraph
 sed -i "s/127.0.0.1:5001/ipfs:${IPFS_RPC}/g" package.json
 sed -i "s/127.0.0.1:8020/graph-node:${GRAPH_NODE_ADMIN}/g" package.json
 yq ".dataSources[].source.address=\"${escrow}\"" -i subgraph.yaml
-yq ".dataSources[].network |= \"local\"" -i subgraph.yaml
+yq ".dataSources[].network |= \"hardhat\"" -i subgraph.yaml
 yarn codegen
 yarn build
 yarn create-local
