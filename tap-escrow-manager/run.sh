@@ -5,10 +5,11 @@ set -eu
 grt="$(jq -r '."1337".GraphToken.address' /opt/contracts.json)"
 tap_escrow="$(jq -r '."1337".TAPEscrow.address' /opt/contracts.json)"
 
-rpk topic create gateway_indexer_attempts --brokers="redpanda:${REDPANDA_KAFKA}" || true
+rpk topic create gateway_queries --brokers="redpanda:${REDPANDA_KAFKA}" || true
 
 cat >config.json <<-EOF
 {
+  "authorize_signers": false,
   "chain_id": 1337,
   "debts": {},
   "escrow_contract": "${tap_escrow}",
@@ -21,7 +22,7 @@ cat >config.json <<-EOF
     "config": {
       "bootstrap.servers": "redpanda:${REDPANDA_KAFKA}"
     },
-    "topic": "gateway_indexer_attempts"
+    "realtime_topic": "gateway_queries"
   },
   "network_subgraph": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network",
   "query_auth": "freestuff",
