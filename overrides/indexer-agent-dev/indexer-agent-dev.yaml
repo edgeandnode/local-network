@@ -4,7 +4,7 @@ services:
     ports:
       - "${INDEXER_MANAGEMENT}:7600"
       # Nodejs debugger
-      - 9230:9229
+      - 9230:9230
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
