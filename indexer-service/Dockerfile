@@ -1,4 +1,4 @@
-FROM ghcr.io/graphprotocol/indexer-service-rs:v1.4.1
+FROM ghcr.io/graphprotocol/indexer-service-rs:sha-d436023
 RUN apt-get update \
   && apt-get install -y curl jq \
   && rm -rf /var/lib/apt/lists/*
