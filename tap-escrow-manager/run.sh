@@ -7,18 +7,27 @@ tap_escrow="$(jq -r '."1337".TAPEscrow.address' /opt/contracts.json)"
 
 rpk topic create gateway_queries --brokers="redpanda:${REDPANDA_KAFKA}" || true
 
+# mine blocks to create confirmations for allowance and signer authorization
+(while true; do
+    sleep 2
+    result="$(cast call --rpc-url="http://chain:${CHAIN_RPC}" "${grt}" 'allowance(address,address)(uint256)' "${ACCOUNT0_ADDRESS}" "${tap_escrow}")"
+    echo "allowance: ${result}"
+    if [ "${result}" = "100000000000000000000" ]; then
+        break
+    fi
+    cast rpc --rpc-url="http://chain:${CHAIN_RPC}" anvil_mine 2
+done) &
+
 cat >config.json <<-EOF
 {
-  "authorize_signers": false,
+  "authorize_signers": true,
   "chain_id": 1337,
   "debts": {},
   "escrow_contract": "${tap_escrow}",
   "escrow_subgraph": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap",
-  "graph_env": "local",
-  "grt_allowance": 1000000,
+  "grt_allowance": 100,
   "grt_contract": "${grt}",
   "kafka": {
-    "cache": "/opt/cache.json.gz",
     "config": {
       "bootstrap.servers": "redpanda:${REDPANDA_KAFKA}"
     },
@@ -34,6 +43,5 @@ cat >config.json <<-EOF
 EOF
 cat config.json
 
-touch /opt/cache.json
 export RUST_LOG="info,tap_escrow_manager=debug"
 tap-escrow-manager config.json
