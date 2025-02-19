@@ -16,13 +16,21 @@ export SECURE_ACCOUNTS_DISABLE_PROVIDER=true
 export HARDHAT_VAR_LOCALHOST_RPC=http://chain:8545
 export HARDHAT_VAR_LOCALHOST_CHAIN_ID=1337
 
-cd /opt/contracts/packages/subgraph-service
-jq --arg governor "$ACCOUNT0_ADDRESS" \
-   '.["$global"].governor = $governor' \
-   "/opt/contracts/packages/subgraph-service/ignition/configs/subgraph-service.default.json5" \
-   > temp.json && \
-   mv temp.json "/opt/contracts/packages/subgraph-service/ignition/configs/subgraph-service.default.json5"
-npx hardhat deploy:protocol --network localhost
+if [ -n "${FORK_RPC_URL:-}" ] && [ -n "${HARDHAT_VAR_LOCALHOST_ACCOUNTS_MNEMONIC:-}" ]; then
+  echo "FORK_RPC_URL detected, upgrading current version of the protocol"
+
+  cd /opt/contracts/packages
+  cd horizon && npx hardhat deploy:migrate --network localhost --step 1 && cd ..
+  cd subgraph-service && npx hardhat deploy:migrate --network localhost --step 1 && cd ..
+  cd horizon && npx hardhat deploy:migrate --network localhost --step 2 --patch-config && cd ..
+  cd horizon && npx hardhat deploy:migrate --network localhost --step 3 --patch-config && cd ..
+  cd subgraph-service && npx hardhat deploy:migrate --network localhost --step 2 --patch-config && cd ..
+  cd horizon && npx hardhat deploy:migrate --network localhost --step 4 --patch-config && cd ..
+else
+  echo "No FORK_RPC_URL detected, deploying new version of the protocol"
+  cd /opt/contracts/packages/subgraph-service
+  npx hardhat deploy:protocol --network localhost --subgraph-service-config local-network
+fi
 
 # TODO: add back this assertion section once the deployment is stable
 # cat addresses-local.json
