@@ -7,17 +7,6 @@ tap_escrow="$(jq -r '."1337".TAPEscrow.address' /opt/contracts.json)"
 
 rpk topic create gateway_queries --brokers="redpanda:${REDPANDA_KAFKA}" || true
 
-# mine blocks to create confirmations for allowance and signer authorization
-(while true; do
-    sleep 2
-    result="$(cast call --rpc-url="http://chain:${CHAIN_RPC}" "${grt}" 'allowance(address,address)(uint256)' "${ACCOUNT0_ADDRESS}" "${tap_escrow}")"
-    echo "allowance: ${result}"
-    if [ "${result}" = "100000000000000000000" ]; then
-        break
-    fi
-    cast rpc --rpc-url="http://chain:${CHAIN_RPC}" anvil_mine 2
-done) &
-
 cat >config.json <<-EOF
 {
   "authorize_signers": true,

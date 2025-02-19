@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xeu
+set -eu
 . /opt/.env
 
 cd /opt/contracts/packages/data-edge
@@ -18,7 +18,7 @@ data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
 output=$(cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${MNEMONIC}" \
   "${data_edge}" \
   '0xa1dce3320000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000f030103176569703135353a313333370000000000000000000000000000000000' 2>&1)
-  
+
 exit_code=$?
 
 if [ $exit_code -ne 0 ]; then

@@ -9,7 +9,7 @@ RUN curl -LO https://github.com/redpanda-data/redpanda/releases/latest/download/
 
 WORKDIR /opt
 RUN git clone https://github.com/edgeandnode/tap-escrow-manager && \
-    cd tap-escrow-manager && git checkout 87ded3f && . /root/.cargo/env && cargo build -p tap-escrow-manager && \
+    cd tap-escrow-manager && git checkout 40d889a && . /root/.cargo/env && cargo build -p tap-escrow-manager && \
     cp target/debug/tap-escrow-manager /usr/local/bin/tap-escrow-manager && cd .. && rm -rf tap-escrow-manager
 
 COPY ./run.sh /opt/run.sh
