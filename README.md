@@ -25,6 +25,10 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 
 - Foundry docs: https://book.getfoundry.sh/
 
+The chain can be started in fork mode by setting the `FORK_RPC_URL` environment variable. Recommendation is to set it via shell to avoid accidentally committing it to the repo with the `.env` file:
+
+`FORK_RPC_URL=<fork_url> docker compose up --build`
+
 ## ipfs
 
 - cat file via curl:
@@ -47,6 +51,10 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 - Status endpoint: http://localhost:8030/graphql/playground
 
 ## graph-contracts
+
+When running in fork mode, you can choose to upgrade the existing version of the protocol instead of deploying a new one. To do so you need to set the `HARDHAT_VAR_LOCALHOST_ACCOUNTS_MNEMONIC` environment variable to the mnemonic of the protocol governor account. Recommendation is to set it via shell to avoid accidentally committing it to the repo with the `.env` file:
+
+`FORK_RPC_URL=<fork_url> HARDHAT_VAR_LOCALHOST_ACCOUNTS_MNEMONIC=<mnemonic> docker compose up --build`
 
 - subgraph: http://localhost:8000/subgraphs/name/graph-network
 
