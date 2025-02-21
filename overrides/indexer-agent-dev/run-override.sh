@@ -78,14 +78,13 @@ cat ./config/config.yaml
 echo "Current PWD $PWD"
 
 nodemon --watch . \
---ext js \
+--ext ts \
 --legacy-watch \
 --delay 4 \
 --verbose \
 --exec "
 NODE_OPTIONS=\"--inspect=0.0.0.0:9230\"
-ts-node \
-  packages/indexer-agent/src/index.ts start
+tsx packages/indexer-agent/src/index.ts start"
 
 # TODO: port this script to use a config file...
 # --network-specifications-directory /opt/network-configs/"
