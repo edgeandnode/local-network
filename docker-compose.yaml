@@ -14,7 +14,7 @@ services:
 
   postgres:
     container_name: postgres
-    image: postgres:14.5-alpine
+    image: postgres:alpine
     ports: ["${POSTGRES}:5432"]
     command: postgres -c 'max_connections=1000' -c 'shared_preload_libraries=pg_stat_statements'
     volumes:
@@ -173,6 +173,19 @@ services:
     depends_on:
       subgraph-deploy: { condition: service_completed_successfully }
     ports: ["${GATEWAY}:7700"]
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./contracts.json:/opt/contracts.json:ro
+
+  dipper:
+    container_name: dipper
+    build: { context: dipper }
+    depends_on:
+      subgraph-deploy: { condition: service_completed_successfully }
+    ports:
+      - "${DIPPER_ADMIN_RPC_PORT}:9000"
+      - "${DIPPER_INDEXER_RPC_PORT}:9001"
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
