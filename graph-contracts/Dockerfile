@@ -11,7 +11,7 @@ ENV PATH="$PATH:/root/.foundry/bin"
 
 WORKDIR /opt
 
-RUN git clone https://github.com/graphprotocol/contracts --branch 'horizon' && \
+RUN git clone https://github.com/graphprotocol/contracts --branch 'tmigone/horizon-post-oz-audit2' && \
   cd contracts && yarn && yarn build
 
 # # RUN git clone https://github.com/graphprotocol/graph-network-subgraph --branch 'v1.1.0' && \
