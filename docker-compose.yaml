@@ -59,6 +59,7 @@ services:
       - ./contracts.json:/opt/contracts.json:ro
     environment:
       FORK_RPC_URL: ${FORK_RPC_URL:-}
+      HARDHAT_VAR_LOCALHOST_ACCOUNTS_MNEMONIC: ${HARDHAT_VAR_LOCALHOST_ACCOUNTS_MNEMONIC:-}
   tap-contracts:
     container_name: tap-contracts
     build: { context: tap-contracts }
