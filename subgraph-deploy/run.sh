@@ -3,7 +3,7 @@ set -eu
 . /opt/.env
 
 # don't rerun when retriggered via a service_completed_successfully condition
-if curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
+if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ subgraphs { id } }" }' \
   | grep "${SUBGRAPH}"
@@ -11,15 +11,15 @@ then
   exit 0
 fi
 
-network_subgraph_deployment="$(curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
+network_subgraph_deployment="$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
   | jq -r '.data._meta.deployment')"
-block_oracle_deployment="$(curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle" \
+block_oracle_deployment="$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
   | jq -r '.data._meta.deployment')"
-tap_deployment="$(curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap" \
+tap_deployment="$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
   | jq -r '.data._meta.deployment')"
@@ -34,7 +34,7 @@ graph-indexer indexer --network=hardhat rules prepare "${network_subgraph_deploy
 graph-indexer indexer --network=hardhat rules prepare "${block_oracle_deployment}" -o json
 graph-indexer indexer --network=hardhat rules prepare "${tap_deployment}" -o json
 
-deployment_hex="$(curl -X POST "http://ipfs:${IPFS_RPC}/api/v0/cid/format?arg=${block_oracle_deployment}&b=base16" \
+deployment_hex="$(curl -s -X POST "http://ipfs:${IPFS_RPC}/api/v0/cid/format?arg=${block_oracle_deployment}&b=base16" \
   | jq -r '.Formatted')"
 deployment_hex="${deployment_hex#f01701220}"
 echo "deployment_hex=${deployment_hex}"
@@ -70,7 +70,7 @@ done
 
 
 # wait for an active allocation
-while ! curl "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
+while ! curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ allocations(where:{status:Active}) { indexer { id } } }" }' \
   | grep -i "${RECEIVER_ADDRESS}"

@@ -3,7 +3,7 @@ set -eu
 . /opt/.env
 
 # don't rerun when retriggered via a service_completed_successfully condition
-if curl http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network \
+if curl -s http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' | \
   grep "_meta"

@@ -3,7 +3,7 @@ set -eu
 . /opt/.env
 
 # don't rerun when retriggered via a service_completed_successfully condition
-if curl http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap \
+if curl -s http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' | \
   grep "_meta"
@@ -47,7 +47,7 @@ yarn create-local
 yarn deploy-local --version-label v0.0.1 | tee deploy.txt
 deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
 echo "${deployment_id}"
-curl "http://graph-node:${GRAPH_NODE_ADMIN}" \
+curl -s "http://graph-node:${GRAPH_NODE_ADMIN}" \
   -H 'content-type: application/json' \
   -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"subgraph_reassign\",\"params\":{\"node_id\":\"default\",\"ipfs_hash\":\"${deployment_id}\"}}" && \
   echo ""

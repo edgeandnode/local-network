@@ -4,7 +4,7 @@ set -xeu
 
 
 # graph-node has issues if there isn't at least one block on the chain
-curl -f "http://chain:${CHAIN_RPC}" \
+curl -sf "http://chain:${CHAIN_RPC}" \
    -H 'content-type: application/json' \
    -d '{"jsonrpc":"2.0","id":1,"method":"anvil_mine","params":[]}'
 
