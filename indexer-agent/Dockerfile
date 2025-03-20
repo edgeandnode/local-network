@@ -2,8 +2,11 @@ FROM --platform=linux/amd64 ghcr.io/graphprotocol/indexer-agent:v0.22.0
 RUN apt-get update \
     && apt-get install -y jq \
     && rm -rf /var/lib/apt/lists/*
-RUN curl -L https://foundry.paradigm.xyz | bash && \
-    /root/.foundry/bin/foundryup --install nightly-0e519ffde8ab5babde7dffa96fca28cfa3608b59
+
+# Install Foundry
+COPY --from=ghcr.io/foundry-rs/foundry:nightly-0e519ffde8ab5babde7dffa96fca28cfa3608b59 \
+  /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin/anvil /usr/local/bin/chisel /usr/local/bin/
+
 RUN npm install -g tsx nodemon prettier eslint
 
 COPY ./run.sh /opt/run.sh
