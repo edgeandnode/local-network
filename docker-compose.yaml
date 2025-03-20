@@ -4,13 +4,15 @@ services:
     image: ghcr.io/foundry-rs/foundry:nightly-0e519ffde8ab5babde7dffa96fca28cfa3608b59
     ports: ["${CHAIN_RPC}:8545"]
     command: ["anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0"]
-    healthcheck: { interval: 1s, retries: 10, test: cast block }
+    healthcheck: 
+      { interval: 1s, retries: 10, test: cast block }
 
   ipfs:
     container_name: ipfs
     image: ipfs/kubo:v0.27.0
     ports: ["${IPFS_RPC}:5001"]
-    healthcheck: { interval: 1s, retries: 10, test: ipfs id }
+    healthcheck: 
+      { interval: 1s, retries: 10, test: ipfs id }
 
   postgres:
     container_name: postgres
@@ -23,7 +25,8 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding UTF8 --locale=C"
       POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_USER: postgres
-    healthcheck: { interval: 1s, retries: 10, test: pg_isready -U postgres }
+    healthcheck:
+      { interval: 1s, retries: 20, test: pg_isready -U postgres }
 
   graph-node:
     container_name: graph-node
@@ -41,7 +44,7 @@ services:
     volumes:
       - ./.env:/opt/.env:ro
     healthcheck:
-      { interval: 1s, retries: 10, test: curl -f http://127.0.0.1:8030 }
+      { interval: 1s, retries: 20, test: curl -f http://127.0.0.1:8030 }
 
   graph-contracts:
     container_name: graph-contracts
@@ -73,9 +76,7 @@ services:
     environment:
       RUST_BACKTRACE: full
     healthcheck:
-      interval: 1s
-      retries: 600
-      test: curl -f http://127.0.0.1:9090/metrics
+      { interval: 1s, retries: 600, test: curl -f http://127.0.0.1:9090/metrics }
 
   indexer-agent:
     container_name: indexer-agent
@@ -88,9 +89,7 @@ services:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
     healthcheck:
-      interval: 10s
-      retries: 600
-      test: curl -f http://127.0.0.1:7600/
+      { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
 
   subgraph-deploy:
     container_name: subgraph-deploy
@@ -111,6 +110,8 @@ services:
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
+    healthcheck:
+      { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
 
   tap-aggregator:
     container_name: tap-aggregator
@@ -152,9 +153,7 @@ services:
       - --pandaproxy-addr 0.0.0.0:8082
       - --schema-registry-addr 0.0.0.0:8081
     healthcheck:
-      interval: 1s
-      retries: 600
-      test: rpk topic list --brokers="localhost:9092"
+      { interval: 1s, retries: 600, test: rpk topic list --brokers="localhost:9092" }
 
   tap-escrow-manager:
     container_name: tap-escrow-manager
@@ -177,6 +176,11 @@ services:
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
+    environment:
+      RUST_LOG: info,graph_gateway=trace
+    restart: on-failure:3
+    healthcheck:
+      { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7700/ }
 
   dipper:
     container_name: dipper
@@ -190,3 +194,6 @@ services:
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
+    restart: on-failure:3
+    healthcheck:
+      { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:9000/ }
