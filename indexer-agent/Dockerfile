@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 ghcr.io/graphprotocol/indexer-agent:v0.22.0
+FROM ghcr.io/graphprotocol/indexer-agent:v0.22.0
 RUN apt-get update \
     && apt-get install -y jq \
     && rm -rf /var/lib/apt/lists/*
