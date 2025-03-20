@@ -1,14 +1,19 @@
-
-#!/bin/sh
+#!/bin/env sh
 set -eu
+
+## Parameters
 . /opt/.env
 
-cd /opt
+# Pull the network subgraph deployment ID from the graph-node
 network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
   | jq -r '.data._meta.deployment')
+
+# Extract the TAPVerifier address from the contracts.json file
 tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)
+
+## Config
 cat >config.json <<-EOF
 {
   "dips": {
@@ -38,14 +43,14 @@ cat >config.json <<-EOF
     ]
   },
   "db": {
-    "url": "postgres://localhost:5432/dipper",
+    "url": "postgres://postgres:${POSTGRES}/dipper_1",
     "username": "postgres",
     "password": "postgres",
     "max_connections": 10
   },
   "network": {
-    "gateway_url": "http://127.0.0.1:${POSTGRES}",
-    "api_key": "deadbeefdeadbeefdeadbeefdeadbeef",
+    "gateway_url": "http://gateway:${GATEWAY}",
+    "api_key": "${GATEWAY_API_KEY}",
     "deployment_id": "${network_subgraph_deployment}",
     "update_interval": 60
   },
@@ -61,5 +66,5 @@ cat >config.json <<-EOF
 }
 EOF
 cat config.json
-export RUST_LOG=debug
+
 dipper ./config.json

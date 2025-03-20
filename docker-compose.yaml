@@ -95,7 +95,10 @@ services:
     container_name: subgraph-deploy
     build: { context: subgraph-deploy }
     depends_on:
+      graph-node: { condition: service_healthy }
       indexer-agent: { condition: service_healthy }
+      ipfs: { condition: service_healthy }
+      chain: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
@@ -171,6 +174,8 @@ services:
     build: { context: gateway }
     depends_on:
       subgraph-deploy: { condition: service_completed_successfully }
+      indexer-service: { condition: service_healthy }
+      redpanda: { condition: service_healthy }
     ports: ["${GATEWAY}:7700"]
     stop_signal: SIGKILL
     volumes:
@@ -186,11 +191,14 @@ services:
     container_name: dipper
     build: { context: dipper }
     depends_on:
-      subgraph-deploy: { condition: service_completed_successfully }
+      gateway: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     ports:
       - "${DIPPER_ADMIN_RPC_PORT}:9000"
       - "${DIPPER_INDEXER_RPC_PORT}:9001"
     stop_signal: SIGKILL
+    environment:
+      RUST_LOG: info,dipper_service=debug
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro

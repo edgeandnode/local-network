@@ -16,7 +16,7 @@ cat >config.json <<-EOF
   },
   "api_keys": [
     {
-      "key": "deadbeefdeadbeefdeadbeefdeadbeef",
+      "key": "${GATEWAY_API_KEY}",
       "user_address": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
       "query_status": "ACTIVE"
     }
