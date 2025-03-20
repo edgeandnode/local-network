@@ -46,7 +46,7 @@ npx graph create block-oracle --node="http://graph-node:${GRAPH_NODE_ADMIN}"
 npx graph deploy block-oracle --node="http://graph-node:${GRAPH_NODE_ADMIN}" --ipfs="http://ipfs:${IPFS_RPC}" --version-label 'v0.0.1' | tee deploy.txt
 deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
 echo "deployed block-oracle to deployment_id: ${deployment_id}"
-curl "http://graph-node:${GRAPH_NODE_ADMIN}" \
+curl -s "http://graph-node:${GRAPH_NODE_ADMIN}" \
   -H 'content-type: application/json' \
   -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"subgraph_reassign\",\"params\":{\"node_id\":\"default\",\"ipfs_hash\":\"${deployment_id}\"}}" && \
   echo ""

@@ -5,12 +5,12 @@ if [ -z "$name" ]; then
   echo "Usage: $0 <name>"
   exit 1
 fi
-deployment="$(curl "http://localhost:${GRAPH_NODE_GRAPHQL}/subgraphs/name/$name" \
+deployment="$(curl -s "http://localhost:${GRAPH_NODE_GRAPHQL}/subgraphs/name/$name" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
   | jq -r '.data._meta.deployment')"
 echo "deployment=${deployment}"
-deployment_hex="$(curl -X POST "http://localhost:${IPFS_RPC}/api/v0/cid/format?arg=${deployment}&b=base16" \
+deployment_hex="$(curl -s -X POST "http://localhost:${IPFS_RPC}/api/v0/cid/format?arg=${deployment}&b=base16" \
   | jq -r '.Formatted')"
 
 # Remove the first 8 bytes of the hex string matching the IPFS prefix
