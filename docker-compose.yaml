@@ -176,6 +176,7 @@ services:
       subgraph-deploy: { condition: service_completed_successfully }
       indexer-service: { condition: service_healthy }
       redpanda: { condition: service_healthy }
+      tap-escrow-manager: { condition: service_started }
     ports: ["${GATEWAY}:7700"]
     stop_signal: SIGKILL
     volumes:
