@@ -16,7 +16,7 @@ services:
 
   postgres:
     container_name: postgres
-    image: postgres:alpine
+    image: postgres:17-alpine
     ports: ["${POSTGRES}:5432"]
     command: postgres -c 'max_connections=1000' -c 'shared_preload_libraries=pg_stat_statements'
     volumes:

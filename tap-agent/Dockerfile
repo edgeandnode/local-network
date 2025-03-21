@@ -1,7 +1,7 @@
-FROM ghcr.io/graphprotocol/indexer-tap-agent:main
+FROM ghcr.io/graphprotocol/indexer-tap-agent:v1.9.1
 RUN apt-get update \
-  && apt-get install -y git jq \
-  && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y git jq \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN cd /opt && git clone https://github.com/graphprotocol/indexer-rs
 
