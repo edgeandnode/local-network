@@ -9,10 +9,12 @@ services:
 
   ipfs:
     container_name: ipfs
-    image: ipfs/kubo:v0.27.0
+    image: ipfs/kubo:v0.34.1
     ports: ["${IPFS_RPC}:5001"]
+    environment:
+      IPFS_PROFILE: server
     healthcheck: 
-      { interval: 1s, retries: 10, test: ipfs id }
+      { interval: 1s, retries: 50, test: ipfs id }
 
   postgres:
     container_name: postgres
@@ -105,14 +107,25 @@ services:
 
   indexer-service:
     container_name: indexer-service
-    build: { context: indexer-service }
+    build: { 
+      target: "wrapper-dev", # Set to "wrapper-dev" for building from source
+      context: indexer-service,
+    }
     depends_on:
       indexer-agent: { condition: service_healthy }
-    ports: ["${INDEXER_SERVICE}:7601"]
+      ipfs: { condition: service_healthy }
+      tap-escrow-manager: { condition: service_started }
+    ports: [
+      "${INDEXER_SERVICE}:7601",
+      "${INDEXER_SERVICE_DIPS_RPC_PORT}:7602"
+    ]
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
+    environment:
+      RUST_LOG: info,indexer_service_rs=info,indexer_monitor=debug,indexer_dips=debug
+      RUST_BACKTRACE: 1
     healthcheck:
       { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
 
@@ -202,7 +215,8 @@ services:
       - "${DIPPER_INDEXER_RPC_PORT}:9001"
     stop_signal: SIGKILL
     environment:
-      RUST_LOG: info,dipper_service=info
+      RUST_LOG: info,dipper_service=trace,dipper_service::network=info
+      RUST_BACKTRACE: 1
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro

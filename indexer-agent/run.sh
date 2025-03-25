@@ -57,6 +57,10 @@ indexerOptions:
   voucherRedemptionBatchThreshold: 10
   rebateClaimThreshold: 0.00001
   rebateClaimBatchThreshold: 10
+  enableDips: true
+  dipperEndpoint: "http://dipper:${DIPPER_INDEXER_RPC_PORT}"
+  dipsAllocationAmount: 1
+  dipsEpochsMargin: 1
 subgraphs:
   maxBlockDistance: 5000
   freshnessSleepMilliseconds: 1000
