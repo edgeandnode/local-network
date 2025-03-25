@@ -40,7 +40,7 @@ RUN --mount=type=cache,sharing=locked,id=cargo-registry,target=/usr/local/cargo/
 
 ## Python builder
 # Package the python code (sdist)
-FROM python:3.12.6-bookworm AS python-builder
+FROM python:3.12.6-slim-bookworm AS python-builder
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
