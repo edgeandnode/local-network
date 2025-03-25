@@ -103,6 +103,30 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 - `graph indexer connect http://localhost:7600`
 - `graph indexer --network=hardhat status`
 
+## indexer-service
+
+- `docker compose up --build indexer-service`
+- `docker compose stop indexer-service`
+- `docker compose logs -f indexer-service`
+
+### Building from source
+
+Building from source requires the Git submodules to be initialized.
+
+- `git submodule update --init --recursive --force indexer-service/source`
+
+And then select the `wrapper-dev` target when building the Docker image in the `docker-compose.yaml` file.
+
+```diff
+  indexer-service:
+    container_name: indexer-service
+    build: { 
+-     target: "wrapper", # Set to "wrapper-dev" for building from source
++     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
+      context: indexer-service,
+    }
+```
+
 ## gateway
 
 ```bash
@@ -140,3 +164,65 @@ docker exec -it redpanda rpk topic consume gateway_client_query_results --broker
     }
   }
   ```
+
+## dipper
+
+> [!IMPORTANT]
+> The Dipper service repository is private. You will need to initialize the submodules manually.
+>
+> ```bash
+> git submodule update --init --recursive --force dipper/source
+> ```
+
+- `docker compose up --build dipper`
+- `docker compose stop dipper`
+- `docker compose logs -f dipper`
+
+### Dipper admin CLI
+
+Download the dipper Admin CLI from the GitHUb Actions CI build job artifacts section, e.g, https://github.com/edgeandnode/dipper/actions/runs/14228474216
+
+```bash
+# Source the environment variables (required for the next step)
+source .env
+
+# Export the DIPs CLI auth config
+export DIPS_SIGNING_KEY="${RECEIVER_SECRET}" && export DIPS_SERVER_URL="http://localhost:${DIPPER_ADMIN_RPC_PORT}/"
+
+## Commands
+# Request to index the "block-oracle" subgraph on the "hardhat" network
+./dipper-cli indexings register "QmNngXzFajkQHRj3ZjAJAF7jc2AibTQKB4dwftjiKXC9RP" 1337
+
+# List all indexings
+./dipper-cli indexings list
+
+# Deregister an indexing
+./dipper-cli indexings cancel <indexing_request_uuid
+```
+
+Alternatively, you can run the CLI from source.
+
+```bash
+cd dipper/source
+
+# Run any command (see the credentials section above for auth config)
+cargo run --bin dipper-cli indexings register "QmNngXzFajkQHRj3ZjAJAF7jc2AibTQKB4dwftjiKXC9RP" 1337
+```
+
+### Building from source
+
+Building from source requires the Git submodules to be initialized.
+
+- `git submodule update --init --recursive --force dipper/source`
+
+And then select the `wrapper-dev` target when building the Docker image in the `docker-compose.yaml` file.
+
+```diff
+  dipper:
+    container_name: dipper
+    build: { 
+-     target: "wrapper", # Set to "wrapper-dev" for building from source
++     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
+      context: dipper,
+    }
+```
