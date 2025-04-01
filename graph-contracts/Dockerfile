@@ -22,8 +22,8 @@ RUN git clone https://github.com/graphprotocol/contracts --branch 'tmigone/horiz
     git cherry-pick e8a47dd0e87a554428523caa467c632736e93c73 && \
     yarn && yarn build
 
-# # RUN git clone https://github.com/graphprotocol/graph-network-subgraph --branch 'juanmardefago/horizon-stage-1' && \
-# #   cd graph-network-subgraph && yarn
+RUN git clone https://github.com/graphprotocol/graph-network-subgraph --branch 'juanmardefago/horizon-stage-1' && \
+  cd graph-network-subgraph && yarn
 
 COPY ./run.sh /opt/run.sh
 
