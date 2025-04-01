@@ -4,8 +4,8 @@ services:
     build: { context: chain } 
     ports: ["${CHAIN_RPC}:8545"]
     healthcheck: { interval: 1s, retries: 10, test: cast block }
-    environment:
-      FORK_RPC_URL: ${FORK_RPC_URL:-}
+    env_file:
+      - .env.secrets
 
   ipfs:
     container_name: ipfs
@@ -51,10 +51,10 @@ services:
       graph-node: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
-    environment:
-      FORK_RPC_URL: ${FORK_RPC_URL:-}
-      HARDHAT_VAR_LOCALHOST_ACCOUNTS_MNEMONIC: ${HARDHAT_VAR_LOCALHOST_ACCOUNTS_MNEMONIC:-}
+      - ./contracts.json:/opt/contracts.json
+    env_file:
+      - .env.secrets
+
   tap-contracts:
     container_name: tap-contracts
     build: { context: tap-contracts }

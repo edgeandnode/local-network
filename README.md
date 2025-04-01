@@ -25,9 +25,7 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 
 - Foundry docs: https://book.getfoundry.sh/
 
-The chain can be started in fork mode by setting the `FORK_RPC_URL` environment variable. Recommendation is to set it via shell to avoid accidentally committing it to the repo with the `.env` file:
-
-`FORK_RPC_URL=<fork_url> docker compose up --build`
+The chain can be started in fork mode by setting the `FORK_RPC_URL` environment variable in a `.env.secrets` file.
 
 ## ipfs
 
@@ -52,9 +50,7 @@ The chain can be started in fork mode by setting the `FORK_RPC_URL` environment 
 
 ## graph-contracts
 
-When running in fork mode, you can choose to upgrade the existing version of the protocol instead of deploying a new one. To do so you need to set the `HARDHAT_VAR_LOCALHOST_ACCOUNTS_MNEMONIC` environment variable to the mnemonic of the protocol governor account. Recommendation is to set it via shell to avoid accidentally committing it to the repo with the `.env` file:
-
-`FORK_RPC_URL=<fork_url> HARDHAT_VAR_LOCALHOST_ACCOUNTS_MNEMONIC=<mnemonic> docker compose up --build`
+When running in fork mode (see [chain](#chain)), you can choose to upgrade the existing version of the protocol instead of deploying a new one. To do so you need to set the `HARDHAT_VAR_LOCALHOST_ACCOUNTS_MNEMONIC` environment variable in a `.env.secrets` file. Note that this mnemonic must match the deployment's governor account.
 
 - subgraph: http://localhost:8000/subgraphs/name/graph-network
 
