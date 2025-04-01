@@ -32,6 +32,8 @@ else
   npx hardhat deploy:protocol --network localhost --subgraph-service-config local-network
 fi
 
+jq -s '.[0] * .[1]' /opt/contracts/packages/subgraph-service/addresses-localhost.json /opt/contracts/packages/horizon/addresses-localhost.json > /opt/contracts.json
+
 # TODO: add back this assertion section once the deployment is stable
 # cat addresses-local.json
 # test "$(jq '."1337".Controller.address' /opt/contracts.json)" = "$(jq '."1337".Controller.address' addresses-local.json)"
