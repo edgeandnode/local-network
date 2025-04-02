@@ -45,6 +45,4 @@ ${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
 EOF
 cat config.toml
 
-export RUST_LOG="info,service=debug"
-
 indexer-service-rs --config=config.toml
