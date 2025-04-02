@@ -190,7 +190,10 @@ services:
 
   dipper:
     container_name: dipper
-    build: { context: dipper }
+    build: { 
+      target: "wrapper-dev", # Set to "wrapper-dev" for building from source
+      context: dipper
+    }
     depends_on:
       gateway: { condition: service_healthy }
       postgres: { condition: service_healthy }
@@ -199,10 +202,10 @@ services:
       - "${DIPPER_INDEXER_RPC_PORT}:9001"
     stop_signal: SIGKILL
     environment:
-      RUST_LOG: info,dipper_service=debug
+      RUST_LOG: info,dipper_service=info
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
-    restart: on-failure:3
+    restart: on-failure:10
     healthcheck:
-      { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:9000/ }
+      { interval: 5s, retries: 100, test: curl -f http://127.0.0.1:9000/ }

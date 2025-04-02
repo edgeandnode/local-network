@@ -1,9 +1,8 @@
 #!/bin/env sh
 set -eu
-
-## Parameters
 . /opt/.env
 
+## Parameters
 # Pull the network subgraph deployment ID from the graph-node
 network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
@@ -24,20 +23,20 @@ cat >config.json <<-EOF
     "min_epochs_per_collection": 2,
     "duration_epochs": 20,
     "pricing_table": {
-      "1337": {
-        "base_price_per_epoch": "0x100",
-        "price_per_entity": "0x100"
+      "${CHAIN_ID}": {
+        "base_price_per_epoch": "101",
+        "price_per_entity": "1001"
       }
     }
   },
   "admin_rpc": {
-    "listen_addr": "127.0.0.1:${DIPPER_ADMIN_RPC_PORT}",
+    "listen_addr": "0.0.0.0:${DIPPER_ADMIN_RPC_PORT}",
     "allowlist": [
         "${RECEIVER_ADDRESS}"
     ]
   },
   "indexer_rpc": {
-    "listen_addr": "127.0.0.1:${DIPPER_INDEXER_RPC_PORT}",
+    "listen_addr": "0.0.0.0:${DIPPER_INDEXER_RPC_PORT}",
     "allowlist": [
         "${RECEIVER_ADDRESS}"
     ]
@@ -65,6 +64,5 @@ cat >config.json <<-EOF
   }
 }
 EOF
-cat config.json
 
-dipper ./config.json
+dipper-service ./config.json
