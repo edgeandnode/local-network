@@ -54,6 +54,7 @@ sed -i 's/arbsep/localnetwork/g' ./config/arbitrumSepoliaAddressScript.ts
 sed -i 's/421614/1337/g' ./config/arbitrumSepoliaAddressScript.ts
 sed -i 's/570450/1/g' ./config/arbitrumSepoliaAddressScript.ts
 sed -i 's+@graphprotocol/contracts/addresses.json+/opt/contracts.json+g' ./config/arbitrumSepoliaAddressScript.ts
+
 # TODO: remove this once the network subgraph scripts are updated
 # For now we don't care about the L2GNS, SubgraphNFT, ServiceRegistry so we just use HorizonStaking address for them
 jq '.["1337"] = (.["1337"] * {"L2Staking": .["1337"].HorizonStaking, "L2GNS": .["1337"].HorizonStaking, "SubgraphNFT": .["1337"].HorizonStaking, "ServiceRegistry": .["1337"].HorizonStaking})' /opt/contracts.json > /opt/contracts.json.tmp
