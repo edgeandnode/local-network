@@ -103,6 +103,30 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 - `graph indexer connect http://localhost:7600`
 - `graph indexer --network=hardhat status`
 
+## indexer-service
+
+- `docker compose up --build indexer-service`
+- `docker compose down indexer-service`
+- `docker compose logs -f indexer-service`
+
+### Building from source
+
+Building from source requires the Git submodules to be initialized.
+
+- `git submodule update --init --recursive --force indexer-service/source`
+
+And then select the `wrapper-dev` target when building the Docker image in the `docker-compose.yaml` file.
+
+```diff
+  indexer-service:
+    container_name: indexer-service
+    build: { 
+-     target: "wrapper", # Set to "wrapper-dev" for building from source
++     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
+      context: indexer-service,
+    }
+```
+
 ## gateway
 
 ```bash
@@ -140,3 +164,34 @@ docker exec -it redpanda rpk topic consume gateway_client_query_results --broker
     }
   }
   ```
+
+## dipper
+
+> [!IMPORTANT]
+> The Dipper service repository is private. You will need to initialize the submodules manually.
+>
+> ```bash
+> git submodule update --init --recursive --force dipper/source
+> ```
+
+- `docker compose up --build dipper`
+- `docker compose down dipper`
+- `docker compose logs -f dipper`
+
+### Building from source
+
+Building from source requires the Git submodules to be initialized.
+
+- `git submodule update --init --recursive --force dipper/source`
+
+And then select the `wrapper-dev` target when building the Docker image in the `docker-compose.yaml` file.
+
+```diff
+  dipper:
+    container_name: dipper
+    build: { 
+-     target: "wrapper", # Set to "wrapper-dev" for building from source
++     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
+      context: dipper,
+    }
+```
