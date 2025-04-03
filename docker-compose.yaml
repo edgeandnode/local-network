@@ -9,10 +9,12 @@ services:
 
   ipfs:
     container_name: ipfs
-    image: ipfs/kubo:v0.27.0
+    image: ipfs/kubo:v0.34.1
     ports: ["${IPFS_RPC}:5001"]
+    environment:
+      IPFS_PROFILE: server
     healthcheck: 
-      { interval: 1s, retries: 10, test: ipfs id }
+      { interval: 1s, retries: 50, test: ipfs id }
 
   postgres:
     container_name: postgres
