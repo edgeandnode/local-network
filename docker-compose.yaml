@@ -1,7 +1,7 @@
 services:
   chain:
     container_name: chain
-    image: ghcr.io/foundry-rs/foundry:nightly-0e519ffde8ab5babde7dffa96fca28cfa3608b59
+    image: ghcr.io/foundry-rs/foundry:v1.0.0
     ports: ["${CHAIN_RPC}:8545"]
     command: ["anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0"]
     healthcheck: 
