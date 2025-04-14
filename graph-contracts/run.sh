@@ -11,36 +11,56 @@ then
   exit 0
 fi
 
-cd /opt/contracts/packages/contracts
-echo "{}" > addresses-local.json
-sed -i "s/127.0.0.1:${CHAIN_RPC}/chain:${CHAIN_RPC}/g" hardhat.config.ts
-sed -i "s/\&governor.*$/\&governor \"${ACCOUNT0_ADDRESS}\"/g" config/graph.localhost.yml
-sed -i "s/\&authority.*$/\&authority \"${ACCOUNT0_ADDRESS}\"/g" config/graph.localhost.yml
-sed -i "s/myth like bonus scare over problem client lizard pioneer submit female collect/${MNEMONIC}/g" hardhat.config.ts
-yarn deploy-localhost
+# == DEPLOY PROTOCOL WITH SUBGRAPH SERVICE ==
+if [ -n "${FORK_RPC_URL:-}" ] && [ -n "${HARDHAT_VAR_LOCALHOST_ACCOUNTS_MNEMONIC:-}" ]; then
+  echo "FORK_RPC_URL detected, upgrading current version of the protocol"
 
-cat addresses-local.json
-test "$(jq '."1337".Controller.address' /opt/contracts.json)" = "$(jq '."1337".Controller.address' addresses-local.json)"
-test "$(jq '."1337".EpochManager.address' /opt/contracts.json)" = "$(jq '."1337".EpochManager.address' addresses-local.json)"
-test "$(jq '."1337".GraphToken.address' /opt/contracts.json)" = "$(jq '."1337".GraphToken.address' addresses-local.json)"
-test "$(jq '."1337".DisputeManager.address' /opt/contracts.json)" = "$(jq '."1337".DisputeManager.address' addresses-local.json)"
-test "$(jq '."1337".L1Staking.address' /opt/contracts.json)" = "$(jq '."1337".L1Staking.address' addresses-local.json)"
-test "$(jq '."1337".StakingExtension.address' /opt/contracts.json)" = "$(jq '."1337".StakingExtension.address' addresses-local.json)"
-test "$(jq '."1337".Curation.address' /opt/contracts.json)" = "$(jq '."1337".Curation.address' addresses-local.json)"
-test "$(jq '."1337".RewardsManager.address' /opt/contracts.json)" = "$(jq '."1337".RewardsManager.address' addresses-local.json)"
-test "$(jq '."1337".ServiceRegistry.address' /opt/contracts.json)" = "$(jq '."1337".ServiceRegistry.address' addresses-local.json)"
-test "$(jq '."1337".L1GNS.address' /opt/contracts.json)" = "$(jq '."1337".L1GNS.address' addresses-local.json)"
-test "$(jq '."1337".SubgraphNFT.address' /opt/contracts.json)" = "$(jq '."1337".SubgraphNFT.address' addresses-local.json)"
-test "$(jq '."1337".L1GraphTokenGateway.address' /opt/contracts.json)" = "$(jq '."1337".L1GraphTokenGateway.address' addresses-local.json)"
+  cd /opt/contracts/packages
+  cd horizon && npx hardhat deploy:migrate --network localNetwork --step 1 && cd ..
+  cd subgraph-service && npx hardhat deploy:migrate --network localNetwork --step 1 && cd ..
+  cd horizon && npx hardhat deploy:migrate --network localNetwork --step 2 --patch-config && cd ..
+  cd horizon && npx hardhat deploy:migrate --network localNetwork --step 3 --patch-config && cd ..
+  cd subgraph-service && npx hardhat deploy:migrate --network localNetwork --step 2 --patch-config && cd ..
+  cd horizon && npx hardhat deploy:migrate --network localNetwork --step 4 --patch-config && cd ..
+else
+  echo "No FORK_RPC_URL detected, deploying new version of the protocol"
+  cd /opt/contracts/packages/subgraph-service
+  npx hardhat deploy:protocol --network localNetwork --subgraph-service-config localNetwork
+fi
 
-printf "\naddresses match"
+jq -s '.[0] * .[1]' /opt/contracts/packages/subgraph-service/addresses-local-network.json /opt/contracts/packages/horizon/addresses-local-network.json > /opt/contracts.json
 
+# TODO: add back this assertion section once the deployment is stable
+# cat addresses-local.json
+# test "$(jq '."1337".Controller.address' /opt/contracts.json)" = "$(jq '."1337".Controller.address' addresses-local.json)"
+# test "$(jq '."1337".EpochManager.address' /opt/contracts.json)" = "$(jq '."1337".EpochManager.address' addresses-local.json)"
+# test "$(jq '."1337".GraphToken.address' /opt/contracts.json)" = "$(jq '."1337".GraphToken.address' addresses-local.json)"
+# test "$(jq '."1337".DisputeManager.address' /opt/contracts.json)" = "$(jq '."1337".DisputeManager.address' addresses-local.json)"
+# test "$(jq '."1337".L1Staking.address' /opt/contracts.json)" = "$(jq '."1337".L1Staking.address' addresses-local.json)"
+# test "$(jq '."1337".StakingExtension.address' /opt/contracts.json)" = "$(jq '."1337".StakingExtension.address' addresses-local.json)"
+# test "$(jq '."1337".Curation.address' /opt/contracts.json)" = "$(jq '."1337".Curation.address' addresses-local.json)"
+# test "$(jq '."1337".RewardsManager.address' /opt/contracts.json)" = "$(jq '."1337".RewardsManager.address' addresses-local.json)"
+# test "$(jq '."1337".ServiceRegistry.address' /opt/contracts.json)" = "$(jq '."1337".ServiceRegistry.address' addresses-local.json)"
+# test "$(jq '."1337".L1GNS.address' /opt/contracts.json)" = "$(jq '."1337".L1GNS.address' addresses-local.json)"
+# test "$(jq '."1337".SubgraphNFT.address' /opt/contracts.json)" = "$(jq '."1337".SubgraphNFT.address' addresses-local.json)"
+# test "$(jq '."1337".L1GraphTokenGateway.address' /opt/contracts.json)" = "$(jq '."1337".L1GraphTokenGateway.address' addresses-local.json)"
+
+# printf "\naddresses match"
+
+# == DEPLOY NETWORK SUBGRAPH ==
 cd /opt/graph-network-subgraph
-sed -i 's/sepolia/hardhat/g' ./config/sepoliaAddressScript.ts
-sed -i 's/11155111/1337/g' ./config/sepoliaAddressScript.ts
-sed -i 's+@graphprotocol/contracts/addresses.json+/opt/contracts.json+g' ./config/sepoliaAddressScript.ts
-sed -i 's/4454000/1/g' ./config/sepoliaAddressScript.ts
-npx ts-node config/sepoliaAddressScript.ts
+sed -i 's/arbitrum-sepolia/hardhat/g' ./config/arbitrumSepoliaAddressScript.ts
+sed -i 's/arbsep/localnetwork/g' ./config/arbitrumSepoliaAddressScript.ts
+sed -i 's/421614/1337/g' ./config/arbitrumSepoliaAddressScript.ts
+sed -i 's/570450/1/g' ./config/arbitrumSepoliaAddressScript.ts
+sed -i 's+@graphprotocol/contracts/addresses.json+/opt/contracts.json+g' ./config/arbitrumSepoliaAddressScript.ts
+
+# TODO: remove this once the network subgraph scripts are updated
+# For now we don't care about the L2GNS, SubgraphNFT, ServiceRegistry so we just use HorizonStaking address for them
+jq '.["1337"] = (.["1337"] * {"L2Staking": .["1337"].HorizonStaking, "L2GNS": .["1337"].HorizonStaking, "SubgraphNFT": .["1337"].HorizonStaking, "ServiceRegistry": .["1337"].HorizonStaking})' /opt/contracts.json > /opt/contracts.json.tmp
+cat /opt/contracts.json.tmp > /opt/contracts.json && rm /opt/contracts.json.tmp
+
+npx ts-node config/arbitrumSepoliaAddressScript.ts
 npx mustache ./config/generatedAddresses.json ./config/addresses.template.ts > ./config/addresses.ts
 npx mustache ./config/generatedAddresses.json subgraph.template.yaml > subgraph.yaml
 npx graph codegen --output-dir src/types/

@@ -1,11 +1,12 @@
 services:
   chain:
     container_name: chain
-    image: ghcr.io/foundry-rs/foundry:nightly-0e519ffde8ab5babde7dffa96fca28cfa3608b59
+    build: { context: chain } 
     ports: ["${CHAIN_RPC}:8545"]
     command: ["anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0"]
-    healthcheck: 
-      { interval: 1s, retries: 10, test: cast block }
+    healthcheck: { interval: 1s, retries: 10, test: cast block }
+    env_file:
+      - .env.secrets
 
   ipfs:
     container_name: ipfs
@@ -55,7 +56,9 @@ services:
       graph-node: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./contracts.json:/opt/contracts.json
+    env_file:
+      - .env.secrets
 
   tap-contracts:
     container_name: tap-contracts
