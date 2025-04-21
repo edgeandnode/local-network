@@ -7,4 +7,4 @@ if [ -n "${FORK_RPC_URL:-}" ]; then
   FORK_ARG="--fork-url $FORK_RPC_URL"
 fi
 
-anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0 $FORK_ARG
+anvil --debug --host=0.0.0.0 --chain-id=1337 --base-fee=0 $FORK_ARG

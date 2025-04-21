@@ -74,3 +74,18 @@ up -d --no-deps indexer-agent
 ```
 
 This will apply the overrides to the indexer-agent service to the docker-compose stack running and start it.
+
+## graph-contracts (Network Subgraph)
+
+A Network Subgraph directory can be mounted to the environment for development purposes.
+
+To start the local network with the local Network Subgraph: 
+```
+GRAPH_CONTRACTS_SOURCE_ROOT=<your network subgraph source root> \
+docker compose \
+-f docker-compose.yaml \
+-f overrides/graph-contracts/graph-contracts-dev.yaml \
+up -d graph-contracts
+```
+
+Note that running in this mode will leave the `graph-contracts` container running so you can ssh into it for debugging/development. This might interfere with other components that depend on the container exiting.
