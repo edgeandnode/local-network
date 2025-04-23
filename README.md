@@ -52,32 +52,47 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 
   ```graphql
   {
-    indexers {
+  indexers {
+    id
+    url
+    geoHash
+  }
+  provisions {
+    id
+    indexer {
       id
-      url
+      stakedTokens
     }
-    subgraphs {
+    tokensProvisioned
+    thawingPeriod
+    maxVerifierCut
+    dataService {
       id
-      versions {
-        subgraphDeployment {
-          ipfsHash
-          indexerAllocations {
+      totalTokensProvisioned
+    }
+  }
+  subgraphs {
+    id
+    versions {
+      subgraphDeployment {
+        ipfsHash
+        indexerAllocations {
+          id
+          status
+          indexer {
             id
-            status
-            indexer {
-              id
-            }
           }
         }
       }
     }
-    _meta {
-      block {
-        number
-      }
-      deployment
-    }
   }
+  _meta {
+    block {
+      number
+    }
+    deployment
+  }
+}
   ```
 
 ## block-oracle

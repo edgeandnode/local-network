@@ -1,67 +1,75 @@
 {
   "1337": {
-    "GraphProxyAdmin": {
-      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+    "L2Curation": {
+      "address": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
+      "proxy": "graph",
+      "implementation": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
     },
-    "BancorFormula": {
-      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
-    },
-    "Controller": {
-      "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
-    },
-    "EpochManager": {
-      "address": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
-    },
-    "GraphCurationToken": {
-      "address": "0x0165878A594ca255338adfa4d48449f69242Eb8F"
-    },
-    "ServiceRegistry": {
-      "address": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6"
-    },
-    "SubgraphNFTDescriptor": {
-      "address": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788"
+    "L2GNS": {
+      "address": "0x3133948342F35b8699d8F94aeE064AbB76eDe965",
+      "proxy": "graph",
+      "implementation": "0x00CBF5024d454255577Bf2b0fB6A43328a6828c9"
     },
     "SubgraphNFT": {
-      "address": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
+      "address": "0xF21Df5BbA7EB9b54D8F60C560aFb9bA63e6aED1A"
     },
-    "StakingExtension": {
-      "address": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
-    },
-    "RewardsManager": {
-      "address": "0x9A676e781A523b5d0C0e43731313A708CB607508"
+    "SubgraphService": {
+      "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+      "proxy": "transparent",
+      "proxyAdmin": "0xd8058efe0198ae9dD7D563e1b4938Dcbc86A1F81",
+      "implementation": "0x922D6956C99E12DFeB3224DEA977D0939758A1Fe"
     },
     "DisputeManager": {
-      "address": "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE"
+      "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "proxy": "transparent",
+      "proxyAdmin": "0x75537828f2ce51be7289709686A69CbFDbB714F1",
+      "implementation": "0x162A433068F51e18b7d13932F27e66a3f99E6890"
     },
-    "GraphToken": {
-      "address": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c"
+    "Controller": {
+      "address": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
     },
-    "Curation": {
-      "address": "0x59b670e9fA9D0A427751Af201D676719a970857b"
+    "EpochManager": {
+      "address": "0x59b670e9fA9D0A427751Af201D676719a970857b",
+      "proxy": "graph",
+      "implementation": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
     },
-    "L1GNS": {
-      "address": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f"
+    "RewardsManager": {
+      "address": "0x09635F643e140090A9A8Dcd712eD6285858ceBef",
+      "proxy": "graph",
+      "implementation": "0x9A676e781A523b5d0C0e43731313A708CB607508"
     },
-    "L1Staking": {
-      "address": "0xc5a5C42992dECbae36851359345FE25997F5C42d"
+    "L2GraphTokenGateway": {
+      "address": "0x7a2088a1bFc9d81c55368AE168C2C02570cB814F",
+      "proxy": "graph",
+      "implementation": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82"
     },
-    "L1GraphTokenGateway": {
-      "address": "0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690"
+    "L2GraphToken": {
+      "address": "0x4A679253410272dd5232B3Ff7cF5dbB88f295319",
+      "proxy": "graph",
+      "implementation": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
     },
-    "BridgeEscrow": {
-      "address": "0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9"
+    "GraphProxyAdmin": {
+      "address": "0x0165878A594ca255338adfa4d48449f69242Eb8F"
     },
-    "AllocationExchange": {
-      "address": "0x851356ae760d987E095750cCeb3bC6014560891C"
+    "HorizonStaking": {
+      "address": "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44",
+      "proxy": "graph",
+      "implementation": "0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3"
     },
-    "TAPAllocationIDTracker": {
-      "address": "0x36b58F5C1969B7b6591D752ea6F5486D069010AB"
+    "GraphPayments": {
+      "proxy": "transparent",
+      "proxyAdmin": "0xeC4cFde48EAdca2bC63E94BB437BbeAcE1371bF3",
+      "address": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
+      "implementation": "0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154"
     },
-    "TAPVerifier": {
-      "address": "0x8198f5d8F8CfFE8f9C413d98a0A55aEB8ab9FbB7"
+    "PaymentsEscrow": {
+      "proxy": "transparent",
+      "proxyAdmin": "0x553BED26A78b94862e53945941e4ad6E4F2497da",
+      "address": "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d",
+      "implementation": "0x82e01223d51Eb87e16A03E24687EDF0F294da6f1"
     },
-    "TAPEscrow": {
-      "address": "0x0355B7B8cb128fA5692729Ab3AAa199C1753f726"
+    "GraphTallyCollector": {
+      "address": "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575"
     }
   }
 }
