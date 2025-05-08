@@ -11,7 +11,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
   npm install --global corepack yarn
 
 # Install Foundry
-COPY --from=ghcr.io/foundry-rs/foundry:nightly-0e519ffde8ab5babde7dffa96fca28cfa3608b59 \
+COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
   /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin/anvil /usr/local/bin/chisel /usr/local/bin/
 
 # Install Rust toolchain
