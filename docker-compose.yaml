@@ -8,6 +8,15 @@ services:
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
+  block-explorer:
+    build: { 
+      context: block-explorer,
+      args: { RPC_URL: http://localhost:8545 }
+    }
+    depends_on:
+      chain: { condition: service_healthy }
+    ports: ["${BLOCK_EXPLORER}:3000"]
+    
   ipfs:
     container_name: ipfs
     image: ipfs/kubo:v0.34.1

@@ -25,6 +25,10 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 
 - Foundry docs: https://book.getfoundry.sh/
 
+## block-explorer
+
+- [esplr](https://github.com/paulmillr/esplr) block explorer available at: http://localhost:3000
+
 ## ipfs
 
 - cat file via curl:
