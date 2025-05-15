@@ -1,12 +1,22 @@
 services:
   chain:
     container_name: chain
-    image: ghcr.io/foundry-rs/foundry:v1.0.0
+    build: { context: chain } 
     ports: ["${CHAIN_RPC}:8545"]
     command: ["anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0"]
-    healthcheck: 
-      { interval: 1s, retries: 10, test: cast block }
+    healthcheck: { interval: 1s, retries: 10, test: cast block }
+    environment:
+      - FORK_RPC_URL=${FORK_RPC_URL:-}
 
+  block-explorer:
+    build: { 
+      context: block-explorer,
+      args: { RPC_URL: http://localhost:8545 }
+    }
+    depends_on:
+      chain: { condition: service_healthy }
+    ports: ["${BLOCK_EXPLORER}:3000"]
+    
   ipfs:
     container_name: ipfs
     image: ipfs/kubo:v0.34.1
@@ -55,7 +65,10 @@ services:
       graph-node: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./horizon.json:/opt/horizon.json:ro
+      - ./subgraph-service.json:/opt/subgraph-service.json:ro
+    environment:
+      - FORK_RPC_URL=${FORK_RPC_URL:-}
 
   tap-contracts:
     container_name: tap-contracts
@@ -65,6 +78,8 @@ services:
     volumes:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
+    environment:
+      - FORK_RPC_URL=${FORK_RPC_URL:-}
 
   block-oracle:
     container_name: block-oracle
