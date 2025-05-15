@@ -11,11 +11,10 @@ then
   exit 0
 fi
 
-# Initialize addresses book with Arbitrum Sepolia addresses
-# Remove once the network subgraph scripts are updated
+# Initialize address books
 cd /opt/contracts/packages
-cd horizon && jq '{"1337": ."421614"}' addresses.json > addresses-local-network.json && cd ..
-cd subgraph-service && jq '{"1337": ."421614"}' addresses.json > addresses-local-network.json && cd ..
+cd horizon && echo "{}" > addresses-local-network.json && cd ..
+cd subgraph-service && echo "{}" > addresses-local-network.json && cd ..
 
 # == DEPLOY PROTOCOL WITH SUBGRAPH SERVICE ==
 if [ -n "${FORK_RPC_URL:-}" ]; then
@@ -38,9 +37,6 @@ else
   cd /opt/contracts/packages/subgraph-service
   npx hardhat deploy:protocol --network localNetwork --subgraph-service-config localNetwork
 fi
-
-# Merge address books
-jq -s '.[0] * .[1]' /opt/contracts/packages/subgraph-service/addresses-local-network.json /opt/contracts/packages/horizon/addresses-local-network.json > /opt/contracts.json
 
 # TODO: add back this assertion section once the deployment is stable
 # cat addresses-local.json

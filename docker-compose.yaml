@@ -65,7 +65,8 @@ services:
       graph-node: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json
+      - ./horizon.json:/opt/horizon.json:ro
+      - ./subgraph-service.json:/opt/subgraph-service.json:ro
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
