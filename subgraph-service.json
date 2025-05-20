@@ -1,21 +1,21 @@
 {
   "1337": {
     "SubgraphService": {
-      "address": "0xf4B146FbA71F41E0592668ffbF264F1D186b2Ca8",
+      "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
       "proxy": "transparent",
-      "proxyAdmin": "0xA5B0631c5B393d4BF30D2974dF121ea7E8b0e934",
-      "implementation": "0x976fcd02f7C4773dd89C309fBF55D5923B4c98a1"
+      "proxyAdmin": "0xd8058efe0198ae9dD7D563e1b4938Dcbc86A1F81",
+      "implementation": "0x922D6956C99E12DFeB3224DEA977D0939758A1Fe"
     },
     "DisputeManager": {
-      "address": "0x202CCe504e04bEd6fC0521238dDf04Bc9E8E15aB",
+      "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
       "proxy": "transparent",
-      "proxyAdmin": "0x6C3d502f1a97d4470b881015b83D9Dd1062172e1",
-      "implementation": "0x5FeaeBfB4439F3516c74939A9D04e95AFE82C4ae"
+      "proxyAdmin": "0x75537828f2ce51be7289709686A69CbFDbB714F1",
+      "implementation": "0x162A433068F51e18b7d13932F27e66a3f99E6890"
     },
     "L2Curation": {
-      "address": "0xe8D2A1E88c91DCd5433208d4152Cc4F399a7e91d",
+      "address": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
       "proxy": "graph",
-      "implementation": "0xC9a43158891282A2B1475592D5719c001986Aaec"
+      "implementation": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
     }
   }
 }

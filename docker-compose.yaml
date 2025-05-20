@@ -65,19 +65,8 @@ services:
       graph-node: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./horizon.json:/opt/horizon.json:ro
-      - ./subgraph-service.json:/opt/subgraph-service.json:ro
-    environment:
-      - FORK_RPC_URL=${FORK_RPC_URL:-}
-
-  tap-contracts:
-    container_name: tap-contracts
-    build: { context: tap-contracts }
-    depends_on:
-      graph-contracts: { condition: service_completed_successfully }
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./horizon.json:/opt/contracts/packages/horizon/addresses-local-network.json
+      - ./subgraph-service.json:/opt/contracts/packages/subgraph-service/addresses-local-network.json
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
@@ -85,11 +74,11 @@ services:
     container_name: block-oracle
     build: { context: block-oracle }
     depends_on:
-      tap-contracts: { condition: service_completed_successfully }
+      graph-contracts: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./horizon.json:/opt/horizon.json:ro
     environment:
       RUST_BACKTRACE: full
     healthcheck:
@@ -104,134 +93,135 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./horizon.json:/opt/horizon.json:ro
+      - ./subgraph-service.json:/opt/subgraph-service.json:ro
     healthcheck:
       { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
 
-  subgraph-deploy:
-    container_name: subgraph-deploy
-    build: { context: subgraph-deploy }
-    depends_on:
-      graph-node: { condition: service_healthy }
-      indexer-agent: { condition: service_healthy }
-      ipfs: { condition: service_healthy }
-      chain: { condition: service_healthy }
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+  # subgraph-deploy:
+  #   container_name: subgraph-deploy
+  #   build: { context: subgraph-deploy }
+  #   depends_on:
+  #     graph-node: { condition: service_healthy }
+  #     indexer-agent: { condition: service_healthy }
+  #     ipfs: { condition: service_healthy }
+  #     chain: { condition: service_healthy }
+  #   volumes:
+  #     - ./.env:/opt/.env:ro
+  #     - ./contracts.json:/opt/contracts.json:ro
 
-  indexer-service:
-    container_name: indexer-service
-    build: { 
-      target: "wrapper", # Set to "wrapper-dev" for building from source
-      context: indexer-service,
-    }
-    depends_on:
-      indexer-agent: { condition: service_healthy }
-      ipfs: { condition: service_healthy }
-      tap-escrow-manager: { condition: service_started }
-    ports: 
-      - "${INDEXER_SERVICE}:7601"
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
-    environment:
-      RUST_LOG: info,indexer_service_rs=info
-      RUST_BACKTRACE: 1
-    healthcheck:
-      { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
+  # indexer-service:
+  #   container_name: indexer-service
+  #   build: { 
+  #     target: "wrapper", # Set to "wrapper-dev" for building from source
+  #     context: indexer-service,
+  #   }
+  #   depends_on:
+  #     indexer-agent: { condition: service_healthy }
+  #     ipfs: { condition: service_healthy }
+  #     tap-escrow-manager: { condition: service_started }
+  #   ports: 
+  #     - "${INDEXER_SERVICE}:7601"
+  #   stop_signal: SIGKILL
+  #   volumes:
+  #     - ./.env:/opt/.env:ro
+  #     - ./contracts.json:/opt/contracts.json:ro
+  #   environment:
+  #     RUST_LOG: info,indexer_service_rs=info
+  #     RUST_BACKTRACE: 1
+  #   healthcheck:
+  #     { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
 
-  tap-aggregator:
-    container_name: tap-aggregator
-    build: { context: tap-aggregator }
-    depends_on:
-      tap-contracts: { condition: service_completed_successfully }
-    ports: ["${TAP_AGGREGATOR}:7610"]
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+  # tap-aggregator:
+  #   container_name: tap-aggregator
+  #   build: { context: tap-aggregator }
+  #   depends_on:
+  #     tap-contracts: { condition: service_completed_successfully }
+  #   ports: ["${TAP_AGGREGATOR}:7610"]
+  #   stop_signal: SIGKILL
+  #   volumes:
+  #     - ./.env:/opt/.env:ro
+  #     - ./contracts.json:/opt/contracts.json:ro
 
-  tap-agent:
-    container_name: tap-agent
-    build: { context: tap-agent }
-    depends_on:
-      indexer-agent: { condition: service_healthy }
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+  # tap-agent:
+  #   container_name: tap-agent
+  #   build: { context: tap-agent }
+  #   depends_on:
+  #     indexer-agent: { condition: service_healthy }
+  #   stop_signal: SIGKILL
+  #   volumes:
+  #     - ./.env:/opt/.env:ro
+  #     - ./contracts.json:/opt/contracts.json:ro
 
-  redpanda:
-    container_name: redpanda
-    image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
-    ports:
-      - ${REDPANDA_KAFKA}:9092
-      - ${REDPANDA_ADMIN}:9644
-      - ${REDPANDA_PANDAPROXY}:8082
-      - ${REDPANDA_SCHEMA_REGISTRY}:8081
-    command:
-      - redpanda start
-      - --smp 1
-      - --memory 1G
-      - --mode dev-container
-      - --default-log-level=info
-      - --kafka-addr 0.0.0.0:9092
-      - --advertise-kafka-addr redpanda:9092
-      - --pandaproxy-addr 0.0.0.0:8082
-      - --schema-registry-addr 0.0.0.0:8081
-    healthcheck:
-      { interval: 1s, retries: 600, test: rpk topic list --brokers="localhost:9092" }
+  # redpanda:
+  #   container_name: redpanda
+  #   image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+  #   ports:
+  #     - ${REDPANDA_KAFKA}:9092
+  #     - ${REDPANDA_ADMIN}:9644
+  #     - ${REDPANDA_PANDAPROXY}:8082
+  #     - ${REDPANDA_SCHEMA_REGISTRY}:8081
+  #   command:
+  #     - redpanda start
+  #     - --smp 1
+  #     - --memory 1G
+  #     - --mode dev-container
+  #     - --default-log-level=info
+  #     - --kafka-addr 0.0.0.0:9092
+  #     - --advertise-kafka-addr redpanda:9092
+  #     - --pandaproxy-addr 0.0.0.0:8082
+  #     - --schema-registry-addr 0.0.0.0:8081
+  #   healthcheck:
+  #     { interval: 1s, retries: 600, test: rpk topic list --brokers="localhost:9092" }
 
-  tap-escrow-manager:
-    container_name: tap-escrow-manager
-    build: { context: tap-escrow-manager }
-    depends_on:
-      redpanda: { condition: service_healthy }
-      subgraph-deploy: { condition: service_completed_successfully }
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+  # tap-escrow-manager:
+  #   container_name: tap-escrow-manager
+  #   build: { context: tap-escrow-manager }
+  #   depends_on:
+  #     redpanda: { condition: service_healthy }
+  #     subgraph-deploy: { condition: service_completed_successfully }
+  #   stop_signal: SIGKILL
+  #   volumes:
+  #     - ./.env:/opt/.env:ro
+  #     - ./contracts.json:/opt/contracts.json:ro
 
-  gateway:
-    container_name: gateway
-    build: { context: gateway }
-    depends_on:
-      subgraph-deploy: { condition: service_completed_successfully }
-      indexer-service: { condition: service_healthy }
-      redpanda: { condition: service_healthy }
-      tap-escrow-manager: { condition: service_started }
-    ports: ["${GATEWAY}:7700"]
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
-    environment:
-      RUST_LOG: info,graph_gateway=trace
-    restart: on-failure:3
-    healthcheck:
-      { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7700/ }
+  # gateway:
+  #   container_name: gateway
+  #   build: { context: gateway }
+  #   depends_on:
+  #     subgraph-deploy: { condition: service_completed_successfully }
+  #     indexer-service: { condition: service_healthy }
+  #     redpanda: { condition: service_healthy }
+  #     tap-escrow-manager: { condition: service_started }
+  #   ports: ["${GATEWAY}:7700"]
+  #   stop_signal: SIGKILL
+  #   volumes:
+  #     - ./.env:/opt/.env:ro
+  #     - ./contracts.json:/opt/contracts.json:ro
+  #   environment:
+  #     RUST_LOG: info,graph_gateway=trace
+  #   restart: on-failure:3
+  #   healthcheck:
+  #     { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7700/ }
 
-  dipper:
-    container_name: dipper
-    build: { 
-      target: "wrapper-dev", # Set to "wrapper-dev" for building from source
-      context: dipper
-    }
-    depends_on:
-      gateway: { condition: service_healthy }
-      postgres: { condition: service_healthy }
-    ports:
-      - "${DIPPER_ADMIN_RPC_PORT}:9000"
-      - "${DIPPER_INDEXER_RPC_PORT}:9001"
-    stop_signal: SIGKILL
-    environment:
-      RUST_LOG: info,dipper_service=info
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
-    restart: on-failure:10
-    healthcheck:
-      { interval: 5s, retries: 100, test: curl -f http://127.0.0.1:9000/ }
+  # dipper:
+  #   container_name: dipper
+  #   build: { 
+  #     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
+  #     context: dipper
+  #   }
+  #   depends_on:
+  #     gateway: { condition: service_healthy }
+  #     postgres: { condition: service_healthy }
+  #   ports:
+  #     - "${DIPPER_ADMIN_RPC_PORT}:9000"
+  #     - "${DIPPER_INDEXER_RPC_PORT}:9001"
+  #   stop_signal: SIGKILL
+  #   environment:
+  #     RUST_LOG: info,dipper_service=info
+  #   volumes:
+  #     - ./.env:/opt/.env:ro
+  #     - ./contracts.json:/opt/contracts.json:ro
+  #   restart: on-failure:10
+  #   healthcheck:
+  #     { interval: 5s, retries: 100, test: curl -f http://127.0.0.1:9000/ }

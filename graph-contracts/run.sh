@@ -56,6 +56,8 @@ fi
 # printf "\naddresses match"
 
 # == DEPLOY NETWORK SUBGRAPH ==
+cp /opt/contracts/packages/horizon/addresses-local-network.json /opt/horizon.json
+cp /opt/contracts/packages/subgraph-service/addresses-local-network.json /opt/subgraph-service.json
 cd /opt/graph-network-subgraph
 
 # Build and deploy the subgraph

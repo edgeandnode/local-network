@@ -14,7 +14,7 @@ COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
 
 WORKDIR /opt
 
-RUN git clone https://github.com/graphprotocol/contracts --branch 'tmigone/horizon-post-oz-audit2' && \
+RUN git clone https://github.com/graphprotocol/contracts --branch 'horizon' && \
     cd contracts && \
     pnpm install --ignore-scripts && pnpm build
 

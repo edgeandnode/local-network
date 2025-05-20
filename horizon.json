@@ -1,55 +1,55 @@
 {
   "1337": {
     "Controller": {
-      "address": "0x172076E0166D1F9Cc711C77Adf8488051744980C"
+      "address": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
     },
     "EpochManager": {
-      "address": "0xAA292E8611aDF267e563f334Ee42320aC96D0463",
+      "address": "0x59b670e9fA9D0A427751Af201D676719a970857b",
       "proxy": "graph",
-      "implementation": "0x4EE6eCAD1c2Dae9f525404De8555724e3c35d07B"
+      "implementation": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
     },
     "L2Curation": {
-      "address": "0xe8D2A1E88c91DCd5433208d4152Cc4F399a7e91d",
+      "address": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
       "proxy": "graph",
-      "implementation": "0xC9a43158891282A2B1475592D5719c001986Aaec"
+      "implementation": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
     },
     "RewardsManager": {
-      "address": "0x4b6aB5F819A515382B0dEB6935D793817bB4af28",
+      "address": "0x09635F643e140090A9A8Dcd712eD6285858ceBef",
       "proxy": "graph",
-      "implementation": "0x4C2F7092C2aE51D986bEFEe378e50BD4dB99C901"
+      "implementation": "0x9A676e781A523b5d0C0e43731313A708CB607508"
     },
     "L2GraphTokenGateway": {
-      "address": "0x18E317A7D70d8fBf8e6E893616b52390EbBdb629",
+      "address": "0x7a2088a1bFc9d81c55368AE168C2C02570cB814F",
       "proxy": "graph",
-      "implementation": "0x367761085BF3C12e5DA2Df99AC6E1a824612b8fb"
+      "implementation": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82"
     },
     "L2GraphToken": {
-      "address": "0x5067457698Fd6Fa1C6964e416b3f42713513B3dD",
+      "address": "0x4A679253410272dd5232B3Ff7cF5dbB88f295319",
       "proxy": "graph",
-      "implementation": "0x1c85638e118b37167e9298c2268758e058DdfDA0"
+      "implementation": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
     },
     "GraphProxyAdmin": {
-      "address": "0xBEc49fA140aCaA83533fB00A2BB19bDdd0290f25"
+      "address": "0x0165878A594ca255338adfa4d48449f69242Eb8F"
     },
     "HorizonStaking": {
-      "address": "0x720472c8ce72c2A2D711333e064ABD3E6BbEAdd3",
+      "address": "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44",
       "proxy": "graph",
-      "implementation": "0x8A93d247134d91e0de6f96547cB0204e5BE8e5D8"
+      "implementation": "0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3"
     },
     "GraphPayments": {
       "proxy": "transparent",
-      "proxyAdmin": "0x9c87F296aafe0Ef694FFa1F051b4B8b16a9b2AD6",
-      "address": "0xA4899D35897033b927acFCf422bc745916139776",
-      "implementation": "0x5fc748f1FEb28d7b76fa1c6B07D8ba2d5535177c"
+      "proxyAdmin": "0xeC4cFde48EAdca2bC63E94BB437BbeAcE1371bF3",
+      "address": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
+      "implementation": "0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154"
     },
     "PaymentsEscrow": {
       "proxy": "transparent",
-      "proxyAdmin": "0xeb221B91642a102CaaBC75Ab3589cF5864CA6ecA",
-      "address": "0xf953b3A269d80e3eB0F2947630Da976B896A8C5b",
-      "implementation": "0xb9bEECD1A582768711dE1EE7B0A1d582D9d72a6C"
+      "proxyAdmin": "0x553BED26A78b94862e53945941e4ad6E4F2497da",
+      "address": "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d",
+      "implementation": "0x82e01223d51Eb87e16A03E24687EDF0F294da6f1"
     },
     "GraphTallyCollector": {
-      "address": "0xB82008565FdC7e44609fA118A4a681E92581e680"
+      "address": "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575"
     }
   }
 }
