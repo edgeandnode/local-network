@@ -70,11 +70,22 @@ services:
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
+  # TODO: after horizon transition period we can remove tap-contracts
+  tap-contracts:
+    container_name: tap-contracts
+    build: { context: tap-contracts }
+    depends_on:
+      graph-contracts: { condition: service_completed_successfully }
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./horizon.json:/opt/horizon.json:ro
+      - ./tap-contracts.json:/opt/tap-contracts.json:ro
+
   block-oracle:
     container_name: block-oracle
     build: { context: block-oracle }
     depends_on:
-      graph-contracts: { condition: service_completed_successfully }
+      tap-contracts: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
@@ -87,6 +98,7 @@ services:
   indexer-agent:
     container_name: indexer-agent
     build: { context: indexer-agent }
+    platform: linux/amd64
     depends_on:
       block-oracle: { condition: service_healthy }
     ports: ["${INDEXER_MANAGEMENT}:7600"]
@@ -95,6 +107,7 @@ services:
       - ./.env:/opt/.env:ro
       - ./horizon.json:/opt/horizon.json:ro
       - ./subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./tap-contracts.json:/opt/tap-contracts.json:ro
     healthcheck:
       { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
 
