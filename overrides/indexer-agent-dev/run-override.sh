@@ -44,6 +44,7 @@ export INDEXER_AGENT_POSTGRES_USERNAME=postgres
 export INDEXER_AGENT_POSTGRES_PASSWORD=
 export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service-ts:${INDEXER_SERVICE}"
 export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/semiotic/tap"
+export INDEXER_AGENT_MAX_PROVISION_INITIAL_SIZE=200000
 
 cd /opt/indexer-agent-source-root
 mkdir -p ./config/

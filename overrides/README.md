@@ -56,7 +56,7 @@ This is a draft/POC of a hotload dev environment for the indexer agent. It's int
 
 To bring the whole stack up using the override, simply specify the override file when running `docker compose up`:
 
-```
+```bash
 INDEXER_AGENT_SOURCE_ROOT=<your indexer source root>  \
 docker-compose down && \
 docker compose up -f docker-compose.yaml -f overrides/indexer-agent-dev/indexer-agent-dev.yaml -d
@@ -64,7 +64,7 @@ docker compose up -f docker-compose.yaml -f overrides/indexer-agent-dev/indexer-
 
 To update the container (when making changes to the entrypoint or Dockerfile), you'll need to rebuild the image and restart the container:
 
-```
+```bash
 # in the root of this checkout, with the local-network up and running, replace the indexer-agent with a hotload dev environment
 INDEXER_AGENT_SOURCE_ROOT=<your indexer source root>  \
 docker compose \
