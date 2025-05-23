@@ -46,6 +46,7 @@ export INDEXER_AGENT_POSTGRES_PASSWORD=
 export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service:${INDEXER_SERVICE}"
 export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/semiotic/tap"
 export INDEXER_AGENT_MAX_PROVISION_INITIAL_SIZE=200000
+export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
 
 mkdir -p ./config/
 cat >./config/config.yaml <<-EOF

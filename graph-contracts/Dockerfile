@@ -18,7 +18,7 @@ RUN git clone https://github.com/graphprotocol/contracts --branch 'horizon' && \
     cd contracts && \
     pnpm install --ignore-scripts && pnpm build
 
-RUN git clone https://github.com/graphprotocol/graph-network-subgraph --branch 'juanmardefago/horizon-stage-1' && \
+RUN git clone https://github.com/graphprotocol/graph-network-subgraph --branch 'juanmardefago/horizon-stage-1-signed' && \
   cd graph-network-subgraph && pnpm install && pnpm add -D ts-node
 
 COPY ./run.sh /opt/run.sh
