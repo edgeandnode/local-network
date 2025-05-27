@@ -38,7 +38,7 @@ deployment_hex="$(curl -s -X POST "http://ipfs:${IPFS_RPC}/api/v0/cid/format?arg
   | jq -r '.Formatted')"
 deployment_hex="${deployment_hex#f01701220}"
 echo "deployment_hex=${deployment_hex}"
-gns="$(jq -r '."1337".L1GNS.address' /opt/contracts.json)"
+gns="$(jq -r '."1337".L2GNS.address' /opt/subgraph-service.json)"
 cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${MNEMONIC}" \
   "${gns}" 'publishNewSubgraph(bytes32,bytes32,bytes32)' \
   "0x${deployment_hex}" \

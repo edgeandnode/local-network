@@ -121,7 +121,6 @@ services:
       chain: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./horizon.json:/opt/horizon.json:ro
       - ./subgraph-service.json:/opt/subgraph-service.json:ro
 
   # indexer-service:
