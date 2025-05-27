@@ -1,4 +1,4 @@
-FROM ghcr.io/graphprotocol/indexer-agent:pr-1113@sha256:3fa8a1d49c9e9069a08d5d5eacc15526c4392ba35a7db36c43cb42444ab9bde3
+FROM ghcr.io/graphprotocol/indexer-agent:pr-1113@sha256:0f8254487511c08b95e2230cd93052fa24e8f48e214af06a31b0988b6b3dadcf
 RUN apt-get update \
     && apt-get install -y jq \
     && rm -rf /var/lib/apt/lists/*
