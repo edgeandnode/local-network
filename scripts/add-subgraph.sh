@@ -17,7 +17,7 @@ deployment_hex="$(curl -s -X POST "http://localhost:${IPFS_RPC}/api/v0/cid/forma
 deployment_hex="${deployment_hex#f01701220}"
 
 echo "deployment_hex=${deployment_hex}"
-gns="$(jq -r '."1337".L1GNS.address' contracts.json)"
+gns="$(jq -r '."1337".L2GNS.address' subgraph-service.json)"
 
 # https://github.com/graphprotocol/contracts/blob/3eb16c80d4652c238d3e6b2c396da712af5072b4/packages/sdk/src/deployments/network/actions/gns.ts#L38
 cast send --rpc-url="http://localhost:${CHAIN_RPC}" --confirmations=0 --mnemonic="${MNEMONIC}" \
