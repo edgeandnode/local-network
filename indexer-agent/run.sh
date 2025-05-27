@@ -44,6 +44,11 @@ export INDEXER_AGENT_POSTGRES_USERNAME=postgres
 export INDEXER_AGENT_POSTGRES_PASSWORD=
 export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service:${INDEXER_SERVICE}"
 export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/semiotic/tap"
+export INDEXER_AGENT_ENABLE_DIPS=true
+export INDEXER_AGENT_DIPS_EPOCHS_MARGIN=1
+export INDEXER_AGENT_DIPPER_ENDPOINT="http://dipper:${DIPPER_INDEXER_RPC_PORT}"
+export INDEXER_AGENT_DIPS_ALLOCATION_AMOUNT=1
+
 mkdir -p ./config/
 cat >./config/config.yaml <<-EOF
 networkIdentifier: "hardhat"
@@ -57,6 +62,10 @@ indexerOptions:
   voucherRedemptionBatchThreshold: 10
   rebateClaimThreshold: 0.00001
   rebateClaimBatchThreshold: 10
+  enableDips: true
+  dipperEndpoint: "http://dipper:${DIPPER_INDEXER_RPC_PORT}"
+  dipsAllocationAmount: 1
+  dipsEpochsMargin: 1
 subgraphs:
   maxBlockDistance: 5000
   freshnessSleepMilliseconds: 1000

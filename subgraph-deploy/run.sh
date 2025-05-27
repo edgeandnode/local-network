@@ -2,7 +2,8 @@
 set -eu
 . /opt/.env
 
-# don't rerun when retriggered via a service_completed_successfully condition
+# Skip if the subgraph is already deployed, i.e., is present in the graph-network
+# Don't rerun when retriggered via a 'service_completed_successfully' condition
 if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ subgraphs { id } }" }' \
@@ -28,16 +29,17 @@ echo "network_subgraph_deployment=${network_subgraph_deployment}"
 echo "block_oracle_deployment=${block_oracle_deployment}"
 echo "tap_deployment=${tap_deployment}"
 
-# force index block oracle subgraph & network subgraph
+# Force index subgraphs: network, block oracle, tap
 graph-indexer indexer connect "http://indexer-agent:${INDEXER_MANAGEMENT}"
 graph-indexer indexer --network=hardhat rules prepare "${network_subgraph_deployment}" -o json
 graph-indexer indexer --network=hardhat rules prepare "${block_oracle_deployment}" -o json
 graph-indexer indexer --network=hardhat rules prepare "${tap_deployment}" -o json
 
-deployment_hex="$(curl -s -X POST "http://ipfs:${IPFS_RPC}/api/v0/cid/format?arg=${block_oracle_deployment}&b=base16" \
-  | jq -r '.Formatted')"
-deployment_hex="${deployment_hex#f01701220}"
+# Extract the deployment hash from the IPFS CID and strip the IPFS CID prefix
+deployment_hex="$(curl -s -X POST "http://ipfs:${IPFS_RPC}/api/v0/cid/format?arg=${network_subgraph_deployment}&b=base16" | jq -r '.Formatted' | sed 's/^f01701220//')"
 echo "deployment_hex=${deployment_hex}"
+
+# Publish the subgraph
 gns="$(jq -r '."1337".L1GNS.address' /opt/contracts.json)"
 cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${MNEMONIC}" \
   "${gns}" 'publishNewSubgraph(bytes32,bytes32,bytes32)' \
@@ -45,7 +47,7 @@ cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${
   '0x0000000000000000000000000000000000000000000000000000000000000000' \
   '0x0000000000000000000000000000000000000000000000000000000000000000'
 
-graph-indexer indexer --network=hardhat rules set "${block_oracle_deployment}" decisionBasis always -o json
+graph-indexer indexer --network=hardhat rules set "${network_subgraph_deployment}" decisionBasis always -o json
 
 while true; do
   # Fetch output from the command and handle errors

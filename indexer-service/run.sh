@@ -35,12 +35,28 @@ host_and_port = "0.0.0.0:${INDEXER_SERVICE}"
 url_prefix = "/"
 serve_network_subgraph = false
 serve_escrow_subgraph = false
+ipfs_url = "http://ipfs:${IPFS_RPC}"
+
 [tap]
 max_amount_willing_to_lose_grt = 1000
 [tap.rav_request]
 timestamp_buffer_secs = 1000
 [tap.sender_aggregator_endpoints]
 ${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
+
+[dips]
+host = "0.0.0.0"
+port = "${INDEXER_SERVICE_DIPS_RPC_PORT}"
+allowed_payers = ["${ACCOUNT0_ADDRESS}"]
+
+price_per_entity = "1000"
+ 
+[dips.price_per_epoch]
+"eip155:1" = "100"
+"eip155:1337" = "100"
+ 
+[dips.additional_networks]
+"eip155:1337" = "hardhat"
 
 EOF
 cat config.toml
