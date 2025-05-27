@@ -4,18 +4,26 @@
       "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
       "proxy": "transparent",
       "proxyAdmin": "0xd8058efe0198ae9dD7D563e1b4938Dcbc86A1F81",
-      "implementation": "0x922D6956C99E12DFeB3224DEA977D0939758A1Fe"
+      "implementation": "0x51A1ceB83B83F1985a81C295d1fF28Afef186E02"
     },
     "DisputeManager": {
       "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
       "proxy": "transparent",
       "proxyAdmin": "0x75537828f2ce51be7289709686A69CbFDbB714F1",
-      "implementation": "0x162A433068F51e18b7d13932F27e66a3f99E6890"
+      "implementation": "0xDC11f7E700A4c898AE5CAddB1082cFfa76512aDD"
     },
     "L2Curation": {
-      "address": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
+      "address": "0xc5a5C42992dECbae36851359345FE25997F5C42d",
       "proxy": "graph",
       "implementation": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
+    },
+    "L2GNS": {
+      "address": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
+      "proxy": "graph",
+      "implementation": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
+    },
+    "SubgraphNFT": {
+      "address": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82"
     }
   }
 }

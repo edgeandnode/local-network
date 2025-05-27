@@ -22,19 +22,36 @@ forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC}" --mnemonic
   src/AllocationIDTracker.sol:AllocationIDTracker \
   | tee allocation_tracker.json
 allocation_tracker="$(jq -r '.deployedTo' allocation_tracker.json)"
-test "${allocation_tracker}" = "$(jq -r '."1337".TAPAllocationIDTracker.address' /opt/tap-contracts.json)"
+# test "${allocation_tracker}" = "$(jq -r '."1337".TAPAllocationIDTracker.address' /opt/tap-contracts.json)"
 
 forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC}" --mnemonic="${MNEMONIC}" \
   src/TAPVerifier.sol:TAPVerifier --constructor-args 'TAP' '1' \
   | tee verifier.json
 verifier="$(jq -r '.deployedTo' verifier.json)"
-test "${verifier}" = "$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)"
+# test "${verifier}" = "$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)"
 
 forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC}" --mnemonic="${MNEMONIC}" \
   src/Escrow.sol:Escrow --constructor-args "${graph_token}" "${staking}" "${verifier}" "${allocation_tracker}" 10 15 \
   | tee escrow.json
 escrow="$(jq -r '.deployedTo' escrow.json)"
-test "${escrow}" = "$(jq -r '."1337".TAPEscrow.address' /opt/tap-contracts.json)"
+# test "${escrow}" = "$(jq -r '."1337".TAPEscrow.address' /opt/tap-contracts.json)"
+
+cat <<EOF > /opt/tap-contracts.json
+{
+  "1337": {
+    "TAPAllocationIDTracker": {
+      "address": "$allocation_tracker"
+    },
+    "TAPVerifier": {
+      "address": "$verifier"
+    },
+    "TAPEscrow": {
+      "address": "$escrow"
+    }
+  }
+}
+EOF
+
 
 cd /opt/timeline-aggregation-protocol-subgraph
 sed -i "s/127.0.0.1:5001/ipfs:${IPFS_RPC}/g" package.json

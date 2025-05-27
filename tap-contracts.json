@@ -1,13 +1,13 @@
 {
-    "1337": {
-        "TAPAllocationIDTracker": {
-            "address": "0x8198f5d8F8CfFE8f9C413d98a0A55aEB8ab9FbB7"
-        },
-        "TAPVerifier": {
-            "address": "0x0355B7B8cb128fA5692729Ab3AAa199C1753f726"
-        },
-        "TAPEscrow": {
-            "address": "0x202CCe504e04bEd6fC0521238dDf04Bc9E8E15aB"
-        }
+  "1337": {
+    "TAPAllocationIDTracker": {
+      "address": "0x46b142DD1E924FAb83eCc3c08e4D46E82f005e0E"
+    },
+    "TAPVerifier": {
+      "address": "0xC9a43158891282A2B1475592D5719c001986Aaec"
+    },
+    "TAPEscrow": {
+      "address": "0x1c85638e118b37167e9298c2268758e058DdfDA0"
     }
+  }
 }

@@ -79,7 +79,7 @@ services:
     volumes:
       - ./.env:/opt/.env:ro
       - ./horizon.json:/opt/horizon.json:ro
-      - ./tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./tap-contracts.json:/opt/tap-contracts.json
 
   block-oracle:
     container_name: block-oracle
@@ -111,17 +111,18 @@ services:
     healthcheck:
       { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
 
-  # subgraph-deploy:
-  #   container_name: subgraph-deploy
-  #   build: { context: subgraph-deploy }
-  #   depends_on:
-  #     graph-node: { condition: service_healthy }
-  #     indexer-agent: { condition: service_healthy }
-  #     ipfs: { condition: service_healthy }
-  #     chain: { condition: service_healthy }
-  #   volumes:
-  #     - ./.env:/opt/.env:ro
-  #     - ./contracts.json:/opt/contracts.json:ro
+  subgraph-deploy:
+    container_name: subgraph-deploy
+    build: { context: subgraph-deploy }
+    depends_on:
+      graph-node: { condition: service_healthy }
+      indexer-agent: { condition: service_healthy }
+      ipfs: { condition: service_healthy }
+      chain: { condition: service_healthy }
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./horizon.json:/opt/horizon.json:ro
+      - ./subgraph-service.json:/opt/subgraph-service.json:ro
 
   # indexer-service:
   #   container_name: indexer-service
