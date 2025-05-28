@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Get number of epochs to advance (default to 1 if not provided)
+EPOCHS_TO_ADVANCE=${1:-1}
+
 # Get the EpochManager contract address from horizon.json
 EPOCH_MANAGER_ADDRESS=$(jq -r '."1337".EpochManager.address' horizon.json)
 
@@ -17,14 +20,15 @@ CURRENT_EPOCH_BLOCK=$(cast call $EPOCH_MANAGER_ADDRESS "currentEpochBlock()(uint
 
 # Calculate blocks until next epoch
 BLOCKS_IN_CURRENT_EPOCH=$((CURRENT_BLOCK - CURRENT_EPOCH_BLOCK))
-BLOCKS_TO_MINE=$((EPOCH_LENGTH - BLOCKS_IN_CURRENT_EPOCH))
+BLOCKS_TO_MINE=$((EPOCH_LENGTH - BLOCKS_IN_CURRENT_EPOCH + (EPOCH_LENGTH * (EPOCHS_TO_ADVANCE - 1))))
 
 echo "Current epoch: $CURRENT_EPOCH"
 echo "Epoch length: $EPOCH_LENGTH blocks"
 echo "Current block: $CURRENT_BLOCK"
 echo "Current epoch block: $CURRENT_EPOCH_BLOCK"
 echo "Blocks in current epoch: $BLOCKS_IN_CURRENT_EPOCH"
-echo "Blocks to mine until next epoch: $BLOCKS_TO_MINE"
+echo "Advancing by $EPOCHS_TO_ADVANCE epoch(s)"
+echo "Blocks to mine: $BLOCKS_TO_MINE"
 
 # Mine blocks until next epoch using mine-block.sh
 ./scripts/mine-block.sh $BLOCKS_TO_MINE
