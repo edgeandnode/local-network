@@ -168,34 +168,3 @@ docker exec -it redpanda rpk topic consume gateway_client_query_results --broker
     }
   }
   ```
-
-## dipper
-
-> [!IMPORTANT]
-> The Dipper service repository is private. You will need to initialize the submodules manually.
->
-> ```bash
-> git submodule update --init --recursive --force dipper/source
-> ```
-
-- `docker compose up --build dipper`
-- `docker compose down dipper`
-- `docker compose logs -f dipper`
-
-### Building from source
-
-Building from source requires the Git submodules to be initialized.
-
-- `git submodule update --init --recursive --force dipper/source`
-
-And then select the `wrapper-dev` target when building the Docker image in the `docker-compose.yaml` file.
-
-```diff
-  dipper:
-    container_name: dipper
-    build: { 
--     target: "wrapper", # Set to "wrapper-dev" for building from source
-+     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
-      context: dipper,
-    }
-```
