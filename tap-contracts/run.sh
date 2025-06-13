@@ -44,7 +44,7 @@ yq ".dataSources[].network |= \"hardhat\"" -i subgraph.yaml
 yarn codegen
 yarn build
 yarn create-local
-yarn deploy-local --version-label v0.0.1 | tee deploy.txt
+yarn deploy-local | tee deploy.txt
 deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
 echo "${deployment_id}"
 curl -s "http://graph-node:${GRAPH_NODE_ADMIN}" \
