@@ -31,8 +31,17 @@ RUN git clone https://github.com/graphprotocol/block-oracle --branch 'main' && \
 RUN cd /opt/block-oracle/packages/subgraph && yarn
 
 # Clone and setup contracts repository
-RUN git clone https://github.com/graphprotocol/contracts --branch 'main' && \
-  cd /opt/contracts/packages/data-edge && corepack enable && pnpm install
+RUN git clone https://github.com/graphprotocol/contracts --branch 'main'
+
+# Set up pnpm
+RUN cd /opt/contracts/packages/data-edge && \
+    corepack enable && \
+    corepack prepare pnpm@latest --activate && \
+    pnpm --version && \
+    pnpm config set network-timeout 300000 && \
+    pnpm config set fetch-timeout 300000 && \
+    pnpm config set registry https://registry.npmjs.org/ && \
+    pnpm install --no-frozen-lockfile --loglevel verbose
 
 # Copy run script
 COPY ./run.sh /opt/run.sh
