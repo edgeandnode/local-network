@@ -19,7 +19,7 @@ RUN curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_a
 WORKDIR /opt
 RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-contracts --branch 'main' && \
   cd timeline-aggregation-protocol-contracts && yarn && forge build
-RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph --branch 'main' --recursive && \
+RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph --branch 'suchapalaver/fix/remove-unused-expected-amount-transaction-field' --recursive && \
   cd timeline-aggregation-protocol-subgraph && yarn
 
 COPY ./run.sh /opt/run.sh
