@@ -1,6 +1,5 @@
 #!/bin/sh
 set -eu
-. /opt/.env
 
 cd /opt
 tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)
