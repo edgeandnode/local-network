@@ -9,6 +9,7 @@ services:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
   block-explorer:
+    container_name: block-explorer
     build: { 
       context: block-explorer,
       args: { RPC_URL: http://localhost:8545 }
