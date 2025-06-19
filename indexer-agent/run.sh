@@ -2,8 +2,8 @@
 set -eu
 . /opt/.env
 
-token_address=$(jq -r '."1337".GraphToken.address' /opt/contracts.json)
-staking_address=$(jq -r '."1337".L1Staking.address' /opt/contracts.json)
+token_address=$(jq -r '."1337".L2GraphToken.address' /opt/horizon.json)
+staking_address=$(jq -r '."1337".HorizonStaking.address' /opt/horizon.json)
 indexer_staked="$(cast call "--rpc-url=http://chain:${CHAIN_RPC}" \
   "${staking_address}" 'hasStake(address) (bool)' "${RECEIVER_ADDRESS}")"
 echo "indexer_staked=${indexer_staked}"
@@ -22,7 +22,8 @@ if [ "${indexer_staked}" = "false" ]; then
 fi
 
 cd /opt/indexer/packages/indexer-agent
-export INDEXER_AGENT_ADDRESS_BOOK=/opt/contracts.json
+export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/horizon.json
+export INDEXER_AGENT_SUBGRAPH_SERVICE_ADDRESS_BOOK=/opt/subgraph-service.json
 export INDEXER_AGENT_TAP_ADDRESS_BOOK=./tap-contracts.json
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
 export INDEXER_AGENT_GATEWAY_ENDPOINT="http://gateway:${GATEWAY}"
@@ -44,6 +45,9 @@ export INDEXER_AGENT_POSTGRES_USERNAME=postgres
 export INDEXER_AGENT_POSTGRES_PASSWORD=
 export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service:${INDEXER_SERVICE}"
 export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/semiotic/tap"
+export INDEXER_AGENT_MAX_PROVISION_INITIAL_SIZE=200000
+export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
+
 mkdir -p ./config/
 cat >./config/config.yaml <<-EOF
 networkIdentifier: "hardhat"
@@ -65,9 +69,9 @@ cat config/config.yaml
 cat >./tap-contracts.json <<-EOF
 {
   "1337": {
-    "TAPVerifier": "$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)",
-    "AllocationIDTracker": "$(jq -r '."1337".TAPAllocationIDTracker.address' /opt/contracts.json)",
-    "Escrow": "$(jq -r '."1337".TAPEscrow.address' /opt/contracts.json)"
+    "TAPVerifier": "$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)",
+    "AllocationIDTracker": "$(jq -r '."1337".TAPAllocationIDTracker.address' /opt/tap-contracts.json)",
+    "Escrow": "$(jq -r '."1337".TAPEscrow.address' /opt/tap-contracts.json)"
   }
 }
 EOF
