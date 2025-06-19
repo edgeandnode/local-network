@@ -5,11 +5,11 @@ set -eu
 cd /opt/contracts/packages/data-edge
 sed -i "s/localhost/chain/g" hardhat.config.ts
 export MNEMONIC="${MNEMONIC}"
-yarn
+pnpm install
 echo "hardhat.config.ts"
 sed -i "s/myth like bonus scare over problem client lizard pioneer submit female collect/${MNEMONIC}/g" hardhat.config.ts
 cat hardhat.config.ts
-yarn build
+pnpm build
 npx hardhat data-edge:deploy --contract EventfulDataEdge --deploy-name EBO --network ganache | tee deploy.txt
 data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
 
@@ -28,7 +28,7 @@ else
 fi
 
 cd /opt/block-oracle/packages/subgraph
-yarn
+pnpm install
 graph_epoch_manager="$(jq -r '."1337".EpochManager.address' /opt/contracts.json)"
 yq -i ".epochManager |= \"${graph_epoch_manager}\"" config/local.json
 yq -i ".permissionList[0].address |= \"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266\"" config/local.json
@@ -36,9 +36,9 @@ cat config/local.json
 yq -i ".hardhat.DataEdge.address |= \"${data_edge}\"" networks.json
 echo "networks.json"
 cat networks.json
-yarn prepare
-yarn prep:local
-yarn codegen
+pnpm prepare
+pnpm prep:local
+pnpm codegen
 npx graph build --network hardhat
 yq -i ".dataSources[0].network |= \"hardhat\"" subgraph.yaml
 cat subgraph.yaml
