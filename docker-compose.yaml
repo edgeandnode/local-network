@@ -146,16 +146,16 @@ services:
   #   healthcheck:
   #     { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
 
-  # tap-aggregator:
-  #   container_name: tap-aggregator
-  #   build: { context: tap-aggregator }
-  #   depends_on:
-  #     tap-contracts: { condition: service_completed_successfully }
-  #   ports: ["${TAP_AGGREGATOR}:7610"]
-  #   stop_signal: SIGKILL
-  #   volumes:
-  #     - ./.env:/opt/.env:ro
-  #     - ./contracts.json:/opt/contracts.json:ro
+  tap-aggregator:
+    container_name: tap-aggregator
+    build: { context: tap-aggregator }
+    depends_on:
+      tap-contracts: { condition: service_completed_successfully }
+    ports: ["${TAP_AGGREGATOR}:7610"]
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./contracts.json:/opt/contracts.json:ro
 
   # tap-agent:
   #   container_name: tap-agent
