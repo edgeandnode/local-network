@@ -199,24 +199,24 @@ services:
   #     - ./.env:/opt/.env:ro
   #     - ./contracts.json:/opt/contracts.json:ro
 
-  # gateway:
-  #   container_name: gateway
-  #   build: { context: gateway }
-  #   depends_on:
-  #     subgraph-deploy: { condition: service_completed_successfully }
-  #     indexer-service: { condition: service_healthy }
-  #     redpanda: { condition: service_healthy }
-  #     tap-escrow-manager: { condition: service_started }
-  #   ports: ["${GATEWAY}:7700"]
-  #   stop_signal: SIGKILL
-  #   volumes:
-  #     - ./.env:/opt/.env:ro
-  #     - ./contracts.json:/opt/contracts.json:ro
-  #   environment:
-  #     RUST_LOG: info,graph_gateway=trace
-  #   restart: on-failure:3
-  #   healthcheck:
-  #     { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7700/ }
+  gateway:
+    container_name: gateway
+    build: { context: gateway }
+    depends_on:
+      subgraph-deploy: { condition: service_completed_successfully }
+      indexer-service: { condition: service_healthy }
+      redpanda: { condition: service_healthy }
+      tap-escrow-manager: { condition: service_started }
+    ports: ["${GATEWAY}:7700"]
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./contracts.json:/opt/contracts.json:ro
+    environment:
+      RUST_LOG: info,graph_gateway=trace
+    restart: on-failure:3
+    healthcheck:
+      { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7700/ }
 
   # dipper:
   #   container_name: dipper
