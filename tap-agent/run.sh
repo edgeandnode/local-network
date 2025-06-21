@@ -3,7 +3,7 @@ set -eu
 . /opt/.env
 
 cd /opt
-tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)
+tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)
 cat >endpoints.yaml <<-EOF
 ${ACCOUNT0_ADDRESS}: "http://tap-aggregator:${TAP_AGGREGATOR}"
 EOF

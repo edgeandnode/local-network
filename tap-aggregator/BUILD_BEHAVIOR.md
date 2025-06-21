@@ -55,7 +55,7 @@ docker run --rm --entrypoint="tap_aggregator" local-network-tap-aggregator --hel
 When the container starts correctly in local-network context:
 
 1. **Environment loading**: `.env` file sourced from `/opt/.env`
-2. **Contract address resolution**: `TAPVerifier.address` read from `contracts.json`
+2. **Contract address resolution**: `TAPVerifier.address` read from `tap-contracts.json`
 3. **Configuration setup**:
 
    ```bash
@@ -94,7 +94,7 @@ The TAP Aggregator service will fail gracefully in local-network until dependenc
 - **Status**: Expected until full local-network setup
 
 #### 2. Missing Contract Configuration
-- **Symptom**: `TAPVerifier.address` not found in `/opt/contracts.json`
+- **Symptom**: `TAPVerifier.address` not found in `/opt/tap-contracts.json`
 - **Cause**: TAP contracts not yet deployed
 - **Status**: Expected until contract deployment phase
 
@@ -144,7 +144,7 @@ The test script validates:
 
 The test script automatically:
 1. **Uses actual .env**: Mounts the root local-network `.env` file with `TAP_AGGREGATOR=7610`
-2. **Provides contracts.json**: Creates minimal contract configuration for testing
+2. **Provides tap-contracts.json**: Creates minimal contract configuration for testing
 3. **Validates startup**: Confirms the service starts and listens on port 7610
 4. **Analyzes logs**: Checks for expected success patterns vs error patterns
 
@@ -167,13 +167,13 @@ docker run --rm -e TAP_PRIVATE_KEY=0x123... local-network-tap-aggregator
 
 1. **Environment Configuration**: Proper `.env` file with account secrets
 2. **Contract Deployment**: TAP contracts deployed to local chain
-3. **Contract Registry**: `contracts.json` with TAPVerifier address
+3. **Contract Registry**: `tap-contracts.json` with TAPVerifier address
 4. **Network Connectivity**: Access to local blockchain on port 8545
 
 ### Expected Integration Flow
 
 1. **Contract Deployment**: `tap-contracts` service deploys TAP verifier
-2. **Contract Discovery**: `contracts.json` updated with deployment addresses
+2. **Contract Discovery**: `tap-contracts.json` updated with deployment addresses
 3. **Environment Setup**: Service configuration mounted to container
 4. **Service Startup**: TAP Aggregator starts and validates configuration
 5. **Health Check**: Service responds to JSON-RPC health requests

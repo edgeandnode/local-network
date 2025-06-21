@@ -2,7 +2,7 @@
 set -eu
 . /opt/.env
 
-tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)
+tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)
 
 cat >config.toml <<-EOF
 [indexer]

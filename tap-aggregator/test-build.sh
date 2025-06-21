@@ -73,8 +73,8 @@ ACCOUNT0_SECRET=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff
 EOF
 fi
 
-# Create minimal contracts.json for testing
-cat > /tmp/contracts.json << 'EOF'
+# Create minimal tap-contracts.json for testing
+cat > /tmp/tap-contracts.json << 'EOF'
 {
   "1337": {
     "TAPVerifier": {
@@ -88,7 +88,7 @@ EOF
 echo "Starting container and analyzing logs..."
 docker run -d --name "$CONTAINER_NAME" \
     -v /tmp/test.env:/opt/.env \
-    -v /tmp/contracts.json:/opt/contracts.json \
+    -v /tmp/tap-contracts.json:/opt/tap-contracts.json \
     "$IMAGE_NAME" &
 
 # Wait a moment for startup

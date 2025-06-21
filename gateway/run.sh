@@ -3,7 +3,7 @@ set -eu
 . /opt/.env
 
 cd /opt
-tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)
+tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)
 network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
@@ -12,7 +12,7 @@ cat >config.json <<-EOF
 {
   "attestations": {
     "chain_id": "1337",
-    "dispute_manager": "$(jq -r '."1337".DisputeManager.address' /opt/contracts.json)"
+    "dispute_manager": "$(jq -r '."1337".DisputeManager.address' /opt/subgraph-service.json)"
   },
   "api_keys": [
     {
