@@ -2,7 +2,7 @@
 set -eu
 . /opt/.env
 
-tap_verifier="$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)"
+tap_verifier="$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)"
 
 export TAP_PORT="${TAP_AGGREGATOR}"
 export TAP_PRIVATE_KEY="${ACCOUNT0_SECRET}"

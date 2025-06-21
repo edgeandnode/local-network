@@ -139,7 +139,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./tap-contracts.json:/opt/tap-contracts.json:ro
     environment:
       RUST_LOG: info,indexer_service_rs=info
       RUST_BACKTRACE: 1
@@ -155,7 +155,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./tap-contracts.json:/opt/tap-contracts.json:ro
 
   tap-agent:
     container_name: tap-agent
@@ -165,7 +165,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./tap-contracts.json:/opt/tap-contracts.json:ro
 
   redpanda:
     container_name: redpanda
@@ -197,7 +197,8 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./horizon.json:/opt/horizon.json:ro
+      - ./tap-contracts.json:/opt/tap-contracts.json:ro
 
   gateway:
     container_name: gateway
@@ -211,7 +212,8 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./subgraph-service.json:/opt/subgraph-service.json:ro
     environment:
       RUST_LOG: info,graph_gateway=trace
     restart: on-failure:3
