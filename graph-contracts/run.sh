@@ -41,7 +41,11 @@ fi
 # == DEPLOY NETWORK SUBGRAPH ==
 cp /opt/contracts/packages/horizon/addresses-local-network.json /opt/horizon.json
 cp /opt/contracts/packages/subgraph-service/addresses-local-network.json /opt/subgraph-service.json
+
+# Create combined contracts.json for compatibility with network subgraph scripts
+jq -s '.[0] * .[1]' /opt/horizon.json /opt/subgraph-service.json > /opt/contracts.json
 cd /opt/graph-network-subgraph
+cp /opt/contracts.json ./contracts.json
 
 # Build and deploy the subgraph
 npx ts-node config/localNetworkAddressScript.ts
