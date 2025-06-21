@@ -167,26 +167,26 @@ services:
       - ./.env:/opt/.env:ro
       - ./contracts.json:/opt/contracts.json:ro
 
-  # redpanda:
-  #   container_name: redpanda
-  #   image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
-  #   ports:
-  #     - ${REDPANDA_KAFKA}:9092
-  #     - ${REDPANDA_ADMIN}:9644
-  #     - ${REDPANDA_PANDAPROXY}:8082
-  #     - ${REDPANDA_SCHEMA_REGISTRY}:8081
-  #   command:
-  #     - redpanda start
-  #     - --smp 1
-  #     - --memory 1G
-  #     - --mode dev-container
-  #     - --default-log-level=info
-  #     - --kafka-addr 0.0.0.0:9092
-  #     - --advertise-kafka-addr redpanda:9092
-  #     - --pandaproxy-addr 0.0.0.0:8082
-  #     - --schema-registry-addr 0.0.0.0:8081
-  #   healthcheck:
-  #     { interval: 1s, retries: 600, test: rpk topic list --brokers="localhost:9092" }
+  redpanda:
+    container_name: redpanda
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+    ports:
+      - ${REDPANDA_KAFKA}:9092
+      - ${REDPANDA_ADMIN}:9644
+      - ${REDPANDA_PANDAPROXY}:8082
+      - ${REDPANDA_SCHEMA_REGISTRY}:8081
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 1G
+      - --mode dev-container
+      - --default-log-level=info
+      - --kafka-addr 0.0.0.0:9092
+      - --advertise-kafka-addr redpanda:9092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --schema-registry-addr 0.0.0.0:8081
+    healthcheck:
+      { interval: 1s, retries: 600, test: rpk topic list --brokers="localhost:9092" }
 
   tap-escrow-manager:
     container_name: tap-escrow-manager
