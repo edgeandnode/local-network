@@ -70,8 +70,9 @@ sed -i 's/@entity{/@entity(immutable: false) {/g' schema.graphql
 sed -i 's/@entity {/@entity(immutable: false) {/g' schema.graphql
 yarn codegen
 yarn build
-yarn create-local
-yarn deploy-local | tee deploy.txt
+# Create and deploy with the expected subgraph name
+yarn run graph create --node http://graph-node:${GRAPH_NODE_ADMIN}/ semiotic/tap
+yarn run graph deploy --node http://graph-node:${GRAPH_NODE_ADMIN}/ --ipfs http://ipfs:${IPFS_RPC} --version-label v1.0.0 semiotic/tap | tee deploy.txt
 deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
 echo "${deployment_id}"
 curl -s "http://graph-node:${GRAPH_NODE_ADMIN}" \
