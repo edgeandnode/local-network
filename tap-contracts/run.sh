@@ -53,6 +53,8 @@ EOF
 cd /opt/tapV2-subgraph
 sed -i "s/127.0.0.1:5001/ipfs:${IPFS_RPC}/g" package.json
 sed -i "s/127.0.0.1:8020/graph-node:${GRAPH_NODE_ADMIN}/g" package.json
+sed -i "s/localhost:5001/ipfs:${IPFS_RPC}/g" package.json
+sed -i "s/localhost:8020/graph-node:${GRAPH_NODE_ADMIN}/g" package.json
 
 # Generate subgraph.yaml from template
 cp subgraph.template.yaml subgraph.yaml
