@@ -61,8 +61,9 @@ yq ".dataSources[].network |= \"hardhat\"" -i subgraph.yaml
 yarn install --ignore-engines
 yarn codegen
 yarn build
-yarn create-local
-yarn deploy-local --version-label v1.0.0 | tee deploy.txt
+# Create and deploy as semiotic/tap (which services expect)
+yarn run graph create --node http://graph-node:${GRAPH_NODE_ADMIN}/ semiotic/tap
+yarn run graph deploy --node http://graph-node:${GRAPH_NODE_ADMIN}/ --ipfs http://ipfs:${IPFS_RPC} --version-label v1.0.0 semiotic/tap | tee deploy.txt
 deployment_id_v1="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
 echo "TAP v1 deployment: ${deployment_id_v1}"
 curl -s "http://graph-node:${GRAPH_NODE_ADMIN}" \
