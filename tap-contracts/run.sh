@@ -50,11 +50,22 @@ cat <<EOF > /opt/tap-contracts.json
 EOF
 
 
-cd /opt/timeline-aggregation-protocol-subgraph
+cd /opt/tapV2-subgraph
 sed -i "s/127.0.0.1:5001/ipfs:${IPFS_RPC}/g" package.json
 sed -i "s/127.0.0.1:8020/graph-node:${GRAPH_NODE_ADMIN}/g" package.json
-yq ".dataSources[].source.address=\"${escrow}\"" -i subgraph.yaml
-yq ".dataSources[].network |= \"hardhat\"" -i subgraph.yaml
+
+# Generate subgraph.yaml from template
+cp subgraph.template.yaml subgraph.yaml
+# Replace template placeholders
+sed -i "s/{{network}}/hardhat/g" subgraph.yaml
+sed -i "s/{{TapCollector.address}}/${escrow}/g" subgraph.yaml
+sed -i "s/{{TapCollector.startBlock}}/1/g" subgraph.yaml
+sed -i "s/{{PaymentsEscrow.address}}/${escrow}/g" subgraph.yaml
+sed -i "s/{{PaymentsEscrow.startBlock}}/1/g" subgraph.yaml
+
+# Fix schema entity definitions to add immutable argument
+sed -i 's/@entity{/@entity(immutable: false) {/g' schema.graphql
+sed -i 's/@entity {/@entity(immutable: false) {/g' schema.graphql
 yarn codegen
 yarn build
 yarn create-local
