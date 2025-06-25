@@ -3,12 +3,24 @@ set -eu
 . /opt/.env
 
 # don't rerun when retriggered via a service_completed_successfully condition
+# but also check if contracts are actually deployed on the current chain
 if curl -s http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' | \
   grep "_meta"
 then
-  exit 0
+  # Additional check: verify contracts are actually deployed on current chain
+  l2_graph_token=$(jq -r '.["1337"].L2GraphToken.address // empty' /opt/horizon.json)
+  if [ -n "$l2_graph_token" ]; then
+    # Check if the contract actually has code on the current chain
+    code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC}" "$l2_graph_token" 2>/dev/null || echo "0x")
+    if [ "$code_check" = "0x" ]; then
+      echo "Contract addresses in horizon.json are stale (no code at $l2_graph_token), redeploying..."
+    else
+      echo "Contracts already deployed and graph-network subgraph exists, skipping..."
+      exit 0
+    fi
+  fi
 fi
 
 # Initialize address books
