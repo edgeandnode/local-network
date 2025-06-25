@@ -121,6 +121,7 @@ services:
       indexer-agent: { condition: service_healthy }
       ipfs: { condition: service_healthy }
       chain: { condition: service_healthy }
+      tap-contracts: { condition: service_completed_successfully }
     volumes:
       - ./.env:/opt/.env:ro
       - ./subgraph-service.json:/opt/subgraph-service.json:ro
