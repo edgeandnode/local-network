@@ -29,6 +29,10 @@ syncing_interval_secs = 30
 query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap"
 syncing_interval_secs = 30
 
+[subgraphs.escrow_v2]
+query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap-v2"
+syncing_interval_secs = 30
+
 [blockchain]
 chain_id = 1337
 receipts_verifier_address = "${tap_verifier}"
@@ -44,6 +48,9 @@ max_amount_willing_to_lose_grt = 1000
 timestamp_buffer_secs = 1000
 [tap.sender_aggregator_endpoints]
 ${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
+
+[horizon]
+mode = "transition"
 
 EOF
 cat config.toml
