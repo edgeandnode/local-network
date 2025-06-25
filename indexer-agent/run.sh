@@ -76,22 +76,4 @@ cat >./tap-contracts.json <<-EOF
 }
 EOF
 cat tap-contracts.json
-
-# Wait for network subgraph to have deployment data
-echo "Waiting for network subgraph to have deployment data..."
-while true; do
-  deployments=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
-    -H 'Content-Type: application/json' \
-    -d '{"query":"{ subgraphDeployments(first: 1) { id } }"}' \
-    | jq -r '.data.subgraphDeployments | length')
-  
-  if [ "${deployments}" -gt 0 ]; then
-    echo "Found ${deployments} deployment(s) in network subgraph"
-    break
-  fi
-  
-  echo "No deployments found yet, waiting..."
-  sleep 5
-done
-
 node ./dist/index.js start
