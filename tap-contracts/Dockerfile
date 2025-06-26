@@ -1,11 +1,11 @@
 FROM debian:bookworm-slim
 RUN apt-get update \
-  && apt-get install -y curl git jq \
-  && rm -rf /var/lib/apt/lists/*
+  && apt-get install -y curl git jq
 
 # Install Node.js 24.x from NodeSource for tapV2-subgraph compatibility  
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
-  && apt-get install -y nodejs
+  && apt-get install -y nodejs \
+  && rm -rf /var/lib/apt/lists/*
 
 RUN npm install --global yarn
 
