@@ -29,10 +29,6 @@ syncing_interval_secs = 30
 query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap"
 syncing_interval_secs = 30
 
-[subgraphs.escrow_v2]
-query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap-v2"
-syncing_interval_secs = 30
-
 [blockchain]
 chain_id = 1337
 receipts_verifier_address = "${tap_verifier}"
