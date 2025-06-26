@@ -67,6 +67,66 @@ cp /opt/contracts.json ./contracts.json
 npx ts-node config/localNetworkAddressScript.ts
 npx mustache ./config/generatedAddresses.json ./config/addresses.template.ts > ./config/addresses.ts
 npx mustache ./config/generatedAddresses.json subgraph.template.yaml > subgraph.yaml
+
+# Add TAP v2 contracts (PaymentsEscrow and GraphTallyCollector) to subgraph.yaml
+payments_escrow=$(jq -r '."1337".PaymentsEscrow.address' /opt/contracts.json)
+tally_collector=$(jq -r '."1337".GraphTallyCollector.address' /opt/contracts.json)
+
+echo "Adding TAP v2 contracts to network subgraph: PaymentsEscrow=${payments_escrow}, GraphTallyCollector=${tally_collector}"
+
+# Add PaymentsEscrow data source to subgraph.yaml
+cat >> subgraph.yaml <<EOF
+  - kind: ethereum
+    name: PaymentsEscrow
+    network: hardhat
+    source:
+      address: "${payments_escrow}"
+      abi: PaymentsEscrow
+      startBlock: 1
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Escrow
+        - EscrowAccount
+        - EscrowAccountTransaction
+        - Transaction
+      abis:
+        - name: PaymentsEscrow
+          file: ./abis/PaymentsEscrow.json
+      eventHandlers:
+        - event: EscrowDeposit(indexed address,indexed address,uint256)
+          handler: handleEscrowDeposit
+        - event: EscrowWithdrawal(indexed address,indexed address,uint256)
+          handler: handleEscrowWithdrawal
+        - event: EscrowCollected(indexed address,indexed address,uint256)
+          handler: handleEscrowCollected
+      file: ./src/mappings/paymentsEscrow.ts
+  - kind: ethereum
+    name: GraphTallyCollector
+    network: hardhat
+    source:
+      address: "${tally_collector}"
+      abi: GraphTallyCollector
+      startBlock: 1
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - QueryFeeTally
+        - TallyTransaction
+      abis:
+        - name: GraphTallyCollector
+          file: ./abis/GraphTallyCollector.json
+      eventHandlers:
+        - event: TallyAdded(indexed address,indexed bytes32,uint256,uint256)
+          handler: handleTallyAdded
+        - event: TallyRemoved(indexed address,indexed bytes32,uint256)
+          handler: handleTallyRemoved
+      file: ./src/mappings/graphTallyCollector.ts
+EOF
 npx graph codegen --output-dir src/types/
 npx graph create graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN}"
 npx graph deploy graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN}" --ipfs="http://ipfs:${IPFS_RPC}" --version-label=v0.0.1
