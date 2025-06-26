@@ -2,7 +2,7 @@ FROM debian:bookworm-slim
 RUN apt-get update \
   && apt-get install -y curl git jq
 
-# Install Node.js 24.x from NodeSource for tapV2-subgraph compatibility  
+# Install Node.js 24.x from NodeSource  
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
   && apt-get install -y nodejs \
   && rm -rf /var/lib/apt/lists/*
@@ -19,11 +19,9 @@ RUN curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_a
 WORKDIR /opt
 RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-contracts --branch 'main' && \
   cd timeline-aggregation-protocol-contracts && yarn && forge build
-# Clone both TAP v1 and v2 subgraphs
+# Clone TAP v1 subgraph
 RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph --branch 'main' --recursive && \
   cd timeline-aggregation-protocol-subgraph && yarn
-RUN git clone https://github.com/semiotic-ai/tapV2-subgraph --branch 'main' --recursive && \
-  cd tapV2-subgraph && yarn
 
 COPY ./run.sh /opt/run.sh
 ENTRYPOINT sh -cl /opt/run.sh
