@@ -15,7 +15,7 @@ RUN cargo install just
 
 # Clone TAP horizon branch for v2/horizon features
 RUN echo "Cloning timeline-aggregation-protocol horizon branch..." \
-    && git clone --depth 1 --branch horizon \
+    && git clone --depth 1 --branch 'suchapalaver/feat/v2-endpoints' \
     https://github.com/semiotic-ai/timeline-aggregation-protocol tap
 
 WORKDIR /build/tap
