@@ -43,7 +43,7 @@ timestamp_buffer_secs = 1000
 ${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
 
 [horizon]
-mode = "transition"
+enabled = true
 
 EOF
 cat config.toml
