@@ -12,9 +12,8 @@ RUN apt-get update \
 
 WORKDIR /build
 
-# Clone the indexer-rs repo and checkout horizon-migration-fix-support branch
-RUN git clone https://github.com/graphprotocol/indexer-rs.git . && \
-    git checkout suchapalaver/horizon-migration-fix-support
+# Clone the indexer-rs repo
+RUN git clone https://github.com/graphprotocol/indexer-rs.git .
 
 # Force SQLx to use the offline mode to statically check the database queries against
 # the prepared files in the `.sqlx` directory.

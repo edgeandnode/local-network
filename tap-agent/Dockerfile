@@ -9,9 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-compiler libsasl2-dev git \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone the indexer-rs repo and checkout horizon branch
-RUN git clone https://github.com/graphprotocol/indexer-rs.git . && \
-    git checkout suchapalaver/test/horizon
+# Clone the indexer-rs repo
+RUN git clone https://github.com/graphprotocol/indexer-rs.git .
 
 # Force SQLx to use the offline mode to statically check the database queries against
 # the prepared files in the `.sqlx` directory.
