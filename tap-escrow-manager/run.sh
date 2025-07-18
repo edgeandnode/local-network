@@ -2,8 +2,8 @@
 set -eu
 . /opt/.env
 
-grt="$(jq -r '."1337".GraphToken.address' /opt/contracts.json)"
-tap_escrow="$(jq -r '."1337".TAPEscrow.address' /opt/contracts.json)"
+grt="$(jq -r '."1337".L2GraphToken.address' /opt/horizon.json)"
+tap_escrow="$(jq -r '."1337".TAPEscrow.address' /opt/tap-contracts.json)"
 
 rpk topic create gateway_queries --brokers="redpanda:${REDPANDA_KAFKA}" || true
 
