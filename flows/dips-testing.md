@@ -2,6 +2,8 @@
 
 This guide walks through testing the Distributed Indexing Payments (DIPs) system in the local-network environment.
 
+**What is DIPs?** DIPs (Distributed Indexing Payments) is a system for paying indexers to index specific subgraphs. Unlike query fees, DIPs payments incentivize indexers to allocate resources to index subgraphs that may not yet have query traffic.
+
 ## Prerequisites
 
 1. All services running and healthy:
@@ -116,15 +118,28 @@ Check PostgreSQL for DIPs-related data:
 docker compose exec postgres psql -U postgres -d dipper -c "SELECT * FROM indexing_requests;"
 ```
 
-### 5. Test Query with Payment
+### 5. Verify Indexer Allocation
 
-Send a query through the gateway (which should trigger DIPs):
+DIPs is about paying for indexing, not queries. To verify the agreement is working, check if the indexer has allocated to the subgraph:
+
 ```bash
-curl "http://localhost:7700/api/subgraphs/id/QmNngXzFajkQHRj3ZjAJAF7jc2AibTQKB4dwftjiKXC9RP" \
+# Query the network subgraph to check allocations
+curl -s http://localhost:8000/subgraphs/name/graph-network -X POST \
   -H 'content-type: application/json' \
-  -H "Authorization: Bearer deadbeefdeadbeefdeadbeefdeadbeef" \
-  -d '{"query": "{ _meta { block { number } } }"}'
+  -d '{
+    "query": "{ indexer(id: \"0xf4ef6650e48d099a4972ea5b414dab86e1998bd3\") { allocations { id subgraphDeployment { ipfsHash } status } } }"
+  }' | jq .
+
+# Look for an allocation with your deployment ID
+# Note: This can take several minutes as the indexer-agent processes the agreement
 ```
+
+**Important**: Check indexer-agent logs while waiting:
+```bash
+docker logs indexer-agent --tail 50 -f | grep -E "(allocation|QmNng|agreement)"
+```
+
+**Timing**: The indexer-agent runs on a cycle and may take 5-10 minutes to create the allocation after the DIPs agreement is established.
 
 ### 6. Cancel an Indexing Request
 
@@ -138,10 +153,11 @@ cargo run --bin dipper-cli -- requests cancel 01983d54-a2a0-7933-a4f5-bb96d7f4dd
 
 ## Verification Steps
 
-1. **Dipper Health**: Check endpoint at http://localhost:9000/
-2. **Indexer RPC**: Verify indexer endpoint at http://localhost:9001/
-3. **Receipt Aggregation**: TAP receipts should aggregate every second
-4. **Payment Flow**: Gateway → Dipper → Indexer Service
+1. **Dipper Health**: Check endpoint returns 405 (expected for root path): `curl http://localhost:9000/`
+2. **Agreement Created**: Look for "Agreement proposal accepted" in dipper logs
+3. **Indexer Allocation**: Query network subgraph for active allocations
+4. **Indexer Agent Activity**: Monitor logs for allocation creation
+5. **DIPs Flow**: Admin → Dipper → Indexer Service (port 7602) → Indexer Agent
 
 ## Common Issues
 
