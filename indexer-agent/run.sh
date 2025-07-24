@@ -48,6 +48,7 @@ export INDEXER_AGENT_ENABLE_DIPS=true
 export INDEXER_AGENT_DIPS_EPOCHS_MARGIN=1
 export INDEXER_AGENT_DIPPER_ENDPOINT="http://dipper:${DIPPER_INDEXER_RPC_PORT}"
 export INDEXER_AGENT_DIPS_ALLOCATION_AMOUNT=1
+export INDEXER_AGENT_LOG_LEVEL=trace
 
 mkdir -p ./config/
 cat >./config/config.yaml <<-EOF

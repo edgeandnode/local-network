@@ -8,6 +8,7 @@ RUN apt-get update \
         pkg-config \
         protobuf-compiler \
         libssl-dev \
+        libsasl2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt
@@ -28,7 +29,7 @@ RUN --mount=type=cache,sharing=locked,id=cargo-registry,target=/usr/local/cargo/
 FROM debian:bookworm-slim AS wrapper-dev
 
 RUN apt-get update \
-    && apt-get install -y curl jq \
+    && apt-get install -y curl jq openssl ca-certificates protobuf-compiler libsasl2-2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the built binary from the rust builder image
