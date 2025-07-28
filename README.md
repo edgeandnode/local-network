@@ -103,6 +103,24 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 - `graph indexer connect http://localhost:7600`
 - `graph indexer --network=hardhat status`
 
+### Building from source
+
+Building from source requires the Git submodules to be initialized.
+
+- `git submodule update --init --recursive --force indexer-agent/source`
+
+And then select the `wrapper-dev` target when building the Docker image in the `docker-compose.yaml` file.
+
+```diff
+  indexer-agent:
+    container_name: indexer-agent
+    build: { 
+-     target: "wrapper", # Set to "wrapper-dev" for building from source
++     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
+      context: indexer-agent,
+    }
+```
+
 ## indexer-service
 
 - `docker compose up --build indexer-service`

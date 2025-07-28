@@ -4,3 +4,6 @@
 [submodule "indexer-service/source"]
 	path = indexer-service/source
 	url = git@github.com:graphprotocol/indexer-rs.git
+[submodule "indexer-agent/source"]
+	path = indexer-agent/source
+	url = git@github.com:graphprotocol/indexer.git

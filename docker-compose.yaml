@@ -82,7 +82,10 @@ services:
 
   indexer-agent:
     container_name: indexer-agent
-    build: { context: indexer-agent }
+    build: { 
+      target: "wrapper-dev",  # Set to "wrapper-dev" for building from source
+      context: indexer-agent,
+    }
     depends_on:
       block-oracle: { condition: service_healthy }
     ports: ["127.0.0.1:${INDEXER_MANAGEMENT}:7600"]

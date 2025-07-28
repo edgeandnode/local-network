@@ -42,6 +42,8 @@ docker compose ps     # Check service status
 docker compose logs -f [service]  # View logs
 ```
 
+**Important for Claude Code**: When building Docker images or running `docker compose up`, always use longer timeouts (5-10 minutes) as these operations can take considerable time, especially when building from source or starting the entire network.
+
 **Important**: The initial startup can take 5-10 minutes due to the complex dependency chain:
 1. **Base services** start first: `chain`, `ipfs`, `postgres`, `redpanda`
 2. **graph-node** waits for base services to be healthy
@@ -74,6 +76,7 @@ Some services can be built from source using Git submodules. To enable source bu
    ```
 
 Services that support source builds:
+- **indexer-agent**: Requires `indexer-agent/source` submodule (Node.js/TypeScript monorepo)
 - **indexer-service**: Requires `indexer-service/source` submodule
 - **dipper**: Requires `dipper/source` submodule (private repo - manual init required)
 
@@ -91,6 +94,13 @@ docker compose exec postgres psql -U postgres  # Access PostgreSQL
 ```
 
 ## Service Details
+
+### Indexer Agent (Node.js/TypeScript)
+- Built from source at `indexer-agent/source` (graphprotocol/indexer monorepo)
+- Manages allocations and interactions with the network
+- Runs database migrations on startup
+- Serves management API on port 7600
+- Health check endpoint: http://localhost:7600/health
 
 ### Indexer Service (Rust)
 - Built from source at `indexer-service/source`
