@@ -202,7 +202,7 @@ services:
   #   stop_signal: SIGKILL
   #   volumes:
   #     - ./.env:/opt/.env:ro
-  #     - ./contracts.json:/opt/contracts.json:ro
+  #     - ./horizon.json:/opt/horizon.json:ro
   #   environment:
   #     RUST_LOG: info,indexer_service_rs=info
   #     RUST_BACKTRACE: 1
