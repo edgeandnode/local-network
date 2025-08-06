@@ -33,12 +33,9 @@ fi
 echo "=== Setting up subgraph ==="
 cd /opt/block-oracle/packages/subgraph
 
-# Remove packageManager field that forces yarn, then use yarn properly
-echo "=== Removing packageManager field from package.json ==="
-jq 'del(.packageManager)' package.json > package.json.tmp && mv package.json.tmp package.json
 
-echo "=== Installing dependencies with yarn ==="
-yarn install --frozen-lockfile
+echo "=== Installing dependencies ==="
+pnpm install
 
 graph_epoch_manager="$(jq -r '."1337".EpochManager.address' /opt/horizon.json)"
 echo "=== EpochManager address: $graph_epoch_manager ==="
@@ -51,14 +48,14 @@ yq -i ".hardhat.DataEdge.address |= \"${data_edge}\"" networks.json
 echo "networks.json"
 cat networks.json
 
-echo "=== Running yarn prepare ==="
-yarn prepare
+echo "=== Running pnpm prepare ==="
+pnpm prepare
 
-echo "=== Running yarn prep:local ==="
-yarn prep:local
+echo "=== Running pnpm prep:local ==="
+pnpm prep:local
 
-echo "=== Running yarn codegen ==="
-yarn codegen
+echo "=== Running pnpm codegen ==="
+pnpm codegen
 
 echo "=== Building subgraph ==="
 npx graph build --network hardhat
