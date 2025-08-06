@@ -71,7 +71,7 @@ services:
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
-  # TODO: after horizon transition period we can remove tap-contracts
+  # These provide TAPv1 support - TODO: after horizon transition period we can remove them
   tap-contracts:
     container_name: tap-contracts
     build: { context: tap-contracts }

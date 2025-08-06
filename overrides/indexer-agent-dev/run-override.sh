@@ -23,7 +23,7 @@ fi
 
 export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/horizon.json
 export INDEXER_AGENT_SUBGRAPH_SERVICE_ADDRESS_BOOK=/opt/subgraph-service.json
-export INDEXER_AGENT_TAP_ADDRESS_BOOK=./tap-contracts.json
+export INDEXER_AGENT_TAP_ADDRESS_BOOK=/opt/tap-contracts.json
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
 export INDEXER_AGENT_GATEWAY_ENDPOINT="http://gateway:${GATEWAY}"
 export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}"
@@ -46,6 +46,7 @@ export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service-ts:${INDEXER_SER
 export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/semiotic/tap"
 export INDEXER_AGENT_MAX_PROVISION_INITIAL_SIZE=200000
 export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
+export INDEXER_AGENT_LOG_LEVEL=trace
 
 cd /opt/indexer-agent-source-root
 mkdir -p ./config/
