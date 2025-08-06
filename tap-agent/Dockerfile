@@ -1,5 +1,4 @@
-# TODO: update to use the latest version of tap-agent
-FROM ghcr.io/graphprotocol/indexer-tap-agent:v1.9.1
+FROM ghcr.io/graphprotocol/indexer-tap-agent:v1.10.2
 RUN apt-get update \
     && apt-get install -y git jq \
     && rm -rf /var/lib/apt/lists/*

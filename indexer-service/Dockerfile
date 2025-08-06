@@ -40,7 +40,7 @@ ENTRYPOINT bash -cl /opt/run.sh
 
 
 ## Wrapper image
-FROM ghcr.io/graphprotocol/indexer-service-rs:v1.5.0 AS wrapper
+FROM ghcr.io/graphprotocol/indexer-service-rs:v1.6.1 AS wrapper
 RUN apt-get update \
     && apt-get install -y curl jq \
     && rm -rf /var/lib/apt/lists/*
