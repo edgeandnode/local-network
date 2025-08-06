@@ -124,38 +124,6 @@ services:
       - ./.env:/opt/.env:ro
       - ./subgraph-service.json:/opt/subgraph-service.json:ro
 
-  # indexer-service:
-  #   container_name: indexer-service
-  #   build: { 
-  #     target: "wrapper", # Set to "wrapper-dev" for building from source
-  #     context: indexer-service,
-  #   }
-  #   depends_on:
-  #     indexer-agent: { condition: service_healthy }
-  #     ipfs: { condition: service_healthy }
-  #     tap-escrow-manager: { condition: service_started }
-  #   ports: 
-  #     - "${INDEXER_SERVICE}:7601"
-  #   stop_signal: SIGKILL
-  #   volumes:
-  #     - ./.env:/opt/.env:ro
-  #     - ./contracts.json:/opt/contracts.json:ro
-  #   environment:
-  #     RUST_LOG: info,indexer_service_rs=info
-  #     RUST_BACKTRACE: 1
-  #   healthcheck:
-  #     { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
-
-  # tap-agent:
-  #   container_name: tap-agent
-  #   build: { context: tap-agent }
-  #   depends_on:
-  #     indexer-agent: { condition: service_healthy }
-  #   stop_signal: SIGKILL
-  #   volumes:
-  #     - ./.env:/opt/.env:ro
-  #     - ./contracts.json:/opt/contracts.json:ro
-
   # redpanda:
   #   container_name: redpanda
   #   image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
@@ -218,3 +186,35 @@ services:
   #   restart: on-failure:3
   #   healthcheck:
   #     { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7700/ }
+
+  # indexer-service:
+  #   container_name: indexer-service
+  #   build: { 
+  #     target: "wrapper", # Set to "wrapper-dev" for building from source
+  #     context: indexer-service,
+  #   }
+  #   depends_on:
+  #     indexer-agent: { condition: service_healthy }
+  #     ipfs: { condition: service_healthy }
+  #     tap-escrow-manager: { condition: service_started }
+  #   ports: 
+  #     - "${INDEXER_SERVICE}:7601"
+  #   stop_signal: SIGKILL
+  #   volumes:
+  #     - ./.env:/opt/.env:ro
+  #     - ./contracts.json:/opt/contracts.json:ro
+  #   environment:
+  #     RUST_LOG: info,indexer_service_rs=info
+  #     RUST_BACKTRACE: 1
+  #   healthcheck:
+  #     { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
+
+  # tap-agent:
+  #   container_name: tap-agent
+  #   build: { context: tap-agent }
+  #   depends_on:
+  #     indexer-agent: { condition: service_healthy }
+  #   stop_signal: SIGKILL
+  #   volumes:
+  #     - ./.env:/opt/.env:ro
+  #     - ./contracts.json:/opt/contracts.json:ro
