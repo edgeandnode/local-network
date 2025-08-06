@@ -211,7 +211,8 @@ services:
   #   stop_signal: SIGKILL
   #   volumes:
   #     - ./.env:/opt/.env:ro
-  #     - ./contracts.json:/opt/contracts.json:ro
+  #     - ./horizon.json:/opt/horizon.json:ro
+  #     - ./subgraph-service.json:/opt/subgraph-service.json:ro
   #   environment:
   #     RUST_LOG: info,graph_gateway=trace
   #   restart: on-failure:3

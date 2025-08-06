@@ -5,7 +5,7 @@ RUN apt-get update \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 
 WORKDIR /opt
-RUN git clone https://github.com/edgeandnode/gateway --branch 'v27.1.0' && \
+RUN git clone https://github.com/suchapalaver/gateway && \
     cd gateway && . /root/.cargo/env && cargo build -p graph-gateway && \
     cp target/debug/graph-gateway /usr/local/bin/graph-gateway && cd .. && rm -rf gateway
 COPY ./run.sh /opt/run.sh
