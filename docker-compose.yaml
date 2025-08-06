@@ -154,7 +154,7 @@ services:
   #   stop_signal: SIGKILL
   #   volumes:
   #     - ./.env:/opt/.env:ro
-  #     - ./contracts.json:/opt/contracts.json:ro
+  #     - ./horizon.json:/opt/horizon.json:ro
 
   # tap-escrow-manager:
   #   container_name: tap-escrow-manager
