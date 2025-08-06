@@ -67,18 +67,7 @@ subgraphs:
   freshnessSleepMilliseconds: 1000
 EOF
 cat config/config.yaml
-cat >./tap-contracts.json <<-EOF
-{
-  "1337": {
-    "TAPVerifier": "$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)",
-    "AllocationIDTracker": "$(jq -r '."1337".TAPAllocationIDTracker.address' /opt/tap-contracts.json)",
-    "Escrow": "$(jq -r '."1337".TAPEscrow.address' /opt/tap-contracts.json)"
-  }
-}
-EOF
-cat tap-contracts.json
 
-cat ./config/config.yaml
 echo "Current PWD $PWD"
 
 nodemon --watch . \
