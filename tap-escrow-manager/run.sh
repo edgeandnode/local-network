@@ -2,7 +2,7 @@
 set -eu
 . /opt/.env
 
-grt="$(jq -r '."1337".GraphToken.address' /opt/horizon.json)"
+grt="$(jq -r '."1337".L2GraphToken.address' /opt/horizon.json)"
 graph_tally_collector="$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)"
 payments_escrow="$(jq -r '."1337".PaymentsEscrow.address' /opt/horizon.json)"
 
