@@ -69,9 +69,9 @@ cat config/config.yaml
 cat >./tap-contracts.json <<-EOF
 {
   "1337": {
-    "TAPVerifier": "$(jq -r '."1337".TAPVerifier' /opt/tap-contracts.json)",
-    "AllocationIDTracker": "$(jq -r '."1337".AllocationIDTracker' /opt/tap-contracts.json)",
-    "Escrow": "$(jq -r '."1337".Escrow' /opt/tap-contracts.json)"
+    "TAPVerifier": "$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)",
+    "AllocationIDTracker": "$(jq -r '."1337".TAPAllocationIDTracker.address' /opt/tap-contracts.json)",
+    "Escrow": "$(jq -r '."1337".TAPEscrow.address' /opt/tap-contracts.json)"
   }
 }
 EOF
