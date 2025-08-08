@@ -36,15 +36,9 @@ escrow="$(jq -r '.deployedTo' escrow.json)"
 cat <<EOF > /opt/tap-contracts.json
 {
   "1337": {
-    "TAPAllocationIDTracker": {
-      "address": "$allocation_tracker"
-    },
-    "TAPVerifier": {
-      "address": "$verifier"
-    },
-    "TAPEscrow": {
-      "address": "$escrow"
-    }
+    "AllocationIDTracker": "$allocation_tracker",
+    "TAPVerifier": "$verifier",
+    "Escrow": "$escrow"
   }
 }
 EOF

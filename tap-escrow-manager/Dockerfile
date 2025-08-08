@@ -11,8 +11,8 @@ COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
 RUN curl -sLO https://github.com/redpanda-data/redpanda/releases/latest/download/rpk-linux-amd64.zip && unzip rpk-linux-amd64.zip -d /usr/local/bin/
 
 WORKDIR /opt
-RUN git clone https://github.com/edgeandnode/tap-escrow-manager && \
-    cd tap-escrow-manager && git checkout 39f2c0b && . /root/.cargo/env && cargo build -p tap-escrow-manager && \
+RUN git clone https://github.com/edgeandnode/tap-escrow-manager --branch tmigone/horizon && \
+    cd tap-escrow-manager && . /root/.cargo/env && cargo build -p tap-escrow-manager && \
     cp target/debug/tap-escrow-manager /usr/local/bin/tap-escrow-manager && cd .. && rm -rf tap-escrow-manager
 
 COPY ./run.sh /opt/run.sh
