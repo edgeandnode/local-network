@@ -6,7 +6,12 @@ grt="$(jq -r '."1337".L2GraphToken.address' /opt/horizon.json)"
 graph_tally_collector="$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)"
 payments_escrow="$(jq -r '."1337".PaymentsEscrow.address' /opt/horizon.json)"
 
+# Generate signer private key from a test mnemonic
+SIGNER_MNEMONIC="test test test test test test test test test test test waste"
+SIGNER_SECRET="$(cast wallet private-key --mnemonic "${SIGNER_MNEMONIC}" --mnemonic-index 0)"
+
 rpk topic create gateway_queries --brokers="redpanda:${REDPANDA_KAFKA}" || true
+rpk topic create gateway_ravs --brokers="redpanda:${REDPANDA_KAFKA}" || true
 
 cat >config.json <<-EOF
 {
@@ -26,7 +31,7 @@ cat >config.json <<-EOF
   "network_subgraph": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network",
   "query_auth": "freestuff",
   "rpc_url": "http://chain:${CHAIN_RPC}",
-  "signers": ["${ACCOUNT0_SECRET}"],
+  "signers": ["${SIGNER_SECRET}"],
   "secret_key": "${ACCOUNT0_SECRET}",
   "update_interval_seconds": 10
 }
