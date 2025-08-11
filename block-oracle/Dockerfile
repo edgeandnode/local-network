@@ -32,7 +32,7 @@ RUN cd /opt/block-oracle/packages/subgraph && yarn
 
 # Clone and setup contracts repository
 RUN git clone https://github.com/graphprotocol/contracts --branch 'main' && \
-  cd /opt/contracts/packages/data-edge && corepack enable && pnpm install
+  cd /opt/contracts/packages/data-edge && corepack enable && pnpm install --no-frozen-lockfile
 
 # Copy run script
 COPY ./run.sh /opt/run.sh
