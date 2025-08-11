@@ -14,7 +14,8 @@ RUN git clone https://github.com/graphprotocol/indexer.git /indexer \
 # Build the indexer-agent
 WORKDIR /indexer
 RUN yarn install \
-    && yarn build
+    && yarn workspace @graphprotocol/indexer-common build \
+    && yarn workspace @graphprotocol/indexer-agent build
 
 # Runtime stage
 FROM node:20-slim
