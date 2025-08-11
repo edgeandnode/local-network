@@ -46,7 +46,7 @@ RUN cd block-oracle \
   && rm -rf target
 
 # Pre-install dependencies
-RUN cd block-oracle/packages/subgraph && yarn install --frozen-lockfile
+RUN cd block-oracle/packages/subgraph && yarn
 RUN cd contracts/packages/data-edge && pnpm install --no-frozen-lockfile
 
 # Copy and setup run script
