@@ -1,6 +1,6 @@
 ########################################################################
 # Build stage
-FROM rust:1.86-bookworm AS build
+FROM rust:1.88-bookworm AS build
 
 WORKDIR /build
 
@@ -32,8 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build /build/target/release/indexer-tap-agent /usr/local/bin/indexer-tap-agent
 
 # Clone indexer-rs for any config files that might be needed at runtime
-RUN cd /opt && git clone https://github.com/graphprotocol/indexer-rs.git && \
-    cd indexer-rs && git checkout suchapalaver/test/horizon
+RUN cd /opt && git clone https://github.com/graphprotocol/indexer-rs.git
 
 # Copy the run script
 COPY ./run.sh /opt/run.sh
