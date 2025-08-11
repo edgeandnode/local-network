@@ -1,4 +1,4 @@
-FROM ghcr.io/graphprotocol/indexer-tap-agent:v1.10.2
+FROM ghcr.io/graphprotocol/indexer-tap-agent:v1.10.3
 RUN apt-get update \
     && apt-get install -y git jq \
     && rm -rf /var/lib/apt/lists/*
