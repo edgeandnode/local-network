@@ -13,7 +13,7 @@ RUN git clone https://github.com/graphprotocol/indexer.git /indexer \
 
 # Build the indexer-agent
 WORKDIR /indexer
-RUN yarn install --frozen-lockfile \
+RUN yarn install \
     && yarn build
 
 # Runtime stage
