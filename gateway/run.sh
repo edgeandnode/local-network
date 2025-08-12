@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
+# Source the environment variables from .env file
+. /opt/.env
+
 cd /opt
 tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)
 network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
