@@ -8,6 +8,7 @@ payments_escrow="$(jq -r '."1337".PaymentsEscrow.address' /opt/horizon.json)"
 graph_tally_collector="$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)"
 
 rpk topic create gateway_queries --brokers="redpanda:${REDPANDA_KAFKA}" || true
+rpk topic create gateway_ravs --brokers="redpanda:${REDPANDA_KAFKA}" || true
 
 cat >config.json <<-EOF
 {
