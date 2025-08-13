@@ -5,7 +5,8 @@ set -eu
 . /opt/.env
 
 cd /opt
-tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)
+# V2: Use GraphTallyCollector for V2 receipts instead of V1 TAPVerifier
+graph_tally_collector=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
 network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
@@ -45,7 +46,7 @@ cat >config.json <<-EOF
   "receipts": {
     "chain_id": "1337",
     "signer": "${ACCOUNT0_SECRET}",
-    "verifier": "${tap_verifier}"
+    "verifier": "${graph_tally_collector}"
   }
 }
 EOF
