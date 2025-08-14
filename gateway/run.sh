@@ -34,11 +34,11 @@ cat >config.json <<-EOF
   "min_graph_node_version": "0.0.0",
   "min_indexer_version": "0.0.0",
   "network_subgraph": {
-    "url": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network"
+    "url": "http://indexer-service:${INDEXER_SERVICE}/subgraphs/id/Qmc2CbqucMvaS4GFvt2QUZWvRwSZ3K5ipeGvbC6UUBf616"
   },
   "trusted_indexers": [
     {
-      "url": "http://indexer-service:${INDEXER_SERVICE}/subgraphs/id/${network_subgraph_deployment}",
+      "url": "http://indexer-service:${INDEXER_SERVICE}/subgraphs/id/Qmc2CbqucMvaS4GFvt2QUZWvRwSZ3K5ipeGvbC6UUBf616",
       "auth": "freestuff"
     }
   ],
