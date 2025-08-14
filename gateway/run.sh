@@ -9,8 +9,8 @@ cd /opt
 graph_tally_collector=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
 network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
-  -d '{"query": "{ _meta { deployment } }" }' \
-  | jq -r '.data._meta.deployment')
+  -d '{"query": "{ subgraphs(first: 1) { versions(first: 1) { subgraphDeployment { ipfsHash } } } }" }' \
+  | jq -r '.data.subgraphs[0].versions[0].subgraphDeployment.ipfsHash')
 cat >config.json <<-EOF
 {
   "attestations": {
@@ -20,7 +20,7 @@ cat >config.json <<-EOF
   "api_keys": [
     {
       "key": "${GATEWAY_API_KEY}",
-      "user_address": "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+      "user_address": "${ACCOUNT0_ADDRESS}",
       "query_status": "ACTIVE"
     }
   ],
@@ -33,6 +33,9 @@ cat >config.json <<-EOF
   "log_json": false,
   "min_graph_node_version": "0.0.0",
   "min_indexer_version": "0.0.0",
+  "network_subgraph": {
+    "url": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network"
+  },
   "trusted_indexers": [
     {
       "url": "http://indexer-service:${INDEXER_SERVICE}/subgraphs/id/${network_subgraph_deployment}",
