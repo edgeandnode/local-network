@@ -42,6 +42,7 @@ cat >config.json <<-EOF
       "auth": "freestuff"
     }
   ],
+  "network_subgraph_max_lag_seconds": 3600,
   "payment_required": true,
   "port_api": 7700,
   "port_metrics": 7301,
