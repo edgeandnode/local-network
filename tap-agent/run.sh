@@ -3,7 +3,7 @@ set -eu
 . /opt/.env
 
 cd /opt
-tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)
+tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)
 cat >endpoints.yaml <<-EOF
 ${ACCOUNT0_ADDRESS}: "http://tap-aggregator:${TAP_AGGREGATOR}"
 EOF
@@ -44,6 +44,9 @@ max_amount_willing_to_lose_grt = 1000
 timestamp_buffer_secs = 1000
 [tap.sender_aggregator_endpoints]
 ${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
+
+[horizon]
+enabled = true
 
 EOF
 cat config.toml
