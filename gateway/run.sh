@@ -15,7 +15,7 @@ cat >config.json <<-EOF
 {
   "attestations": {
     "chain_id": "1337",
-    "dispute_manager": "$(jq -r '."1337".DisputeManagecurl -v -X POST https://tap-aggregator.network.thegraph.com  -H "Content-Type: application/json"  -d '{"jsonrpc":"2.0","id":0,"method":"api_versions","params":[null]}'r.address' /opt/subgraph-service.json)"
+    "dispute_manager": "$(jq -r '."1337".DisputeManager.address' /opt/subgraph-service.json)"
   },
   "api_keys": [
     {
