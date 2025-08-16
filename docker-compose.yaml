@@ -218,6 +218,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
+      - ./horizon.json:/opt/horizon.json:ro
       - ./tap-contracts.json:/opt/tap-contracts.json:ro
       - ./subgraph-service.json:/opt/subgraph-service.json:ro
     environment:
