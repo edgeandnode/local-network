@@ -141,6 +141,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
+      - ./horizon.json:/opt/horizon.json:ro
       - ./tap-contracts.json:/opt/tap-contracts.json:ro
     environment:
       RUST_LOG: info,indexer_service_rs=info
@@ -157,6 +158,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
+      - ./horizon.json:/opt/horizon.json:ro
       - ./tap-contracts.json:/opt/tap-contracts.json:ro
 
   tap-agent:
@@ -167,6 +169,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
+      - ./horizon.json:/opt/horizon.json:ro
       - ./tap-contracts.json:/opt/tap-contracts.json:ro
 
   redpanda:
