@@ -2,7 +2,9 @@
 set -eu
 . /opt/.env
 
-tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)
+# Use GraphTallyCollector (V2) contract for Horizon mode
+# This ensures the indexer-service uses the correct domain separator for V2 receipts
+v2_verifier=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
 
 cat >config.toml <<-EOF
 [indexer]
@@ -27,7 +29,7 @@ syncing_interval_secs = 30
 
 [blockchain]
 chain_id = 1337
-receipts_verifier_address = "${tap_verifier}"
+receipts_verifier_address = "${v2_verifier}"
 
 [service]
 free_query_auth_token = "freestuff"
