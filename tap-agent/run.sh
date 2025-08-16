@@ -3,7 +3,9 @@ set -eu
 . /opt/.env
 
 cd /opt
-tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)
+# Use GraphTallyCollector (V2) contract for Horizon mode
+# This ensures the tap-agent uses the correct domain separator for V2 receipts
+v2_verifier=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
 cat >endpoints.yaml <<-EOF
 ${ACCOUNT0_ADDRESS}: "http://tap-aggregator:${TAP_AGGREGATOR}"
 EOF
@@ -31,7 +33,7 @@ syncing_interval_secs = 30
 
 [blockchain]
 chain_id = 1337
-receipts_verifier_address = "${tap_verifier}"
+receipts_verifier_address = "${v2_verifier}"
 
 [service]
 host_and_port = "0.0.0.0:${INDEXER_SERVICE}"
