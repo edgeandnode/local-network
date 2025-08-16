@@ -166,6 +166,7 @@ services:
     build: { context: tap-agent }
     depends_on:
       indexer-agent: { condition: service_healthy }
+    ports: ["7300:7300"]
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
