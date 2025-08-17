@@ -34,11 +34,11 @@ cat >config.json <<-EOF
   "min_graph_node_version": "0.0.0",
   "min_indexer_version": "0.0.0",
   "network_subgraph": {
-    "url": "http://indexer-service:${INDEXER_SERVICE}/subgraphs/id/Qmc2CbqucMvaS4GFvt2QUZWvRwSZ3K5ipeGvbC6UUBf616"
+    "url": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network"
   },
   "trusted_indexers": [
     {
-      "url": "http://indexer-service:${INDEXER_SERVICE}/subgraphs/id/Qmc2CbqucMvaS4GFvt2QUZWvRwSZ3K5ipeGvbC6UUBf616",
+      "url": "http://indexer-service:${INDEXER_SERVICE}/subgraphs/id/${network_subgraph_deployment}",
       "auth": "freestuff"
     }
   ],
@@ -55,5 +55,5 @@ cat >config.json <<-EOF
 }
 EOF
 cat config.json
-export RUST_LOG=info,gateway_framework=trace,graph_gateway=trace
+export RUST_LOG=debug,gateway_framework=trace,graph_gateway=trace
 graph-gateway ./config.json
