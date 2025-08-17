@@ -7,10 +7,10 @@ set -eu
 cd /opt
 # V2: Use GraphTallyCollector for V2 receipts instead of V1 TAPVerifier
 graph_tally_collector=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
-network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
-  -H 'content-type: application/json' \
-  -d '{"query": "{ subgraphs(first: 1) { versions(first: 1) { subgraphDeployment { ipfsHash } } } }" }' \
-  | jq -r '.data.subgraphs[0].versions[0].subgraphDeployment.ipfsHash')
+# Use the block oracle subgraph as the test target (what queries will be sent to)
+test_subgraph_deployment="QmRcucmbxAXLaAZkkCR8Bdj1X7QGPLjfRmQ5H6tFhGqiHX"
+network_subgraph_deployment="Qmc2CbqucMvaS4GFvt2QUZWvRwSZ3K5ipeGvbC6UUBf616"
+
 cat >config.json <<-EOF
 {
   "attestations": {
@@ -34,7 +34,7 @@ cat >config.json <<-EOF
   "min_graph_node_version": "0.0.0",
   "min_indexer_version": "0.0.0",
   "network_subgraph": {
-    "url": "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network"
+    "url": "http://graph-node:8000/subgraphs/name/graph-network"
   },
   "trusted_indexers": [
     {
