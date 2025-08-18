@@ -6,7 +6,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
 
 WORKDIR /opt
 RUN git clone https://github.com/suchapalaver/gateway && \
-    cd gateway && . /root/.cargo/env && cargo build -p graph-gateway && \
+    cd gateway && git checkout 20fc916f27af3b05851a613c9118c2e8b7dc792a && \
+    . /root/.cargo/env && cargo build -p graph-gateway && \
     cp target/debug/graph-gateway /usr/local/bin/graph-gateway && cd .. && rm -rf gateway
 COPY ./run.sh /opt/run.sh
 ENTRYPOINT bash -cl /opt/run.sh
