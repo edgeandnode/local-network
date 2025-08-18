@@ -24,7 +24,7 @@ fi
 cd /opt/indexer/packages/indexer-agent
 export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/horizon.json
 export INDEXER_AGENT_SUBGRAPH_SERVICE_ADDRESS_BOOK=/opt/subgraph-service.json
-export INDEXER_AGENT_TAP_ADDRESS_BOOK=./tap-contracts.json
+export INDEXER_AGENT_TAP_ADDRESS_BOOK=/opt/tap-contracts.json
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
 export INDEXER_AGENT_GATEWAY_ENDPOINT="http://gateway:${GATEWAY}"
 export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}"
@@ -66,14 +66,5 @@ subgraphs:
   freshnessSleepMilliseconds: 1000
 EOF
 cat config/config.yaml
-cat >./tap-contracts.json <<-EOF
-{
-  "1337": {
-    "TAPVerifier": "$(jq -r '."1337".TAPVerifier.address' /opt/tap-contracts.json)",
-    "AllocationIDTracker": "$(jq -r '."1337".TAPAllocationIDTracker.address' /opt/tap-contracts.json)",
-    "Escrow": "$(jq -r '."1337".TAPEscrow.address' /opt/tap-contracts.json)"
-  }
-}
-EOF
-cat tap-contracts.json
+
 node ./dist/index.js start
