@@ -14,8 +14,8 @@ COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
 
 WORKDIR /opt
 
-RUN git clone https://github.com/graphprotocol/contracts --branch 'horizon' && \
-    cd contracts && git checkout 3ac3614fa6bb989cb5be20f466a78a9465fdec2f && \
+RUN git clone https://github.com/graphprotocol/contracts --branch 'tmigone/register-fix' && \
+    cd contracts && git checkout 6927618feec414c4ce9097b1bc7044efcb018947 && \
     pnpm install --ignore-scripts && pnpm build
 
 RUN git clone https://github.com/graphprotocol/graph-network-subgraph --branch 'juanmardefago/horizon-stage-1-signed' && \
