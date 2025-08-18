@@ -1,6 +1,6 @@
 FROM debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install -y clang cmake curl git jq libsasl2-dev libssl-dev pkg-config \
+    && apt-get install -y clang cmake curl git jq libsasl2-dev libssl-dev pkg-config protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 
