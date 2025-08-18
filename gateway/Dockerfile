@@ -5,8 +5,8 @@ RUN apt-get update \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 
 WORKDIR /opt
-RUN git clone https://github.com/suchapalaver/gateway && \
-    cd gateway && git checkout 20fc916f27af3b05851a613c9118c2e8b7dc792a && \
+RUN git clone https://github.com/edgeandnode/gateway --branch 'tmigone/semiotic-main' && \
+    cd gateway && git checkout 80673021b72e3e23a524f5ff01c37905c50d835e && \
     . /root/.cargo/env && cargo build -p graph-gateway && \
     cp target/debug/graph-gateway /usr/local/bin/graph-gateway && cd .. && rm -rf gateway
 COPY ./run.sh /opt/run.sh

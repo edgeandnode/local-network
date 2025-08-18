@@ -204,7 +204,7 @@ services:
       - ./.env:/opt/.env:ro
       - ./horizon.json:/opt/horizon.json:ro
     environment:
-      RUST_LOG: info,indexer_service_rs=info
+      RUST_LOG: info,indexer_service_rs=trace
       RUST_BACKTRACE: 1
     healthcheck:
       { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
