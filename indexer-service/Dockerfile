@@ -8,6 +8,7 @@ RUN apt-get update \
         pkg-config \
         protobuf-compiler \
         libssl-dev \
+        libsasl2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt

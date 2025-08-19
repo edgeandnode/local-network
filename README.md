@@ -128,6 +128,12 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 - `docker compose down indexer-service`
 - `docker compose logs -f indexer-service`
 
+```bash
+curl "http://localhost:7601/subgraphs/id/QmRcucmbxAXLaAZkkCR8Bdj1X7QGPLjfRmQ5H6tFhGqiHX" \
+  -H 'content-type: application/json' -H "Authorization: Bearer freestuff" \
+  -d '{"query": "{ _meta { block { number } } }"}'
+```
+
 ### Building from source
 
 Building from source requires the Git submodules to be initialized.
