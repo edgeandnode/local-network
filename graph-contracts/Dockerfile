@@ -14,12 +14,13 @@ COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
 
 WORKDIR /opt
 
-RUN git clone https://github.com/graphprotocol/contracts --branch 'tmigone/horizon-interfaces' && \
-    cd contracts && \
+RUN git clone https://github.com/graphprotocol/contracts --branch 'tmigone/register-fix' && \
+    cd contracts && git checkout 6927618feec414c4ce9097b1bc7044efcb018947 && \
     pnpm install --ignore-scripts && pnpm build
 
 RUN git clone https://github.com/graphprotocol/graph-network-subgraph --branch 'juanmardefago/horizon-stage-1-signed' && \
-  cd graph-network-subgraph && pnpm install && pnpm add -D ts-node
+  cd graph-network-subgraph && git checkout c5c3040df9e2b913822efb6a475cabc7b536c97d && \
+  pnpm install && pnpm add -D ts-node
 
 COPY ./run.sh /opt/run.sh
 ENTRYPOINT bash -cl /opt/run.sh

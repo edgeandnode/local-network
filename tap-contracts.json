@@ -1,13 +1,7 @@
 {
   "1337": {
-    "TAPAllocationIDTracker": {
-      "address": "0x46b142DD1E924FAb83eCc3c08e4D46E82f005e0E"
-    },
-    "TAPVerifier": {
-      "address": "0xC9a43158891282A2B1475592D5719c001986Aaec"
-    },
-    "TAPEscrow": {
-      "address": "0x1c85638e118b37167e9298c2268758e058DdfDA0"
-    }
+    "AllocationIDTracker": "0x46b142DD1E924FAb83eCc3c08e4D46E82f005e0E",
+    "TAPVerifier": "0xC9a43158891282A2B1475592D5719c001986Aaec",
+    "Escrow": "0x1c85638e118b37167e9298c2268758e058DdfDA0"
   }
 }
