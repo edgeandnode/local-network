@@ -15,26 +15,34 @@ export PATH="/root/.foundry/bin:${PATH}"
 
 cd /opt/timeline-aggregation-protocol-contracts
 
-staking=$(jq -r '."1337".L1Staking.address' /opt/contracts.json)
-graph_token=$(jq -r '."1337".GraphToken.address' /opt/contracts.json)
+staking=$(jq -r '."1337".HorizonStaking.address' /opt/horizon.json)
+graph_token=$(jq -r '."1337".L2GraphToken.address' /opt/horizon.json)
 
 forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC}" --mnemonic="${MNEMONIC}" \
   src/AllocationIDTracker.sol:AllocationIDTracker \
   | tee allocation_tracker.json
 allocation_tracker="$(jq -r '.deployedTo' allocation_tracker.json)"
-test "${allocation_tracker}" = "$(jq -r '."1337".TAPAllocationIDTracker.address' /opt/contracts.json)"
 
 forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC}" --mnemonic="${MNEMONIC}" \
   src/TAPVerifier.sol:TAPVerifier --constructor-args 'TAP' '1' \
   | tee verifier.json
 verifier="$(jq -r '.deployedTo' verifier.json)"
-test "${verifier}" = "$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)"
 
 forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC}" --mnemonic="${MNEMONIC}" \
   src/Escrow.sol:Escrow --constructor-args "${graph_token}" "${staking}" "${verifier}" "${allocation_tracker}" 10 15 \
   | tee escrow.json
 escrow="$(jq -r '.deployedTo' escrow.json)"
-test "${escrow}" = "$(jq -r '."1337".TAPEscrow.address' /opt/contracts.json)"
+
+cat <<EOF > /opt/tap-contracts.json
+{
+  "1337": {
+    "AllocationIDTracker": "$allocation_tracker",
+    "TAPVerifier": "$verifier",
+    "Escrow": "$escrow"
+  }
+}
+EOF
+
 
 cd /opt/timeline-aggregation-protocol-subgraph
 sed -i "s/127.0.0.1:5001/ipfs:${IPFS_RPC}/g" package.json
@@ -44,7 +52,7 @@ yq ".dataSources[].network |= \"hardhat\"" -i subgraph.yaml
 yarn codegen
 yarn build
 yarn create-local
-yarn deploy-local --version-label v0.0.1 | tee deploy.txt
+yarn deploy-local | tee deploy.txt
 deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
 echo "${deployment_id}"
 curl -s "http://graph-node:${GRAPH_NODE_ADMIN}" \

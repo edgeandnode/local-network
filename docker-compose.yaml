@@ -1,11 +1,12 @@
 services:
   chain:
     container_name: chain
-    image: ghcr.io/foundry-rs/foundry:v1.0.0
+    build: { context: chain } 
     ports: ["${CHAIN_RPC}:8545"]
     command: ["anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0"]
-    healthcheck: 
-      { interval: 1s, retries: 10, test: cast block }
+    healthcheck: { interval: 1s, retries: 10, test: cast block }
+    environment:
+      - FORK_RPC_URL=${FORK_RPC_URL:-}
 
   block-explorer:
     container_name: block-explorer
@@ -65,8 +66,12 @@ services:
       graph-node: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./horizon.json:/opt/contracts/packages/horizon/addresses-local-network.json
+      - ./subgraph-service.json:/opt/contracts/packages/subgraph-service/addresses-local-network.json
+    environment:
+      - FORK_RPC_URL=${FORK_RPC_URL:-}
 
+  # These provide TAPv1 support - TODO: after horizon transition period we can remove them
   tap-contracts:
     container_name: tap-contracts
     build: { context: tap-contracts }
@@ -74,7 +79,8 @@ services:
       graph-contracts: { condition: service_completed_successfully }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./horizon.json:/opt/horizon.json:ro
+      - ./tap-contracts.json:/opt/tap-contracts.json
 
   block-oracle:
     container_name: block-oracle
@@ -84,7 +90,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./horizon.json:/opt/horizon.json:ro
     environment:
       RUST_BACKTRACE: full
     healthcheck:
@@ -93,13 +99,16 @@ services:
   indexer-agent:
     container_name: indexer-agent
     build: { context: indexer-agent }
+    platform: linux/amd64
     depends_on:
       block-oracle: { condition: service_healthy }
     ports: ["${INDEXER_MANAGEMENT}:7600"]
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./horizon.json:/opt/horizon.json:ro
+      - ./subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./tap-contracts.json:/opt/tap-contracts.json:ro
     healthcheck:
       { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
 
@@ -113,50 +122,7 @@ services:
       chain: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
-
-  indexer-service:
-    container_name: indexer-service
-    build: { 
-      target: "wrapper", # Set to "wrapper-dev" for building from source
-      context: indexer-service,
-    }
-    depends_on:
-      indexer-agent: { condition: service_healthy }
-      ipfs: { condition: service_healthy }
-      tap-escrow-manager: { condition: service_started }
-    ports: 
-      - "${INDEXER_SERVICE}:7601"
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
-    environment:
-      RUST_LOG: info,indexer_service_rs=info
-      RUST_BACKTRACE: 1
-    healthcheck:
-      { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
-
-  tap-aggregator:
-    container_name: tap-aggregator
-    build: { context: tap-aggregator }
-    depends_on:
-      tap-contracts: { condition: service_completed_successfully }
-    ports: ["${TAP_AGGREGATOR}:7610"]
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
-
-  tap-agent:
-    container_name: tap-agent
-    build: { context: tap-agent }
-    depends_on:
-      indexer-agent: { condition: service_healthy }
-    stop_signal: SIGKILL
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./subgraph-service.json:/opt/subgraph-service.json:ro
 
   redpanda:
     container_name: redpanda
@@ -179,6 +145,17 @@ services:
     healthcheck:
       { interval: 1s, retries: 600, test: rpk topic list --brokers="localhost:9092" }
 
+  tap-aggregator:
+    container_name: tap-aggregator
+    build: { context: tap-aggregator }
+    depends_on:
+      tap-contracts: { condition: service_completed_successfully }
+    ports: ["${TAP_AGGREGATOR}:7610"]
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./horizon.json:/opt/horizon.json:ro
+
   tap-escrow-manager:
     container_name: tap-escrow-manager
     build: { context: tap-escrow-manager }
@@ -188,7 +165,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./horizon.json:/opt/horizon.json:ro
 
   gateway:
     container_name: gateway
@@ -202,31 +179,42 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
+      - ./horizon.json:/opt/horizon.json:ro
+      - ./subgraph-service.json:/opt/subgraph-service.json:ro
     environment:
       RUST_LOG: info,graph_gateway=trace
     restart: on-failure:3
     healthcheck:
       { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7700/ }
 
-  dipper:
-    container_name: dipper
+  indexer-service:
+    container_name: indexer-service
     build: { 
-      target: "wrapper-dev", # Set to "wrapper-dev" for building from source
-      context: dipper
+      target: "wrapper", # Set to "wrapper-dev" for building from source
+      context: indexer-service,
     }
     depends_on:
-      gateway: { condition: service_healthy }
-      postgres: { condition: service_healthy }
-    ports:
-      - "${DIPPER_ADMIN_RPC_PORT}:9000"
-      - "${DIPPER_INDEXER_RPC_PORT}:9001"
+      indexer-agent: { condition: service_healthy }
+      ipfs: { condition: service_healthy }
+      tap-escrow-manager: { condition: service_started }
+    ports: 
+      - "${INDEXER_SERVICE}:7601"
     stop_signal: SIGKILL
-    environment:
-      RUST_LOG: info,dipper_service=info
     volumes:
       - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
-    restart: on-failure:10
+      - ./horizon.json:/opt/horizon.json:ro
+    environment:
+      RUST_LOG: info,indexer_service_rs=trace
+      RUST_BACKTRACE: 1
     healthcheck:
-      { interval: 5s, retries: 100, test: curl -f http://127.0.0.1:9000/ }
+      { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
+
+  tap-agent:
+    container_name: tap-agent
+    build: { context: tap-agent }
+    depends_on:
+      indexer-agent: { condition: service_healthy }
+    stop_signal: SIGKILL
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./horizon.json:/opt/horizon.json:ro

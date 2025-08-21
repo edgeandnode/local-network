@@ -1,14 +1,27 @@
-FROM debian:bookworm-slim
+FROM node:23.11-bookworm-slim
 RUN apt-get update \
     && apt-get install -y curl git jq nodejs npm \
     && rm -rf /var/lib/apt/lists/*
-RUN npm install --global corepack yarn \
-    && corepack enable && corepack install -g yarn@4.0.2
+RUN npm install -g corepack \
+    && corepack enable \
+    && corepack prepare yarn@4.0.2 --activate \
+    && corepack prepare pnpm@9.0.6 --activate
+  
+
+# Install Foundry
+COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
+  /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin/anvil /usr/local/bin/chisel /usr/local/bin/
 
 WORKDIR /opt
-RUN git clone https://github.com/graphprotocol/contracts --branch '@graphprotocol/contracts@6.2.1' && \
-    cd contracts/packages/contracts && yarn && yarn compile
-RUN git clone https://github.com/graphprotocol/graph-network-subgraph --branch 'v1.1.3' && \
-    cd graph-network-subgraph && yarn
+
+RUN git clone https://github.com/graphprotocol/contracts --branch 'tmigone/register-fix' && \
+    cd contracts && git checkout 6927618feec414c4ce9097b1bc7044efcb018947 && \
+    pnpm install --ignore-scripts && pnpm build
+
+RUN git clone https://github.com/graphprotocol/graph-network-subgraph --branch 'juanmardefago/horizon-stage-1-signed' && \
+  cd graph-network-subgraph && git checkout c5c3040df9e2b913822efb6a475cabc7b536c97d && \
+  pnpm install && pnpm add -D ts-node
+
 COPY ./run.sh /opt/run.sh
-ENTRYPOINT sh -cl /opt/run.sh
+ENTRYPOINT bash -cl /opt/run.sh
+

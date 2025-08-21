@@ -18,9 +18,10 @@ RUN curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_a
 
 WORKDIR /opt
 RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-contracts --branch 'main' && \
-  cd timeline-aggregation-protocol-contracts && yarn && forge build
+  cd timeline-aggregation-protocol-contracts && git checkout e3351e70b3e5d9821bc0aaa90bb2173ca2a77af7 && \
+  yarn && forge build
 RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph --branch 'main' --recursive && \
-  cd timeline-aggregation-protocol-subgraph && yarn
+  cd timeline-aggregation-protocol-subgraph && git checkout cf7279f60433bf9a9d897ec2548c13c0607234cc && yarn
 
 COPY ./run.sh /opt/run.sh
 ENTRYPOINT sh -cl /opt/run.sh

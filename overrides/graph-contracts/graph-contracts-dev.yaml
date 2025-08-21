@@ -1,0 +1,10 @@
+services:
+  graph-contracts:
+    volumes:
+      - ./.env:/opt/.env:ro
+      - ./horizon.json:/opt/contracts/packages/horizon/addresses-local-network.json
+      - ./subgraph-service.json:/opt/contracts/packages/subgraph-service/addresses-local-network.json
+      # Paths need to be absolute or relative to the location of the docker-compose.yaml file
+      - ${GRAPH_CONTRACTS_SOURCE_ROOT}:/opt/graph-network-subgraph
+    environment:
+      - KEEP_CONTAINER_RUNNING=true

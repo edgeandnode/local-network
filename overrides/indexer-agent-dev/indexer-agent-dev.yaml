@@ -6,8 +6,6 @@ services:
       # Nodejs debugger
       - 9230:9230
     volumes:
-      - ./.env:/opt/.env:ro
-      - ./contracts.json:/opt/contracts.json:ro
       - ./overrides/indexer-agent-dev/run-override.sh:/opt/run-override.sh:ro
       # Paths need to be absolute or relative to the location of the docker-compose.yaml file
       - ${INDEXER_AGENT_SOURCE_ROOT}:/opt/indexer-agent-source-root

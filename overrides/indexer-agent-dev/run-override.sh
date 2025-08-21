@@ -2,8 +2,8 @@
 set -xeu
 . /opt/.env
 
-token_address=$(jq -r '."1337".GraphToken.address' /opt/contracts.json)
-staking_address=$(jq -r '."1337".L1Staking.address' /opt/contracts.json)
+token_address=$(jq -r '."1337".L2GraphToken.address' /opt/horizon.json)
+staking_address=$(jq -r '."1337".HorizonStaking.address' /opt/horizon.json)
 indexer_staked="$(cast call "--rpc-url=http://chain:${CHAIN_RPC}" \
   "${staking_address}" 'hasStake(address) (bool)' "${RECEIVER_ADDRESS}")"
 echo "indexer_staked=${indexer_staked}"
@@ -21,8 +21,9 @@ if [ "${indexer_staked}" = "false" ]; then
     "${staking_address}" 'stake(uint256)' '100000000000000000000000'
 fi
 
-export INDEXER_AGENT_ADDRESS_BOOK=/opt/contracts.json
-export INDEXER_AGENT_TAP_ADDRESS_BOOK=./tap-contracts.json
+export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/horizon.json
+export INDEXER_AGENT_SUBGRAPH_SERVICE_ADDRESS_BOOK=/opt/subgraph-service.json
+export INDEXER_AGENT_TAP_ADDRESS_BOOK=/opt/tap-contracts.json
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
 export INDEXER_AGENT_GATEWAY_ENDPOINT="http://gateway:${GATEWAY}"
 export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}"
@@ -41,8 +42,11 @@ export INDEXER_AGENT_POSTGRES_HOST=postgres
 export INDEXER_AGENT_POSTGRES_PORT="${POSTGRES}"
 export INDEXER_AGENT_POSTGRES_USERNAME=postgres
 export INDEXER_AGENT_POSTGRES_PASSWORD=
-export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service-ts:${INDEXER_SERVICE}"
+export INDEXER_AGENT_PUBLIC_INDEXER_URL="http://indexer-service:${INDEXER_SERVICE}"
 export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/semiotic/tap"
+export INDEXER_AGENT_MAX_PROVISION_INITIAL_SIZE=200000
+export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
+export INDEXER_AGENT_LOG_LEVEL=trace
 
 cd /opt/indexer-agent-source-root
 mkdir -p ./config/
@@ -63,18 +67,7 @@ subgraphs:
   freshnessSleepMilliseconds: 1000
 EOF
 cat config/config.yaml
-cat >./tap-contracts.json <<-EOF
-{
-  "1337": {
-    "TAPVerifier": "$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)",
-    "AllocationIDTracker": "$(jq -r '."1337".TAPAllocationIDTracker.address' /opt/contracts.json)",
-    "Escrow": "$(jq -r '."1337".TAPEscrow.address' /opt/contracts.json)"
-  }
-}
-EOF
-cat tap-contracts.json
 
-cat ./config/config.yaml
 echo "Current PWD $PWD"
 
 nodemon --watch . \
