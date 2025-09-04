@@ -1,3 +1,5 @@
+ARG INDEXER_SERVICE_RS_VERSION
+
 ## Rust builder image
 FROM rust:1-slim AS rust-builder
 
@@ -41,7 +43,7 @@ ENTRYPOINT bash -cl /opt/run.sh
 
 
 ## Wrapper image
-FROM ghcr.io/graphprotocol/indexer-service-rs:v1.6.2 AS wrapper
+FROM ghcr.io/graphprotocol/indexer-service-rs:${INDEXER_SERVICE_RS_VERSION} AS wrapper
 RUN apt-get update \
     && apt-get install -y curl jq \
     && rm -rf /var/lib/apt/lists/*

@@ -1,3 +1,5 @@
+ARG BLOCK_ORACLE_COMMIT
+
 FROM debian:bookworm-slim
 
 # Install dependencies
@@ -23,15 +25,17 @@ RUN curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_a
 
 # Clone and build Block Oracle
 WORKDIR /opt
-RUN git clone https://github.com/graphprotocol/block-oracle --branch 'main' && \
-  cd block-oracle && git checkout 3a3a425ff96130c3842cee7e43d06bbe3d729aed && . ~/.bashrc && cargo build -p block-oracle && \
+
+# TODO: replace the commit checkout with --branch once horizon changes are merged to main
+RUN git clone https://github.com/graphprotocol/block-oracle && \
+  cd block-oracle && git checkout ${BLOCK_ORACLE_COMMIT} && . ~/.bashrc && cargo build -p block-oracle && \
   cp target/debug/block-oracle . && rm -rf target
 
 # Install dependencies for the subgraph
 RUN cd /opt/block-oracle/packages/subgraph && yarn
 
 # Clone and setup contracts repository
-RUN git clone https://github.com/graphprotocol/contracts --branch 'main' && \
+RUN git clone https://github.com/graphprotocol/contracts && \
   cd /opt/contracts && git checkout bdc66135e7700e9a4dcd6a4beac585337fdb9c21 && \
   cd /opt/contracts/packages/data-edge && corepack enable && pnpm install
 

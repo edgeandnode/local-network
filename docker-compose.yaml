@@ -43,7 +43,10 @@ services:
 
   graph-node:
     container_name: graph-node
-    build: { context: "graph-node" }
+    build:
+      context: "graph-node"
+      args:
+        GRAPH_NODE_VERSION: ${GRAPH_NODE_VERSION}
     depends_on:
       chain: { condition: service_healthy }
       ipfs: { condition: service_healthy }
@@ -61,7 +64,11 @@ services:
 
   graph-contracts:
     container_name: graph-contracts
-    build: { context: graph-contracts }
+    build:
+      context: graph-contracts
+      args:
+        CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
+        NETWORK_SUBGRAPH_COMMIT: ${NETWORK_SUBGRAPH_COMMIT}
     depends_on:
       graph-node: { condition: service_healthy }
     volumes:
@@ -74,7 +81,11 @@ services:
   # These provide TAPv1 support - TODO: after horizon transition period we can remove them
   tap-contracts:
     container_name: tap-contracts
-    build: { context: tap-contracts }
+    build:
+      context: tap-contracts
+      args:
+        TAP_CONTRACTS_COMMIT: ${TAP_CONTRACTS_COMMIT}
+        TAP_SUBGRAPH_COMMIT: ${TAP_SUBGRAPH_COMMIT}
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
     volumes:
@@ -84,7 +95,10 @@ services:
 
   block-oracle:
     container_name: block-oracle
-    build: { context: block-oracle }
+    build:
+      context: block-oracle
+      args:
+        BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
     depends_on:
       tap-contracts: { condition: service_completed_successfully }
     stop_signal: SIGKILL
@@ -98,7 +112,10 @@ services:
 
   indexer-agent:
     container_name: indexer-agent
-    build: { context: indexer-agent }
+    build:
+      context: indexer-agent
+      args:
+        INDEXER_AGENT_VERSION: ${INDEXER_AGENT_VERSION}
     platform: linux/amd64
     depends_on:
       block-oracle: { condition: service_healthy }
@@ -147,7 +164,10 @@ services:
 
   tap-aggregator:
     container_name: tap-aggregator
-    build: { context: tap-aggregator }
+    build:
+      context: tap-aggregator
+      args:
+        TAP_AGGREGATOR_VERSION: ${TAP_AGGREGATOR_VERSION}
     depends_on:
       tap-contracts: { condition: service_completed_successfully }
     ports: ["${TAP_AGGREGATOR}:7610"]
@@ -158,7 +178,10 @@ services:
 
   tap-escrow-manager:
     container_name: tap-escrow-manager
-    build: { context: tap-escrow-manager }
+    build:
+      context: tap-escrow-manager
+      args:
+        TAP_ESCROW_MANAGER_COMMIT: ${TAP_ESCROW_MANAGER_COMMIT}
     depends_on:
       redpanda: { condition: service_healthy }
       subgraph-deploy: { condition: service_completed_successfully }
@@ -169,7 +192,10 @@ services:
 
   gateway:
     container_name: gateway
-    build: { context: gateway }
+    build:
+      context: gateway
+      args:
+        GATEWAY_COMMIT: ${GATEWAY_COMMIT}
     depends_on:
       subgraph-deploy: { condition: service_completed_successfully }
       indexer-service: { condition: service_healthy }
@@ -189,10 +215,11 @@ services:
 
   indexer-service:
     container_name: indexer-service
-    build: { 
-      target: "wrapper", # Set to "wrapper-dev" for building from source
-      context: indexer-service,
-    }
+    build:
+      target: "wrapper" # Set to "wrapper-dev" for building from source
+      context: indexer-service
+      args:
+        INDEXER_SERVICE_RS_VERSION: ${INDEXER_SERVICE_RS_VERSION}
     depends_on:
       indexer-agent: { condition: service_healthy }
       ipfs: { condition: service_healthy }
@@ -211,7 +238,10 @@ services:
 
   tap-agent:
     container_name: tap-agent
-    build: { context: tap-agent }
+    build:
+      context: tap-agent
+      args:
+        INDEXER_TAP_AGENT_VERSION: ${INDEXER_TAP_AGENT_VERSION}
     depends_on:
       indexer-agent: { condition: service_healthy }
     stop_signal: SIGKILL

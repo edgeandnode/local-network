@@ -1,4 +1,5 @@
-FROM ghcr.io/graphprotocol/indexer-agent:v0.23.3
+ARG INDEXER_AGENT_VERSION
+FROM ghcr.io/graphprotocol/indexer-agent:${INDEXER_AGENT_VERSION}
 RUN apt-get update \
     && apt-get install -y jq \
     && rm -rf /var/lib/apt/lists/*

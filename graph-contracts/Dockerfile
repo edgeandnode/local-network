@@ -1,3 +1,6 @@
+ARG CONTRACTS_COMMIT
+ARG NETWORK_SUBGRAPH_COMMIT
+
 FROM node:23.11-bookworm-slim
 RUN apt-get update \
     && apt-get install -y curl git jq nodejs npm \
@@ -12,14 +15,19 @@ RUN npm install -g corepack \
 COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
   /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin/anvil /usr/local/bin/chisel /usr/local/bin/
 
+ARG CONTRACTS_COMMIT
+ARG NETWORK_SUBGRAPH_COMMIT
+
 WORKDIR /opt
 
-RUN git clone https://github.com/graphprotocol/contracts --branch 'horizon' && \
-    cd contracts && git checkout 8e7f89a89731bb01a3a929e2003422829d9f4a9a && \
+# TODO: replace the commit checkout with --branch once horizon changes are merged to main
+RUN git clone https://github.com/graphprotocol/contracts && \
+    cd contracts && git checkout ${CONTRACTS_COMMIT} && \
     pnpm install --ignore-scripts && pnpm build
 
-RUN git clone https://github.com/graphprotocol/graph-network-subgraph --branch 'juanmardefago/horizon-stage-1-signed' && \
-  cd graph-network-subgraph && git checkout c5c3040df9e2b913822efb6a475cabc7b536c97d && \
+# TODO: replace the commit checkout with --branch once horizon changes are merged to main
+RUN git clone https://github.com/graphprotocol/graph-network-subgraph && \
+  cd graph-network-subgraph && git checkout ${NETWORK_SUBGRAPH_COMMIT} && \
   pnpm install && pnpm add -D ts-node
 
 COPY ./run.sh /opt/run.sh
