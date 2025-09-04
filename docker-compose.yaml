@@ -239,6 +239,7 @@ services:
   tap-agent:
     container_name: tap-agent
     build:
+      target: "wrapper" # Set to "wrapper-dev" for building from source
       context: tap-agent
       args:
         INDEXER_TAP_AGENT_VERSION: ${INDEXER_TAP_AGENT_VERSION}
