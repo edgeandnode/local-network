@@ -56,49 +56,49 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 - subgraph: http://localhost:8000/subgraphs/name/graph-network
 
   ```graphql
-  {
-  indexers {
-    id
-    url
-    geoHash
-  }
-  provisions {
-    id
-    indexer {
-      id
-      stakedTokens
-    }
-    tokensProvisioned
-    thawingPeriod
-    maxVerifierCut
-    dataService {
-      id
-      totalTokensProvisioned
-    }
-  }
-  subgraphs {
-    id
-    versions {
-      subgraphDeployment {
-        ipfsHash
-        indexerAllocations {
+    {
+      indexers {
+        id
+        url
+        geoHash
+      }
+      provisions {
+        id
+        indexer {
           id
-          status
-          indexer {
-            id
+          stakedTokens
+        }
+        tokensProvisioned
+        thawingPeriod
+        maxVerifierCut
+        dataService {
+          id
+          totalTokensProvisioned
+        }
+      }
+      subgraphs {
+        id
+        versions {
+          subgraphDeployment {
+            ipfsHash
+            indexerAllocations {
+              id
+              status
+              indexer {
+                id
+              }
+            }
           }
         }
       }
+      _meta {
+        block {
+          number
+        }
+        deployment
+      }
     }
-  }
-  _meta {
-    block {
-      number
-    }
-    deployment
-  }
-}
-```
+  ```
 
 ### block-oracle
 
@@ -187,7 +187,7 @@ Please refer to `overrides/README.md` for instructions.
 ### git submodules source
 The following components allow building from source by cloning them with submodules. Building from source requires the Git submodules to be initialized:
 
-- `git submodule update --init --recursive --force indexer-service/source`
+- `git submodule update --init --recursive`
 
 And then select the `wrapper-dev` target when building the Docker image in the `docker-compose.yaml` file.
 
