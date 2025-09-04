@@ -185,7 +185,11 @@ The following components allow building from source by overriding `docker-compos
 Please refer to `overrides/README.md` for instructions.
 
 ### git submodules source
-The following components allow building from source by cloning them with submodules. Building from source requires the Git submodules to be initialized:
+The following components allow building from source by cloning them with submodules:
+- indexer-service
+- tap-agent
+
+Building from source requires the Git submodules to be initialized first:
 
 - `git submodule update --init --recursive`
 
