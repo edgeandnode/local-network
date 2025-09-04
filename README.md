@@ -212,3 +212,15 @@ And then select the `wrapper-dev` target when building the Docker image in the `
       context: tap-agent,
     }
 ```
+
+## Common issues
+
+### `too far behind`
+
+Gateway error:
+```
+ERROR graph_gateway::network::subgraph_client: indexer=http://indexer-service:7601/subgraphs/id/Qmc2CbqucMvaS4GFvt2QUZWvRwSZ3K5ipeGvbC6UUBf616 network_subgraph_query_err="response too far behind"
+```
+
+Solution:
+This happens because the network does not automine, can be fixed by running `scripts/mine-block.sh 10`
