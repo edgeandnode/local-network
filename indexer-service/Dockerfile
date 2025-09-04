@@ -13,16 +13,15 @@ RUN apt-get update \
 
 WORKDIR /opt
 
-RUN git clone https://github.com/graphprotocol/indexer-rs --branch 'feat/horizon' && \
-    cd indexer-rs
+COPY source ./
 
 # Force SQLx to use the offline mode to statically check the database queries against
 # the prepared files in the `.sqlx` directory.
 ENV SQLX_OFFLINE=true
 
 RUN --mount=type=cache,sharing=locked,id=cargo-registry,target=/usr/local/cargo/registry \
-    --mount=type=cache,id=indexer-service-rs-build-cache,target=/opt/indexer-rs/target \
-    cd indexer-rs && cargo build --bin indexer-service-rs \
+    --mount=type=cache,id=indexer-service-rs-build-cache,target=/opt/target \
+    cargo build --bin indexer-service-rs \
   && cp target/debug/indexer-service-rs /opt/indexer-service-rs
 
 
