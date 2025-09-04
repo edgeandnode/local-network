@@ -3,7 +3,10 @@ set -eu
 . /opt/.env
 
 cd /opt
+tap_verifier="$(jq -r '."1337".TAPVerifier' /opt/tap-contracts.json)"
 graph_tally_verifier=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
+subgraph_service=$(jq -r '."1337".SubgraphService.address' /opt/subgraph-service.json)
+
 cat >endpoints.yaml <<-EOF
 ${ACCOUNT0_ADDRESS}: "http://tap-aggregator:${TAP_AGGREGATOR}"
 EOF
@@ -31,7 +34,8 @@ syncing_interval_secs = 30
 
 [blockchain]
 chain_id = 1337
-receipts_verifier_address = "${graph_tally_verifier}"
+receipts_verifier_address = "${tap_verifier}"
+receipts_verifier_address_v2 = "${graph_tally_verifier}"
 
 [service]
 host_and_port = "0.0.0.0:${INDEXER_SERVICE}"
@@ -55,6 +59,7 @@ ${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
 #   - If Horizon contracts not detected: Remain in legacy mode (V1 receipts only)
 # When disabled: Pure legacy mode, no Horizon detection performed
 enabled = true
+subgraph_service_address = "${subgraph_service}"
 EOF
 cat config.toml
 

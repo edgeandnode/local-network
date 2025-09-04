@@ -2,7 +2,9 @@
 set -eu
 . /opt/.env
 
+tap_verifier="$(jq -r '."1337".TAPVerifier' /opt/tap-contracts.json)"
 graph_tally_verifier=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
+subgraph_service=$(jq -r '."1337".SubgraphService.address' /opt/subgraph-service.json)
 
 cat >config.toml <<-EOF
 [indexer]
@@ -27,7 +29,8 @@ syncing_interval_secs = 30
 
 [blockchain]
 chain_id = 1337
-receipts_verifier_address = "${graph_tally_verifier}"
+receipts_verifier_address = "${tap_verifier}"
+receipts_verifier_address_v2 = "${graph_tally_verifier}"
 
 [service]
 free_query_auth_token = "freestuff"
@@ -52,6 +55,7 @@ ${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
 #   - If Horizon contracts not detected: Remain in legacy mode (V1 receipts only)
 # When disabled: Pure legacy mode, no Horizon detection performed
 enabled = true
+subgraph_service_address = "${subgraph_service}"
 EOF
 cat config.toml
 
