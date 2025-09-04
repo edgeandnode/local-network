@@ -1,7 +1,7 @@
+FROM debian:bookworm-slim
 ARG TAP_CONTRACTS_COMMIT
 ARG TAP_SUBGRAPH_COMMIT
 
-FROM debian:bookworm-slim
 RUN apt-get update \
   && apt-get install -y curl git jq \
   && rm -rf /var/lib/apt/lists/*
@@ -18,9 +18,6 @@ COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
 
 RUN curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/bin/yq && \
   chmod +x /usr/bin/yq
-
-ARG TAP_CONTRACTS_COMMIT
-ARG TAP_SUBGRAPH_COMMIT
 
 WORKDIR /opt
 # TODO: replace the commit checkout with --branch once horizon changes are merged to main

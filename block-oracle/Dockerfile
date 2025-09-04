@@ -1,6 +1,5 @@
-ARG BLOCK_ORACLE_COMMIT
-
 FROM debian:bookworm-slim
+ARG BLOCK_ORACLE_COMMIT
 
 # Install dependencies
 RUN apt-get update \

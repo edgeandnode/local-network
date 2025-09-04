@@ -1,7 +1,7 @@
+FROM node:23.11-bookworm-slim
 ARG CONTRACTS_COMMIT
 ARG NETWORK_SUBGRAPH_COMMIT
 
-FROM node:23.11-bookworm-slim
 RUN apt-get update \
     && apt-get install -y curl git jq nodejs npm \
     && rm -rf /var/lib/apt/lists/*
@@ -14,9 +14,6 @@ RUN npm install -g corepack \
 # Install Foundry
 COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
   /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin/anvil /usr/local/bin/chisel /usr/local/bin/
-
-ARG CONTRACTS_COMMIT
-ARG NETWORK_SUBGRAPH_COMMIT
 
 WORKDIR /opt
 

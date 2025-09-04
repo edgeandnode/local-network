@@ -1,6 +1,6 @@
+FROM debian:bookworm-slim
 ARG TAP_ESCROW_MANAGER_COMMIT
 
-FROM debian:bookworm-slim
 RUN apt-get update \
     && apt-get install -y clang cmake curl git jq libsasl2-dev libssl-dev pkg-config zip \
     && rm -rf /var/lib/apt/lists/*
