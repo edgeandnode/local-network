@@ -44,7 +44,7 @@ cat >config.json <<-EOF
   "query_fees_target": 40e-6,
   "receipts": {
     "chain_id": "1337",
-    "signer": "${ACCOUNT0_SECRET}",
+    "signer": "${ACCOUNT1_SECRET}",
     "verifier": "${graph_tally_verifier}"
   },
   "subgraph_service": "${subgraph_service}"
