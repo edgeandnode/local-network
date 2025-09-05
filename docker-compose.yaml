@@ -146,6 +146,7 @@ services:
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
     ports:
       - ${REDPANDA_KAFKA}:9092
+      - ${REDPANDA_KAFKA_EXTERNAL}:29092
       - ${REDPANDA_ADMIN}:9644
       - ${REDPANDA_PANDAPROXY}:8082
       - ${REDPANDA_SCHEMA_REGISTRY}:8081
@@ -155,8 +156,8 @@ services:
       - --memory 1G
       - --mode dev-container
       - --default-log-level=info
-      - --kafka-addr 0.0.0.0:9092
-      - --advertise-kafka-addr redpanda:9092
+      - --kafka-addr=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092
+      - --advertise-kafka-addr=INTERNAL://redpanda:9092,EXTERNAL://localhost:29092
       - --pandaproxy-addr 0.0.0.0:8082
       - --schema-registry-addr 0.0.0.0:8081
     healthcheck:
