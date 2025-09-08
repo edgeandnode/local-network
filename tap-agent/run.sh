@@ -47,7 +47,8 @@ serve_escrow_subgraph = false
 max_amount_willing_to_lose_grt = 1000
 
 [tap.rav_request]
-timestamp_buffer_secs = 1000
+timestamp_buffer_secs = 15
+max_receipts_per_request = 10
 
 [tap.sender_aggregator_endpoints]
 ${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
