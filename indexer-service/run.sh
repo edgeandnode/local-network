@@ -40,7 +40,7 @@ serve_network_subgraph = false
 serve_escrow_subgraph = false
 
 [tap]
-max_amount_willing_to_lose_grt = 1000
+max_amount_willing_to_lose_grt = 1
 
 [tap.rav_request]
 timestamp_buffer_secs = 15
