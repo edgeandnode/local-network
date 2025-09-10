@@ -48,7 +48,6 @@ max_amount_willing_to_lose_grt = 1
 
 [tap.rav_request]
 timestamp_buffer_secs = 15
-max_receipts_per_request = 10
 
 [tap.sender_aggregator_endpoints]
 ${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
