@@ -177,6 +177,9 @@ services:
       - ./.env:/opt/.env:ro
       - ./horizon.json:/opt/horizon.json:ro
       - ./tap-contracts.json:/opt/tap-contracts.json:ro
+    environment:
+      RUST_LOG: info,tap_aggregator=trace
+      RUST_BACKTRACE: 1
 
   tap-escrow-manager:
     container_name: tap-escrow-manager
@@ -255,3 +258,6 @@ services:
       - ./horizon.json:/opt/horizon.json:ro
       - ./subgraph-service.json:/opt/subgraph-service.json:ro
       - ./tap-contracts.json:/opt/tap-contracts.json:ro
+    environment:
+      RUST_LOG: info,indexer_tap_agent=trace
+      RUST_BACKTRACE: 1
