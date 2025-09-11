@@ -34,6 +34,7 @@ export INDEXER_AGENT_INDEXER_ADDRESS="${RECEIVER_ADDRESS}"
 export INDEXER_AGENT_INDEXER_MANAGEMENT_PORT="${INDEXER_MANAGEMENT}"
 export INDEXER_AGENT_INDEX_NODE_IDS=default
 export INDEXER_AGENT_INDEXER_GEO_COORDINATES="1 1"
+export INDEXER_AGENT_VOUCHER_REDEMPTION_THRESHOLD=0.01
 export INDEXER_AGENT_NETWORK_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network"
 export INDEXER_AGENT_NETWORK_PROVIDER="http://chain:${CHAIN_RPC}"
 export INDEXER_AGENT_MNEMONIC="${INDEXER_MNEMONIC}"
@@ -49,26 +50,6 @@ export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
 export INDEXER_AGENT_LOG_LEVEL=trace
 
 cd /opt/indexer-agent-source-root
-mkdir -p ./config/
-cat >./config/config.yaml <<-EOF
-networkIdentifier: "hardhat"
-indexerOptions:
-  geoCoordinates: [48.4682, -123.524]
-  defaultAllocationAmount: 10000
-  allocationManagementMode: "auto"
-  restakeRewards: true
-  poiDisputeMonitoring: false
-  voucherRedemptionThreshold: 0.00001
-  voucherRedemptionBatchThreshold: 10
-  rebateClaimThreshold: 0.00001
-  rebateClaimBatchThreshold: 10
-subgraphs:
-  maxBlockDistance: 5000
-  freshnessSleepMilliseconds: 1000
-EOF
-cat config/config.yaml
-
-echo "Current PWD $PWD"
 
 nodemon --watch . \
 --ext ts \
@@ -79,5 +60,3 @@ nodemon --watch . \
 NODE_OPTIONS=\"--inspect=0.0.0.0:9230\"
 tsx packages/indexer-agent/src/index.ts start"
 
-# TODO: port this script to use a config file...
-# --network-specifications-directory /opt/network-configs/"
