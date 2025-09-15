@@ -25,7 +25,6 @@ RUN curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_a
 # Clone and build Block Oracle
 WORKDIR /opt
 
-# TODO: replace the commit checkout with --branch once horizon changes are merged to main
 RUN git clone https://github.com/graphprotocol/block-oracle && \
   cd block-oracle && git checkout ${BLOCK_ORACLE_COMMIT} && . ~/.bashrc && cargo build -p block-oracle && \
   cp target/debug/block-oracle . && rm -rf target

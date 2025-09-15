@@ -17,12 +17,10 @@ COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
 
 WORKDIR /opt
 
-# TODO: replace the commit checkout with --branch once horizon changes are merged to main
 RUN git clone https://github.com/graphprotocol/contracts && \
     cd contracts && git checkout ${CONTRACTS_COMMIT} && \
     pnpm install --ignore-scripts && pnpm build
 
-# TODO: replace the commit checkout with --branch once horizon changes are merged to main
 RUN git clone https://github.com/graphprotocol/graph-network-subgraph && \
   cd graph-network-subgraph && git checkout ${NETWORK_SUBGRAPH_COMMIT} && \
   pnpm install && pnpm add -D ts-node

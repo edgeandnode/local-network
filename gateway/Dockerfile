@@ -7,7 +7,6 @@ RUN apt-get update \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 
 WORKDIR /opt
-# TODO: replace the commit checkout with --branch once horizon changes are merged to main
 RUN git clone https://github.com/edgeandnode/gateway && \
     cd gateway && git checkout ${GATEWAY_COMMIT} && \
     . /root/.cargo/env && cargo build -p graph-gateway && \

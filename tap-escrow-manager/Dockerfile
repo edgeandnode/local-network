@@ -13,7 +13,6 @@ COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
 RUN curl -sLO https://github.com/redpanda-data/redpanda/releases/latest/download/rpk-linux-amd64.zip && unzip rpk-linux-amd64.zip -d /usr/local/bin/
 
 WORKDIR /opt
-# TODO: replace the commit checkout with --branch once horizon changes are merged to main
 RUN git clone https://github.com/edgeandnode/tap-escrow-manager && \
     cd tap-escrow-manager && git checkout ${TAP_ESCROW_MANAGER_COMMIT} && \
     . /root/.cargo/env && cargo build -p tap-escrow-manager && \

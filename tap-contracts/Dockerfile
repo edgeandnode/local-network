@@ -20,12 +20,10 @@ RUN curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_a
   chmod +x /usr/bin/yq
 
 WORKDIR /opt
-# TODO: replace the commit checkout with --branch once horizon changes are merged to main
 RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-contracts && \
   cd timeline-aggregation-protocol-contracts && git checkout ${TAP_CONTRACTS_COMMIT} && \
   yarn && forge build
 
-# TODO: replace the commit checkout with --branch once horizon changes are merged to main
 RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph --recursive && \
   cd timeline-aggregation-protocol-subgraph && git checkout ${TAP_SUBGRAPH_COMMIT} && yarn
 
