@@ -31,6 +31,7 @@ syncing_interval_secs = 30
 chain_id = 1337
 receipts_verifier_address = "${tap_verifier}"
 receipts_verifier_address_v2 = "${graph_tally_verifier}"
+subgraph_service_address= "${subgraph_service}"
 
 [service]
 free_query_auth_token = "freestuff"
@@ -55,7 +56,6 @@ ${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
 #   - If Horizon contracts not detected: Remain in legacy mode (V1 receipts only)
 # When disabled: Pure legacy mode, no Horizon detection performed
 enabled = true
-subgraph_service_address = "${subgraph_service}"
 EOF
 cat config.toml
 
