@@ -89,3 +89,26 @@ up -d graph-contracts
 ```
 
 Note that running in this mode will leave the `graph-contracts` container running so you can ssh into it for debugging/development. This might interfere with other components that depend on the container exiting.
+
+## Horizon upgrade: Phase 3
+
+Override at `horizon-phase-3` helps test the upgrade during the Phase 3 where components run on the following versions:
+
+| Component | Version |
+|----------|----------|
+| protocol contracts  | legacy with Phase 1, 2 and 3 steps completed  |
+| network subgraph  | horizon  |
+| gateway | legacy |
+| tap-aggregator | legacy |
+| tap-escrow-manager | legacy |
+| indexer-agent | horizon |
+| indexer-service-rs | horizon |
+| tap-agent | horizon |
+
+To start the local network with the horizon phase 3 override:
+```
+docker compose \
+-f docker-compose.yaml \
+-f overrides/horizon-phase-3/docker-compose.yaml \
+up -d
+```
