@@ -194,6 +194,9 @@ services:
     volumes:
       - ./.env:/opt/.env:ro
       - ./horizon.json:/opt/horizon.json:ro
+    environment:
+      RUST_LOG: info,tap_escrow_manager=trace
+      RUST_BACKTRACE: 1
 
   gateway:
     container_name: gateway
@@ -214,6 +217,7 @@ services:
       - ./subgraph-service.json:/opt/subgraph-service.json:ro
     environment:
       RUST_LOG: info,graph_gateway=trace
+      RUST_BACKTRACE: 1
     restart: on-failure:3
     healthcheck:
       { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7700/ }

@@ -67,6 +67,8 @@ npx graph codegen --output-dir src/types/
 npx graph create graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN}"
 npx graph deploy graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN}" --ipfs="http://ipfs:${IPFS_RPC}" --version-label=v0.0.1
 
+cat subgraph.yaml
+
 # Keep the container running - for development purposes
 if [ -n "${KEEP_CONTAINER_RUNNING:-}" ]; then
   tail -f /dev/null
