@@ -5,7 +5,7 @@ services:
       - ./overrides/horizon-phase-3/graph-contracts.sh:/opt/run-override.sh:ro
     environment:
       # This is the latest commit for the legacy graph-contracts
-      LEGACY_CONTRACTS_COMMIT: ccfe923ad6efc51994251862a650585acce6b6fe
+      LEGACY_CONTRACTS_COMMIT: 54af1a7670e41b95628796bab4dd4f4ba8158782 # @graphprotocol/contracts@6.3.0
 
   tap-aggregator:
     build:

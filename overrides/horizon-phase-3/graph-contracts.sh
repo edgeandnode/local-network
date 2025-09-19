@@ -55,6 +55,9 @@ cd horizon && npx hardhat deploy:migrate --network localNetwork --step 2 --patch
 cd horizon && npx hardhat deploy:migrate --network localNetwork --step 3 --patch-config && cd ..
 cd subgraph-service && npx hardhat deploy:migrate --network localNetwork --step 2 --patch-config && cd ..
 
+# To complete the upgrade the following step can be manually run on the graph-contracts container:
+# cd horizon && npx hardhat deploy:migrate --network localNetwork --step 4 --patch-config && cd ..
+
 # == DEPLOY NETWORK SUBGRAPH ==
 echo "Deploying network subgraph..."
 cp /opt/contracts/packages/horizon/addresses-local-network.json /opt/horizon.json
