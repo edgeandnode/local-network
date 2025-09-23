@@ -133,3 +133,8 @@ docker compose \
 -f overrides/horizon-phase-3/docker-compose.yaml \
 up -d
 ```
+
+To finalize the Horizon upgrade and test the transition you can run:
+```bash
+./scripts/horizon-phase-4.sh
+```
