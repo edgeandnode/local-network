@@ -1,0 +1,49 @@
+services:
+  graph-contracts:
+    entrypoint: bash -cl /opt/run-override.sh
+    volumes:
+      - ./overrides/horizon-phase-3/graph-contracts.sh:/opt/run-override.sh:ro
+    environment:
+      # This is the latest commit for the legacy graph-contracts
+      LEGACY_CONTRACTS_COMMIT: 54af1a7670e41b95628796bab4dd4f4ba8158782 # @graphprotocol/contracts@6.3.0
+
+  tap-aggregator:
+    build:
+      args:
+        # This is the latest commit for the legacy tap-aggregator
+        TAP_AGGREGATOR_VERSION: sha-d1cbe8f
+    environment:
+      TAP_DOMAIN_NAME: TAP
+      TAP_DOMAIN_VERSION: 1
+
+  tap-escrow-manager:
+    build:
+      args:
+        # This is the latest commit for the legacy tap-escrow-manager
+        TAP_ESCROW_MANAGER_COMMIT: 376897b3528843ca5c58921cfe9a14bf54df61e6
+    entrypoint: bash -cl /opt/run-override.sh
+    volumes:
+      - ./tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./overrides/horizon-phase-3/tap-escrow-manager.sh:/opt/run-override.sh:ro
+
+  gateway:
+    build:
+      args:
+        # This is the latest commit for the legacy gateway
+        GATEWAY_COMMIT: 67539e205e66a3069ad77f7bfe0317cdf97a89cf
+    entrypoint: bash -cl /opt/run-override.sh
+    volumes:
+      - ./tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./overrides/horizon-phase-3/gateway.sh:/opt/run-override.sh:ro
+
+  # Uncomment this if you want to override the indexer-agent, need to set INDEXER_AGENT_SOURCE_ROOT
+  # indexer-agent:
+  #   entrypoint: bash -cl /opt/run-override.sh
+  #   ports:
+  #     - "${INDEXER_MANAGEMENT}:7600"
+  #     # Nodejs debugger
+  #     - 9230:9230
+  #   volumes:
+  #     - ./overrides/indexer-agent-dev/run-override.sh:/opt/run-override.sh:ro
+  #     # Paths need to be absolute or relative to the location of the docker-compose.yaml file
+  #     - ${INDEXER_AGENT_SOURCE_ROOT}:/opt/indexer-agent-source-root

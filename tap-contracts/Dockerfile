@@ -1,4 +1,7 @@
 FROM debian:bookworm-slim
+ARG TAP_CONTRACTS_COMMIT
+ARG TAP_SUBGRAPH_COMMIT
+
 RUN apt-get update \
   && apt-get install -y curl git jq \
   && rm -rf /var/lib/apt/lists/*
@@ -17,10 +20,12 @@ RUN curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_a
   chmod +x /usr/bin/yq
 
 WORKDIR /opt
-RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-contracts --branch 'main' && \
-  cd timeline-aggregation-protocol-contracts && yarn && forge build
-RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph --branch 'main' --recursive && \
-  cd timeline-aggregation-protocol-subgraph && yarn
+RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-contracts && \
+  cd timeline-aggregation-protocol-contracts && git checkout ${TAP_CONTRACTS_COMMIT} && \
+  yarn && forge build
+
+RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph --recursive && \
+  cd timeline-aggregation-protocol-subgraph && git checkout ${TAP_SUBGRAPH_COMMIT} && yarn
 
 COPY ./run.sh /opt/run.sh
 ENTRYPOINT sh -cl /opt/run.sh

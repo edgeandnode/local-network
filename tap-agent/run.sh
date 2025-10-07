@@ -3,7 +3,10 @@ set -eu
 . /opt/.env
 
 cd /opt
-tap_verifier=$(jq -r '."1337".TAPVerifier.address' /opt/contracts.json)
+tap_verifier="$(jq -r '."1337".TAPVerifier' /opt/tap-contracts.json)"
+graph_tally_verifier=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
+subgraph_service=$(jq -r '."1337".SubgraphService.address' /opt/subgraph-service.json)
+
 cat >endpoints.yaml <<-EOF
 ${ACCOUNT0_ADDRESS}: "http://tap-aggregator:${TAP_AGGREGATOR}"
 EOF
@@ -32,19 +35,31 @@ syncing_interval_secs = 30
 [blockchain]
 chain_id = 1337
 receipts_verifier_address = "${tap_verifier}"
+receipts_verifier_address_v2 = "${graph_tally_verifier}"
+subgraph_service_address = "${subgraph_service}"
 
 [service]
 host_and_port = "0.0.0.0:${INDEXER_SERVICE}"
 url_prefix = "/"
 serve_network_subgraph = false
 serve_escrow_subgraph = false
+
 [tap]
-max_amount_willing_to_lose_grt = 1000
+max_amount_willing_to_lose_grt = 1
+
 [tap.rav_request]
-timestamp_buffer_secs = 1000
+timestamp_buffer_secs = 15
+
 [tap.sender_aggregator_endpoints]
 ${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
 
+[horizon]
+# Enable Horizon migration support and detection
+# When enabled: Check if Horizon contracts are active in the network
+#   - If Horizon contracts detected: Hybrid migration mode (new V2 receipts only, process existing V1 receipts)
+#   - If Horizon contracts not detected: Remain in legacy mode (V1 receipts only)
+# When disabled: Pure legacy mode, no Horizon detection performed
+enabled = true
 EOF
 cat config.toml
 

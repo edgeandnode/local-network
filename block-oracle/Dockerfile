@@ -1,4 +1,5 @@
 FROM debian:bookworm-slim
+ARG BLOCK_ORACLE_COMMIT
 
 # Install dependencies
 RUN apt-get update \
@@ -23,15 +24,17 @@ RUN curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_a
 
 # Clone and build Block Oracle
 WORKDIR /opt
-RUN git clone https://github.com/graphprotocol/block-oracle --branch 'main' && \
-  cd block-oracle && . ~/.bashrc && cargo build -p block-oracle && \
+
+RUN git clone https://github.com/graphprotocol/block-oracle && \
+  cd block-oracle && git checkout ${BLOCK_ORACLE_COMMIT} && . ~/.bashrc && cargo build -p block-oracle && \
   cp target/debug/block-oracle . && rm -rf target
 
 # Install dependencies for the subgraph
 RUN cd /opt/block-oracle/packages/subgraph && yarn
 
 # Clone and setup contracts repository
-RUN git clone https://github.com/graphprotocol/contracts --branch 'main' && \
+RUN git clone https://github.com/graphprotocol/contracts && \
+  cd /opt/contracts && git checkout bdc66135e7700e9a4dcd6a4beac585337fdb9c21 && \
   cd /opt/contracts/packages/data-edge && corepack enable && pnpm install
 
 # Copy run script

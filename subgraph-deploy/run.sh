@@ -19,10 +19,28 @@ block_oracle_deployment="$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subg
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
   | jq -r '.data._meta.deployment')"
-tap_deployment="$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap" \
-  -H 'content-type: application/json' \
-  -d '{"query": "{ _meta { deployment } }" }' \
-  | jq -r '.data._meta.deployment')"
+# Wait for TAP subgraph to be available and get deployment ID
+echo "Waiting for TAP subgraph to be available..."
+tap_deployment=""
+for i in {1..30}; do
+  tap_deployment="$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap" \
+    -H 'content-type: application/json' \
+    -d '{"query": "{ _meta { deployment } }" }' \
+    | jq -r '.data._meta.deployment // empty')"
+  
+  if [ -n "$tap_deployment" ] && [ "$tap_deployment" != "null" ]; then
+    echo "Found TAP subgraph deployment: $tap_deployment"
+    break
+  fi
+  
+  echo "TAP subgraph not ready yet (attempt $i/30), waiting..."
+  sleep 10
+done
+
+if [ -z "$tap_deployment" ] || [ "$tap_deployment" = "null" ]; then
+  echo "ERROR: Could not get TAP subgraph deployment ID after waiting"
+  exit 1
+fi
 
 echo "network_subgraph_deployment=${network_subgraph_deployment}"
 echo "block_oracle_deployment=${block_oracle_deployment}"
@@ -38,7 +56,7 @@ deployment_hex="$(curl -s -X POST "http://ipfs:${IPFS_RPC}/api/v0/cid/format?arg
   | jq -r '.Formatted')"
 deployment_hex="${deployment_hex#f01701220}"
 echo "deployment_hex=${deployment_hex}"
-gns="$(jq -r '."1337".L1GNS.address' /opt/contracts.json)"
+gns="$(jq -r '."1337".L2GNS.address' /opt/subgraph-service.json)"
 cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${MNEMONIC}" \
   "${gns}" 'publishNewSubgraph(bytes32,bytes32,bytes32)' \
   "0x${deployment_hex}" \

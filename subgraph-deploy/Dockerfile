@@ -4,7 +4,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Indexer CLI
-RUN npm install --global @graphprotocol/indexer-cli@~0.22.0  # >=0.22.0,<0.23.0
+RUN npm install --global @graphprotocol/indexer-cli@~0.23.0  # >=0.22.0,<0.23.0
 
 # Foundry
 COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \

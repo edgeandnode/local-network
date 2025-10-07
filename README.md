@@ -4,32 +4,33 @@ A local Graph network for debugging & integration tests.
 
 Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance (foundry installation required)
 
-## notes
+## Notes
 
 - The network id for manifests is `hardhat`.
 
-## setup
+## Setup
 
 1. install Docker & Docker Compose
 2. `docker compose down && docker compose up --build`
 3. install foundry on the host for mining blocks
 
-## useful commands
+## Useful commands
 
 - `docker compose up --build -d ${service}`
 - `docker logs -f ${service}`
 - `docker system prune`
 - `source .env`
 
-## chain
+## Components
+### chain
 
 - Foundry docs: https://book.getfoundry.sh/
 
-## block-explorer
+### block-explorer
 
 - [esplr](https://github.com/paulmillr/esplr) block explorer available at: http://localhost:3000
 
-## ipfs
+### ipfs
 
 - cat file via curl:
   ```bash
@@ -41,50 +42,65 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
   ```
 - note: if you have a hex digest, a valid CID for it is the hex digits prefixed by `f1220`. For example, `0xd6b169dcf83bfe0f615baa2d83e9adf77d520b52faf18a759eb7277b6d66fa7f` -> `f1220d6b169dcf83bfe0f615baa2d83e9adf77d520b52faf18a759eb7277b6d66fa7f`
 
-## postgres
+### postgres
 
 - `psql -h localhost -U postgres`
 
-## graph-node
+### graph-node
 
 - GraphiQL interface: http://localhost:8000/subgraphs/name/${subgraph_name}/graphql
 - Status endpoint: http://localhost:8030/graphql/playground
 
-## graph-contracts
+### graph-contracts
 
 - subgraph: http://localhost:8000/subgraphs/name/graph-network
 
   ```graphql
-  {
-    indexers {
-      id
-      url
-    }
-    subgraphs {
-      id
-      versions {
-        subgraphDeployment {
-          ipfsHash
-          indexerAllocations {
-            id
-            status
-            indexer {
+    {
+      indexers {
+        id
+        url
+        geoHash
+      }
+      provisions {
+        id
+        indexer {
+          id
+          stakedTokens
+        }
+        tokensProvisioned
+        thawingPeriod
+        maxVerifierCut
+        dataService {
+          id
+          totalTokensProvisioned
+        }
+      }
+      subgraphs {
+        id
+        versions {
+          subgraphDeployment {
+            ipfsHash
+            indexerAllocations {
               id
+              status
+              indexer {
+                id
+              }
             }
           }
         }
       }
-    }
-    _meta {
-      block {
-        number
+      _meta {
+        block {
+          number
+        }
+        deployment
       }
-      deployment
     }
-  }
   ```
 
-## block-oracle
+### block-oracle
 
 - subgraph: http://localhost:8000/subgraphs/name/block-oracle
 
@@ -102,36 +118,24 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
   }
   ```
 
-## indexer-agent
+### indexer-agent
 
 - `graph indexer connect http://localhost:7600`
 - `graph indexer --network=hardhat status`
 
-## indexer-service
+### indexer-service
 
 - `docker compose up --build indexer-service`
 - `docker compose down indexer-service`
 - `docker compose logs -f indexer-service`
 
-### Building from source
-
-Building from source requires the Git submodules to be initialized.
-
-- `git submodule update --init --recursive --force indexer-service/source`
-
-And then select the `wrapper-dev` target when building the Docker image in the `docker-compose.yaml` file.
-
-```diff
-  indexer-service:
-    container_name: indexer-service
-    build: { 
--     target: "wrapper", # Set to "wrapper-dev" for building from source
-+     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
-      context: indexer-service,
-    }
+```bash
+curl "http://localhost:7601/subgraphs/id/QmRcucmbxAXLaAZkkCR8Bdj1X7QGPLjfRmQ5H6tFhGqiHX" \
+  -H 'content-type: application/json' -H "Authorization: Bearer freestuff" \
+  -d '{"query": "{ _meta { block { number } } }"}'
 ```
 
-## gateway
+### gateway
 
 ```bash
 curl "http://localhost:7700/api/subgraphs/id/BFr2mx7FgkJ36Y6pE5BiXs1KmNUmVDCnL82KUSdcLW1g" \
@@ -139,13 +143,13 @@ curl "http://localhost:7700/api/subgraphs/id/BFr2mx7FgkJ36Y6pE5BiXs1KmNUmVDCnL82
   -d '{"query": "{ _meta { block { number } } }"}'
 ```
 
-## redpanda
+### redpanda
 
 ```bash
 docker exec -it redpanda rpk topic consume gateway_client_query_results --brokers="localhost:9092"
 ```
 
-## tap-contracts
+### tap-contracts
 
 - subgraph: http://localhost:8000/subgraphs/name/semiotic/tap
 
@@ -169,33 +173,54 @@ docker exec -it redpanda rpk topic consume gateway_client_query_results --broker
   }
   ```
 
-## dipper
 
-> [!IMPORTANT]
-> The Dipper service repository is private. You will need to initialize the submodules manually.
->
-> ```bash
-> git submodule update --init --recursive --force dipper/source
-> ```
+## Building components from source
 
-- `docker compose up --build dipper`
-- `docker compose down dipper`
-- `docker compose logs -f dipper`
+### docker compose overrides
+The following components allow building from source by overriding `docker-compose.yml`:
+- graph-node
+- graph-contracts
+- indexer-agent
 
-### Building from source
+Please refer to `overrides/README.md` for instructions.
 
-Building from source requires the Git submodules to be initialized.
+### git submodules source
+The following components allow building from source by cloning them with submodules:
+- indexer-service
+- tap-agent
 
-- `git submodule update --init --recursive --force dipper/source`
+Building from source requires the Git submodules to be initialized first:
+
+- `git submodule update --init --recursive`
 
 And then select the `wrapper-dev` target when building the Docker image in the `docker-compose.yaml` file.
 
 ```diff
-  dipper:
-    container_name: dipper
+  indexer-service:
+    container_name: indexer-service
     build: { 
 -     target: "wrapper", # Set to "wrapper-dev" for building from source
 +     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
-      context: dipper,
+      context: indexer-service,
+    }
+
+  tap-agent:
+    container_name: tap-agent
+    build: { 
+-     target: "wrapper", # Set to "wrapper-dev" for building from source
++     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
+      context: tap-agent,
     }
 ```
+
+## Common issues
+
+### `too far behind`
+
+Gateway error:
+```
+ERROR graph_gateway::network::subgraph_client: indexer=http://indexer-service:7601/subgraphs/id/Qmc2CbqucMvaS4GFvt2QUZWvRwSZ3K5ipeGvbC6UUBf616 network_subgraph_query_err="response too far behind"
+```
+
+Solution:
+This happens because the network does not automine, can be fixed by running `scripts/mine-block.sh 10`

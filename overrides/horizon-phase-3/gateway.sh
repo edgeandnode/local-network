@@ -3,9 +3,8 @@ set -eu
 . /opt/.env
 
 cd /opt
-graph_tally_verifier=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
-dispute_manager=$(jq -r '."1337".DisputeManager.address' /opt/subgraph-service.json)
-subgraph_service=$(jq -r '."1337".SubgraphService.address' /opt/subgraph-service.json)
+tap_verifier=$(jq -r '."1337".TAPVerifier' /opt/tap-contracts.json)
+dispute_manager=$(jq -r '."1337".LegacyDisputeManager.address' /opt/subgraph-service.json)
 network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
@@ -44,11 +43,9 @@ cat >config.json <<-EOF
   "query_fees_target": 40e-6,
   "receipts": {
     "chain_id": "1337",
-    "payer": "${ACCOUNT0_ADDRESS}",
     "signer": "${ACCOUNT1_SECRET}",
-    "verifier": "${graph_tally_verifier}"
-  },
-  "subgraph_service": "${subgraph_service}"
+    "verifier": "${tap_verifier}"
+  }
 }
 EOF
 cat config.json

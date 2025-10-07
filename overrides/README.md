@@ -56,15 +56,20 @@ This is a draft/POC of a hotload dev environment for the indexer agent. It's int
 
 To bring the whole stack up using the override, simply specify the override file when running `docker compose up`:
 
-```
+```bash
+# build
 INDEXER_AGENT_SOURCE_ROOT=<your indexer source root>  \
 docker-compose down && \
+docker compose build -f docker-compose.yaml -f overrides/indexer-agent-dev/indexer-agent-dev.yaml
+
+# start
+INDEXER_AGENT_SOURCE_ROOT=<your indexer source root>  \
 docker compose up -f docker-compose.yaml -f overrides/indexer-agent-dev/indexer-agent-dev.yaml -d
 ```
 
 To update the container (when making changes to the entrypoint or Dockerfile), you'll need to rebuild the image and restart the container:
 
-```
+```bash
 # in the root of this checkout, with the local-network up and running, replace the indexer-agent with a hotload dev environment
 INDEXER_AGENT_SOURCE_ROOT=<your indexer source root>  \
 docker compose \
@@ -74,3 +79,62 @@ up -d --no-deps indexer-agent
 ```
 
 This will apply the overrides to the indexer-agent service to the docker-compose stack running and start it.
+
+## graph-contracts (Network Subgraph)
+
+A Network Subgraph directory can be mounted to the environment for development purposes.
+
+To start the local network with the local Network Subgraph: 
+
+```bash
+# build
+GRAPH_CONTRACTS_SOURCE_ROOT=<your network subgraph source root> \
+docker compose \
+-f docker-compose.yaml \
+-f overrides/graph-contracts/graph-contracts-dev.yaml \
+build
+
+GRAPH_CONTRACTS_SOURCE_ROOT=<your network subgraph source root> \
+docker compose \
+-f docker-compose.yaml \
+-f overrides/graph-contracts/graph-contracts-dev.yaml \
+up -d graph-contracts
+```
+
+Note that running in this mode will leave the `graph-contracts` container running so you can ssh into it for debugging/development. This might interfere with other components that depend on the container exiting.
+
+## Horizon upgrade: Phase 3
+
+Override at `horizon-phase-3` helps test the upgrade during the Phase 3 where components run on the following versions:
+
+| Component | Version |
+|----------|----------|
+| protocol contracts  | legacy with Phase 1, 2 and 3 steps completed  |
+| network subgraph  | horizon  |
+| gateway | legacy |
+| tap-aggregator | legacy |
+| tap-escrow-manager | legacy |
+| indexer-agent | horizon |
+| indexer-service-rs | horizon |
+| tap-agent | horizon |
+
+To start the local network with the horizon phase 3 override:
+
+```bash
+# build
+docker compose \
+-f docker-compose.yaml \
+-f overrides/horizon-phase-3/docker-compose.yaml \
+build
+
+# start
+docker compose \
+-f docker-compose.yaml \
+-f overrides/horizon-phase-3/docker-compose.yaml \
+up -d
+```
+
+To finalize the Horizon upgrade and test the transition you can run:
+```bash
+./scripts/horizon-phase-4.sh
+```

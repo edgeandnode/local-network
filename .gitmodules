@@ -1,6 +1,6 @@
-[submodule "dipper/source"]
-	path = dipper/source
-	url = git@github.com:edgeandnode/dipper.git
 [submodule "indexer-service/source"]
 	path = indexer-service/source
+	url = git@github.com:graphprotocol/indexer-rs.git
+[submodule "tap-agent/source"]
+	path = tap-agent/source
 	url = git@github.com:graphprotocol/indexer-rs.git
