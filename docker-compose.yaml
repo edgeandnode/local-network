@@ -39,6 +39,9 @@ services:
       args:
         INDEXER_AGENT_VERSION: ${INDEXER_AGENT_VERSION}
     platform: linux/amd64
+    depends_on:
+      postgres: { condition: service_healthy }
+      graph-node: { condition: service_healthy }
     ports: ["${INDEXER_MANAGEMENT}:7600"]
     stop_signal: SIGKILL
     volumes:
