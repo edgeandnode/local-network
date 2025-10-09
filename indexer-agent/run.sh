@@ -2,11 +2,9 @@
 set -eu
 . /opt/.env
 
-export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/horizon.json
-export INDEXER_AGENT_SUBGRAPH_SERVICE_ADDRESS_BOOK=/opt/subgraph-service.json
 export INDEXER_AGENT_TAP_ADDRESS_BOOK=/opt/tap-contracts.json
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="https://gateway.thegraph.com/api/${STUDIO_API_KEY}/subgraphs/id/BhnsdeZihU4SuokxZMLF4FQBVJ3jgtZf6v51gHvz3bSS"
-export INDEXER_AGENT_GATEWAY_ENDPOINT="https://gateway-arbitrum.network.thegraph.com/"
+export INDEXER_AGENT_GATEWAY_ENDPOINT="https://gateway.testnet.thegraph.com/"
 export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}"
 export INDEXER_AGENT_GRAPH_NODE_ADMIN_ENDPOINT="http://graph-node:${GRAPH_NODE_ADMIN}"
 export INDEXER_AGENT_GRAPH_NODE_STATUS_ENDPOINT="http://graph-node:${GRAPH_NODE_STATUS}/graphql"
