@@ -2,9 +2,9 @@
 set -eu
 . /opt/.env
 
-tap_verifier="$(jq -r '."1337".TAPVerifier' /opt/tap-contracts.json)"
-graph_tally_verifier=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
-subgraph_service=$(jq -r '."1337".SubgraphService.address' /opt/subgraph-service.json)
+tap_verifier="$(jq -r '."421614".TAPVerifier' /opt/tap-contracts.json)"
+graph_tally_verifier=$(jq -r '."421614".GraphTallyCollector.address' /opt/horizon.json)
+subgraph_service=$(jq -r '."421614".SubgraphService.address' /opt/subgraph-service.json)
 
 cat >config.toml <<-EOF
 [indexer]
@@ -19,16 +19,16 @@ query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}"
 status_url = "http://graph-node:${GRAPH_NODE_STATUS}/graphql"
 
 [subgraphs.network]
-query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network"
+query_url = "https://gateway.thegraph.com/api/${STUDIO_API_KEY}/subgraphs/id/eAENt2ctaMdbCY34apzXYkBy2nEYwyojjVxLahsHo9D"
 recently_closed_allocation_buffer_secs = 60
 syncing_interval_secs = 30
 
 [subgraphs.escrow]
-query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap"
+query_url = "https://gateway.thegraph.com/api/${STUDIO_API_KEY}/subgraphs/id/7ubx365MiqBH5iUz6XWXWT8PTof5BVAyEzdb8m17RvbD"
 syncing_interval_secs = 30
 
 [blockchain]
-chain_id = 1337
+chain_id = 421614
 receipts_verifier_address = "${tap_verifier}"
 receipts_verifier_address_v2 = "${graph_tally_verifier}"
 subgraph_service_address= "${subgraph_service}"
@@ -47,7 +47,7 @@ max_amount_willing_to_lose_grt = 1
 timestamp_buffer_secs = 15
 
 [tap.sender_aggregator_endpoints]
-${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR}"
+0xC3dDf37906724732FfD748057FEBe23379b0710D = "https://tap-aggregator.testnet.thegraph.com"
 
 [horizon]
 # Enable Horizon migration support and detection

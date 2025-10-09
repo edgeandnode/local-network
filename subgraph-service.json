@@ -1,29 +1,35 @@
 {
-  "1337": {
+  "421614": {
     "SubgraphService": {
-      "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+      "address": "0xc24A3dAC5d06d771f657A48B20cE1a671B78f26b",
       "proxy": "transparent",
-      "proxyAdmin": "0xd8058efe0198ae9dD7D563e1b4938Dcbc86A1F81",
-      "implementation": "0x51A1ceB83B83F1985a81C295d1fF28Afef186E02"
+      "proxyAdmin": "0x15737D9f8635cAcd43e110327c930bd5EC1fe098",
+      "implementation": "0xEc11f71070503D29098149195f95FEb1B1CeF93E"
     },
     "DisputeManager": {
-      "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "address": "0x96e1b86b2739e8A3d59F40F2532caDF9cE8Da088",
       "proxy": "transparent",
-      "proxyAdmin": "0x75537828f2ce51be7289709686A69CbFDbB714F1",
-      "implementation": "0xDC11f7E700A4c898AE5CAddB1082cFfa76512aDD"
+      "proxyAdmin": "0x154a73CB6ebB5717a15f203d6E160E6F41ecC527",
+      "implementation": "0x28A0cFDE10e8Ea5C7f3E80981728E3eA1228D338"
     },
     "L2Curation": {
-      "address": "0xc5a5C42992dECbae36851359345FE25997F5C42d",
+      "address": "0xDe761f075200E75485F4358978FB4d1dC8644FD5",
       "proxy": "graph",
-      "implementation": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
+      "implementation": "0xbC8F4355f346e47eef8A0DBFF4a58616ACf7DaCA"
     },
     "L2GNS": {
-      "address": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
+      "address": "0x3133948342F35b8699d8F94aeE064AbB76eDe965",
       "proxy": "graph",
-      "implementation": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
+      "implementation": "0x00CBF5024d454255577Bf2b0fB6A43328a6828c9"
     },
     "SubgraphNFT": {
-      "address": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82"
+      "address": "0xF21Df5BbA7EB9b54D8F60C560aFb9bA63e6aED1A"
+    },
+    "LegacyDisputeManager": {
+      "address": "0x7C9B82717f9433932507dF6EdA93A9678b258698"
+    },
+    "LegacyServiceRegistry": {
+      "address": "0x888541878CbDDEd880Cd58c728f1Af5C47343F86"
     }
   }
 }
