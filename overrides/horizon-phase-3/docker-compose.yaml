@@ -29,8 +29,8 @@ services:
   gateway:
     build:
       args:
-        # This is the latest commit for the legacy gateway
-        GATEWAY_COMMIT: 67539e205e66a3069ad77f7bfe0317cdf97a89cf
+        # This is the latest commit for the legacy gateway with dual dispute manager support
+        GATEWAY_COMMIT: 5d4d4a58f4dff3ed1719440406e6784a29e6a0fb
     entrypoint: bash -cl /opt/run-override.sh
     volumes:
       - ./tap-contracts.json:/opt/tap-contracts.json:ro

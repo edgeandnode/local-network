@@ -138,3 +138,9 @@ To finalize the Horizon upgrade and test the transition you can run:
 ```bash
 ./scripts/horizon-phase-4.sh
 ```
+
+Then build the gateway components from the main `docker-compose.yaml` and restart them:
+```bash
+docker compose build gateway tap-aggregator tap-escrow-manager
+docker compose up -d --no-deps --force-recreate gateway tap-aggregator tap-escrow-manager
+```
