@@ -4,7 +4,8 @@ set -eu
 
 cd /opt
 tap_verifier=$(jq -r '."1337".TAPVerifier' /opt/tap-contracts.json)
-dispute_manager=$(jq -r '."1337".LegacyDisputeManager.address' /opt/subgraph-service.json)
+dispute_manager=$(jq -r '."1337".DisputeManager.address' /opt/subgraph-service.json)
+legacy_dispute_manager=$(jq -r '."1337".LegacyDisputeManager.address' /opt/subgraph-service.json)
 network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
@@ -13,7 +14,8 @@ cat >config.json <<-EOF
 {
   "attestations": {
     "chain_id": "1337",
-    "dispute_manager": "${dispute_manager}"
+    "dispute_manager": "${dispute_manager}",
+    "legacy_dispute_manager": "${legacy_dispute_manager}"
   },
   "api_keys": [
     {
