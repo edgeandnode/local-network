@@ -3,6 +3,8 @@ services:
     entrypoint: bash -cl /opt/run-override.sh
     volumes:
       - ./overrides/horizon-phase-3/graph-contracts.sh:/opt/run-override.sh:ro
+      # Uncomment this if you want to override the graph-contracts for subgraph dev, need to set GRAPH_CONTRACTS_SOURCE_ROOT
+      # - ${GRAPH_CONTRACTS_SOURCE_ROOT}:/opt/graph-network-subgraph-local
     environment:
       # This is the latest commit for the legacy graph-contracts
       LEGACY_CONTRACTS_COMMIT: 54af1a7670e41b95628796bab4dd4f4ba8158782 # @graphprotocol/contracts@6.3.0
