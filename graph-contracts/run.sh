@@ -27,26 +27,24 @@ then
   fi
 fi
 
-# Initialize address books
-cd /opt/contracts/packages
-cd horizon && echo "{}" > addresses-local-network.json && cd ..
-cd subgraph-service && echo "{}" > addresses-local-network.json && cd ..
-
 # == DEPLOY PROTOCOL WITH SUBGRAPH SERVICE ==
 echo "No FORK_RPC_URL detected, deploying new version of the protocol"
 cd /opt/contracts/packages/subgraph-service
 npx hardhat deploy:protocol --network localNetwork --subgraph-service-config localNetwork
 
+# Add legacy contracts to the deployed addresses (mounted file at addresses-local-network.json)
+# The hardhat deployment doesn't include these, but the gateway needs them
+# Use a temp variable to avoid breaking the Docker volume mount (mv creates a new inode)
+TEMP_JSON=$(jq '.["1337"] += {
+  "LegacyServiceRegistry": {"address": "0x0000000000000000000000000000000000000000"},
+  "LegacyDisputeManager": {"address": "0x0000000000000000000000000000000000000000"}
+}' addresses-local-network.json)
+printf '%s\n' "$TEMP_JSON" > addresses-local-network.json
+
 # == DEPLOY NETWORK SUBGRAPH ==
 cp /opt/contracts/packages/horizon/addresses-local-network.json /opt/horizon.json
 cp /opt/contracts/packages/subgraph-service/addresses-local-network.json /opt/subgraph-service.json
 cd /opt/graph-network-subgraph
-
-# Patch subgraph service address book, add "legacy" contracts to avoid network subgraph from crashing
-jq '.["1337"] += {
-  "LegacyServiceRegistry": { "address": "0x0000000000000000000000000000000000000000" },
-  "LegacyDisputeManager": { "address": "0x0000000000000000000000000000000000000000" }
-}' /opt/subgraph-service.json > /opt/tmp.json && mv /opt/tmp.json /opt/subgraph-service.json
 
 # Build and deploy the subgraph
 npx ts-node config/localNetworkAddressScript.ts

@@ -1,3 +1,7 @@
 # IDEs
 .vscode
+.claude
 .env.secrets
+
+# Local config files
+config/local/
