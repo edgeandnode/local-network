@@ -1,10 +1,11 @@
 services:
-  init-addresses:
-    container_name: init-addresses
+  init-config:
+    container_name: init-config
     image: node:23.11-bookworm-slim
-    command: sh addresses/create-local-address-files.sh
+    user: "1000"
+    command: sh config/create-local-config-files.sh
     volumes:
-      - ./addresses:/work/addresses
+      - ./config:/work/config
     working_dir: /work
 
   chain:
@@ -73,12 +74,12 @@ services:
         CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
         NETWORK_SUBGRAPH_COMMIT: ${NETWORK_SUBGRAPH_COMMIT}
     depends_on:
-      init-addresses: { condition: service_completed_successfully }
+      init-config: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./addresses/local/horizon.json:/opt/contracts/packages/horizon/addresses-local-network.json
-      - ./addresses/local/subgraph-service.json:/opt/contracts/packages/subgraph-service/addresses-local-network.json
+      - ./config/local/horizon.json:/opt/contracts/packages/horizon/addresses-local-network.json
+      - ./config/local/subgraph-service.json:/opt/contracts/packages/subgraph-service/addresses-local-network.json
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
@@ -94,8 +95,8 @@ services:
       graph-contracts: { condition: service_completed_successfully }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./addresses/local/horizon.json:/opt/horizon.json:ro
-      - ./addresses/local/tap-contracts.json:/opt/tap-contracts.json
+      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/tap-contracts.json:/opt/tap-contracts.json
 
   block-oracle:
     container_name: block-oracle
@@ -108,7 +109,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./addresses/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
     environment:
       RUST_BACKTRACE: full
     healthcheck:
@@ -131,9 +132,9 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./addresses/local/horizon.json:/opt/horizon.json:ro
-      - ./addresses/local/subgraph-service.json:/opt/subgraph-service.json:ro
-      - ./addresses/local/tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
     healthcheck:
       { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
 
@@ -147,7 +148,7 @@ services:
       chain: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./addresses/local/subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
 
   redpanda:
     container_name: redpanda
@@ -187,8 +188,8 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./addresses/local/horizon.json:/opt/horizon.json:ro
-      - ./addresses/local/tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
     environment:
       RUST_LOG: info,tap_aggregator=trace
       RUST_BACKTRACE: 1
@@ -205,7 +206,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./addresses/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
     environment:
       RUST_LOG: info,tap_escrow_manager=trace
       RUST_BACKTRACE: 1
@@ -225,8 +226,8 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./addresses/local/horizon.json:/opt/horizon.json:ro
-      - ./addresses/local/subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
     environment:
       RUST_LOG: info,graph_gateway=trace
       RUST_BACKTRACE: 1
@@ -250,9 +251,9 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./addresses/local/horizon.json:/opt/horizon.json:ro
-      - ./addresses/local/subgraph-service.json:/opt/subgraph-service.json:ro
-      - ./addresses/local/tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
     environment:
       RUST_LOG: info,indexer_service_rs=trace
       RUST_BACKTRACE: 1
@@ -271,9 +272,9 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./addresses/local/horizon.json:/opt/horizon.json:ro
-      - ./addresses/local/subgraph-service.json:/opt/subgraph-service.json:ro
-      - ./addresses/local/tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
     environment:
       RUST_LOG: info,indexer_tap_agent=trace
       RUST_BACKTRACE: 1

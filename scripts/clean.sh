@@ -30,13 +30,13 @@ else
     echo -e "${YELLOW}Skipping volume removal${NC}"
 fi
 
-# Remove generated address files
-echo -e "${YELLOW}Removing generated address files...${NC}"
-if [ -d "addresses/local" ]; then
-    rm -rf addresses/local/*
-    echo -e "${GREEN}✓ Address files removed${NC}"
+# Remove generated config files
+echo -e "${YELLOW}Removing generated config files...${NC}"
+if [ -d "config/local" ]; then
+    rm -rf config/local/*
+    echo -e "${GREEN}✓ Config files removed${NC}"
 else
-    echo -e "${YELLOW}No address files to remove${NC}"
+    echo -e "${YELLOW}No config files to remove${NC}"
 fi
 
 # Prune Docker images (optional, ask user)

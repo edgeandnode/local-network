@@ -2,5 +2,6 @@
 .vscode
 .claude
 .env.secrets
-# Generated address files
-addresses/local/
+
+# Local config files
+config/local/

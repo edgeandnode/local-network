@@ -16,4 +16,4 @@ for file in "$SCRIPT_DIR/templates"/*; do
   fi
 done
 
-echo "Address files initialized successfully"
+echo "Config files initialized successfully"
