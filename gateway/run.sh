@@ -4,6 +4,7 @@ set -eu
 
 cd /opt
 graph_tally_verifier=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
+tap_verifier=$(jq -r '."1337".TAPVerifier' /opt/tap-contracts.json)
 dispute_manager=$(jq -r '."1337".DisputeManager.address' /opt/subgraph-service.json)
 legacy_dispute_manager=$(jq -r '."1337".LegacyDisputeManager.address' /opt/subgraph-service.json)
 subgraph_service=$(jq -r '."1337".SubgraphService.address' /opt/subgraph-service.json)
@@ -48,7 +49,8 @@ cat >config.json <<-EOF
     "chain_id": "1337",
     "payer": "${ACCOUNT0_ADDRESS}",
     "signer": "${ACCOUNT1_SECRET}",
-    "verifier": "${graph_tally_verifier}"
+    "verifier": "${graph_tally_verifier}",
+    "legacy_verifier": "${tap_verifier}"
   },
   "subgraph_service": "${subgraph_service}"
 }
