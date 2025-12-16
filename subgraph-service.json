@@ -4,21 +4,21 @@
       "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
       "proxy": "transparent",
       "proxyAdmin": "0xd8058efe0198ae9dD7D563e1b4938Dcbc86A1F81",
-      "implementation": "0x51A1ceB83B83F1985a81C295d1fF28Afef186E02"
+      "implementation": "0x8198f5d8F8CfFE8f9C413d98a0A55aEB8ab9FbB7"
     },
     "DisputeManager": {
       "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
       "proxy": "transparent",
       "proxyAdmin": "0x75537828f2ce51be7289709686A69CbFDbB714F1",
-      "implementation": "0xDC11f7E700A4c898AE5CAddB1082cFfa76512aDD"
+      "implementation": "0x36b58F5C1969B7b6591D752ea6F5486D069010AB"
     },
     "L2Curation": {
-      "address": "0xc5a5C42992dECbae36851359345FE25997F5C42d",
+      "address": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
       "proxy": "graph",
       "implementation": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
     },
     "L2GNS": {
-      "address": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
+      "address": "0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E",
       "proxy": "graph",
       "implementation": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
     },
