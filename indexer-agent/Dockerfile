@@ -11,4 +11,4 @@ COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
 RUN npm install -g tsx nodemon prettier eslint
 
 COPY ./run.sh /opt/run.sh
-ENTRYPOINT bash -cl /opt/run.sh
+ENTRYPOINT ["bash", "/opt/run.sh"]

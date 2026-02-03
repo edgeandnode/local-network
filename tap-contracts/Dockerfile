@@ -28,4 +28,4 @@ RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgr
   cd timeline-aggregation-protocol-subgraph && git checkout ${TAP_SUBGRAPH_COMMIT} && yarn
 
 COPY ./run.sh /opt/run.sh
-ENTRYPOINT sh -cl /opt/run.sh
+ENTRYPOINT ["sh", "/opt/run.sh"]

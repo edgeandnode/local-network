@@ -25,4 +25,4 @@ RUN git clone https://github.com/graphprotocol/graph-network-subgraph && \
   pnpm install && pnpm add -D ts-node
 
 COPY ./run.sh /opt/run.sh
-ENTRYPOINT bash -cl /opt/run.sh
+ENTRYPOINT ["bash", "/opt/run.sh"]

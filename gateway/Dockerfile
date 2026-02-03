@@ -12,4 +12,4 @@ RUN git clone https://github.com/edgeandnode/gateway && \
     . /root/.cargo/env && cargo build -p graph-gateway && \
     cp target/debug/graph-gateway /usr/local/bin/graph-gateway && cd .. && rm -rf gateway
 COPY ./run.sh /opt/run.sh
-ENTRYPOINT bash -cl /opt/run.sh
+ENTRYPOINT ["bash", "/opt/run.sh"]
