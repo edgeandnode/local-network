@@ -1,7 +1,16 @@
 services:
+  init-config:
+    container_name: init-config
+    image: node:23.11-bookworm-slim
+    user: "1000"
+    command: sh config/create-local-config-files.sh
+    volumes:
+      - ./config:/work/config
+    working_dir: /work
+
   chain:
     container_name: chain
-    build: { context: chain } 
+    build: { context: chain }
     ports: ["${CHAIN_RPC}:8545"]
     command: ["anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0"]
     healthcheck: { interval: 1s, retries: 10, test: cast block }
@@ -10,22 +19,18 @@ services:
 
   block-explorer:
     container_name: block-explorer
-    build: { 
-      context: block-explorer,
-      args: { RPC_URL: http://localhost:8545 }
-    }
+    build: { context: block-explorer, args: { RPC_URL: http://localhost:8545 } }
     depends_on:
       chain: { condition: service_healthy }
     ports: ["${BLOCK_EXPLORER}:3000"]
-    
+
   ipfs:
     container_name: ipfs
-    image: ipfs/kubo:v0.34.1
+    image: ipfs/kubo:v0.38.2
     ports: ["${IPFS_RPC}:5001"]
     environment:
       IPFS_PROFILE: server
-    healthcheck: 
-      { interval: 1s, retries: 50, test: ipfs id }
+    healthcheck: { interval: 1s, retries: 50, test: ipfs id }
 
   postgres:
     container_name: postgres
@@ -38,8 +43,7 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding UTF8 --locale=C"
       POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_USER: postgres
-    healthcheck:
-      { interval: 1s, retries: 20, test: pg_isready -U postgres }
+    healthcheck: { interval: 1s, retries: 20, test: pg_isready -U postgres }
 
   graph-node:
     container_name: graph-node
@@ -70,11 +74,12 @@ services:
         CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
         NETWORK_SUBGRAPH_COMMIT: ${NETWORK_SUBGRAPH_COMMIT}
     depends_on:
+      init-config: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./horizon.json:/opt/contracts/packages/horizon/addresses-local-network.json
-      - ./subgraph-service.json:/opt/contracts/packages/subgraph-service/addresses-local-network.json
+      - ./config/local/horizon.json:/opt/contracts/packages/horizon/addresses-local-network.json
+      - ./config/local/subgraph-service.json:/opt/contracts/packages/subgraph-service/addresses-local-network.json
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
@@ -90,8 +95,8 @@ services:
       graph-contracts: { condition: service_completed_successfully }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./horizon.json:/opt/horizon.json:ro
-      - ./tap-contracts.json:/opt/tap-contracts.json
+      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/tap-contracts.json:/opt/tap-contracts.json
 
   block-oracle:
     container_name: block-oracle
@@ -104,11 +109,15 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./horizon.json:/opt/horizon.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
     environment:
       RUST_BACKTRACE: full
     healthcheck:
-      { interval: 1s, retries: 600, test: curl -f http://127.0.0.1:9090/metrics }
+      {
+        interval: 1s,
+        retries: 600,
+        test: curl -f http://127.0.0.1:9090/metrics,
+      }
 
   indexer-agent:
     container_name: indexer-agent
@@ -123,9 +132,9 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./horizon.json:/opt/horizon.json:ro
-      - ./subgraph-service.json:/opt/subgraph-service.json:ro
-      - ./tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
     healthcheck:
       { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
 
@@ -139,7 +148,7 @@ services:
       chain: { condition: service_healthy }
     volumes:
       - ./.env:/opt/.env:ro
-      - ./subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
 
   redpanda:
     container_name: redpanda
@@ -161,7 +170,11 @@ services:
       - --pandaproxy-addr 0.0.0.0:8082
       - --schema-registry-addr 0.0.0.0:8081
     healthcheck:
-      { interval: 1s, retries: 600, test: rpk topic list --brokers="localhost:9092" }
+      {
+        interval: 1s,
+        retries: 600,
+        test: rpk topic list --brokers="localhost:9092",
+      }
 
   tap-aggregator:
     container_name: tap-aggregator
@@ -175,8 +188,8 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./horizon.json:/opt/horizon.json:ro
-      - ./tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
     environment:
       RUST_LOG: info,tap_aggregator=trace
       RUST_BACKTRACE: 1
@@ -193,7 +206,7 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./horizon.json:/opt/horizon.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
     environment:
       RUST_LOG: info,tap_escrow_manager=trace
       RUST_BACKTRACE: 1
@@ -213,9 +226,9 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./horizon.json:/opt/horizon.json:ro
-      - ./subgraph-service.json:/opt/subgraph-service.json:ro
-      - ./tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
     environment:
       RUST_LOG: info,graph_gateway=trace
       RUST_BACKTRACE: 1
@@ -234,14 +247,14 @@ services:
       indexer-agent: { condition: service_healthy }
       ipfs: { condition: service_healthy }
       tap-escrow-manager: { condition: service_started }
-    ports: 
+    ports:
       - "${INDEXER_SERVICE}:7601"
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./horizon.json:/opt/horizon.json:ro
-      - ./subgraph-service.json:/opt/subgraph-service.json:ro
-      - ./tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
     environment:
       RUST_LOG: info,indexer_service_rs=trace
       RUST_BACKTRACE: 1
@@ -260,9 +273,9 @@ services:
     stop_signal: SIGKILL
     volumes:
       - ./.env:/opt/.env:ro
-      - ./horizon.json:/opt/horizon.json:ro
-      - ./subgraph-service.json:/opt/subgraph-service.json:ro
-      - ./tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
     environment:
       RUST_LOG: info,indexer_tap_agent=trace
       RUST_BACKTRACE: 1

@@ -39,7 +39,7 @@ COPY --from=rust-builder /opt/indexer-tap-agent /usr/local/bin/indexer-tap-agent
 
 COPY ./run.sh /opt/run.sh
 
-ENTRYPOINT bash -cl /opt/run.sh
+ENTRYPOINT ["bash", "/opt/run.sh"]
 
 ## Wrapper image
 FROM ghcr.io/graphprotocol/indexer-tap-agent:${INDEXER_TAP_AGENT_VERSION} AS wrapper
@@ -48,4 +48,4 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY ./run.sh /opt/run.sh
-ENTRYPOINT bash -cl /opt/run.sh
+ENTRYPOINT ["bash", "/opt/run.sh"]

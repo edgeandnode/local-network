@@ -41,4 +41,4 @@ RUN git clone https://github.com/graphprotocol/contracts && \
 COPY ./run.sh /opt/run.sh
 
 # Run the script on container start
-ENTRYPOINT ["bash", "-cl", "/opt/run.sh"]
+ENTRYPOINT ["bash", "/opt/run.sh"]

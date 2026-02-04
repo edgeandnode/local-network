@@ -39,7 +39,7 @@ COPY --from=rust-builder /opt/indexer-service-rs /usr/local/bin/indexer-service-
 
 COPY ./run.sh /opt/run.sh
 
-ENTRYPOINT bash -cl /opt/run.sh
+ENTRYPOINT ["bash", "/opt/run.sh"]
 
 
 ## Wrapper image
@@ -50,4 +50,4 @@ RUN apt-get update \
 
 COPY ./run.sh /opt/run.sh
 
-ENTRYPOINT bash -cl /opt/run.sh
+ENTRYPOINT ["bash", "/opt/run.sh"]
