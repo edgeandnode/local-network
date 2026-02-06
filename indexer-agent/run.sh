@@ -21,6 +21,20 @@ if [ "${indexer_staked}" = "false" ]; then
     "${staking_address}" 'stake(uint256)' '100000000000000000000000'
 fi
 
+# Authorize the indexer as its own operator for the SubgraphService
+# This is required for attestation verification in Horizon
+subgraph_service_address=$(jq -r '."1337".SubgraphService.address' /opt/subgraph-service.json)
+operator_authorized="$(cast call "--rpc-url=http://chain:${CHAIN_RPC}" \
+  "${staking_address}" 'isAuthorized(address,address,address)(bool)' \
+  "${RECEIVER_ADDRESS}" "${RECEIVER_ADDRESS}" "${subgraph_service_address}")"
+echo "operator_authorized=${operator_authorized}"
+if [ "${operator_authorized}" = "false" ]; then
+  echo "Authorizing indexer as operator for SubgraphService..."
+  cast send "--rpc-url=http://chain:${CHAIN_RPC}" --confirmations=0 "--private-key=${RECEIVER_SECRET}" \
+    "${staking_address}" 'setOperator(address,address,bool)' \
+    "${RECEIVER_ADDRESS}" "${subgraph_service_address}" "true"
+fi
+
 export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/horizon.json
 export INDEXER_AGENT_SUBGRAPH_SERVICE_ADDRESS_BOOK=/opt/subgraph-service.json
 export INDEXER_AGENT_TAP_ADDRESS_BOOK=/opt/tap-contracts.json
