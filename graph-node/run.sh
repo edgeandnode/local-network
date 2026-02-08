@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-. /opt/.env
+. /opt/config/.env
 
 # graph-node has issues if there isn't at least one block on the chain
 curl -sf "http://chain:${CHAIN_RPC}" \

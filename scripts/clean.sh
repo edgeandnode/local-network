@@ -7,7 +7,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}🧹 Cleaning local-network environment...${NC}"
+echo -e "${YELLOW}Cleaning local-network environment...${NC}"
 echo ""
 
 # Get the script directory and navigate to repo root
@@ -19,24 +19,22 @@ cd "$REPO_ROOT"
 echo -e "${YELLOW}Stopping and removing containers...${NC}"
 docker compose down --remove-orphans
 
-# Remove volumes (optional, ask user)
-read -p "Remove Docker volumes (postgres data, etc.)? [y/N] " -n 1 -r
+# Remove all persistent state (volumes + config files) together
+# These must be removed together to avoid inconsistent state
+read -p "Remove all persistent state (volumes + config)? [y/N] " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo -e "${YELLOW}Removing Docker volumes...${NC}"
     docker compose down --volumes
-    echo -e "${GREEN}✓ Volumes removed${NC}"
-else
-    echo -e "${YELLOW}Skipping volume removal${NC}"
-fi
+    echo -e "${GREEN}Volumes removed${NC}"
 
-# Remove generated config files
-echo -e "${YELLOW}Removing generated config files...${NC}"
-if [ -d "config/local" ]; then
-    rm -rf config/local/*
-    echo -e "${GREEN}✓ Config files removed${NC}"
+    echo -e "${YELLOW}Removing generated config files...${NC}"
+    if [ -d "config/local" ]; then
+        rm -rf config/local/*
+        echo -e "${GREEN}Config files removed${NC}"
+    fi
 else
-    echo -e "${YELLOW}No config files to remove${NC}"
+    echo -e "${YELLOW}Skipping state removal (volumes and config preserved)${NC}"
 fi
 
 # Prune Docker images (optional, ask user)
@@ -44,13 +42,12 @@ read -p "Remove Docker images built for this project? [y/N] " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo -e "${YELLOW}Removing Docker images...${NC}"
-    docker images --filter "reference=local-network-*" -q | xargs -r docker rmi -f
-    echo -e "${GREEN}✓ Docker images removed${NC}"
+    docker images --filter "reference=*local-network*" -q | xargs -r docker rmi -f
+    echo -e "${GREEN}Docker images removed${NC}"
 else
     echo -e "${YELLOW}Skipping image removal${NC}"
 fi
 
 echo ""
-echo -e "${GREEN}✅ Cleanup complete!${NC}"
+echo -e "${GREEN}Cleanup complete!${NC}"
 echo -e "${YELLOW}To start fresh, run: docker compose up -d${NC}"
-

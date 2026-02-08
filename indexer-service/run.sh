@@ -1,10 +1,12 @@
 #!/bin/sh
 set -eu
-. /opt/.env
+. /opt/config/.env
 
-tap_verifier="$(jq -r '."1337".TAPVerifier' /opt/tap-contracts.json)"
-graph_tally_verifier=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
-subgraph_service=$(jq -r '."1337".SubgraphService.address' /opt/subgraph-service.json)
+. /opt/shared/lib.sh
+
+tap_verifier=$(contract_addr TAPVerifier tap-contracts)
+graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
+subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 
 cat >config.toml <<-EOF
 [indexer]

@@ -1,9 +1,11 @@
 #!/bin/bash
 set -xeu
-. /opt/.env
+. /opt/config/.env
 
-token_address=$(jq -r '."1337".L2GraphToken.address' /opt/horizon.json)
-staking_address=$(jq -r '."1337".HorizonStaking.address' /opt/horizon.json)
+. /opt/shared/lib.sh
+
+token_address=$(contract_addr L2GraphToken.address horizon)
+staking_address=$(contract_addr HorizonStaking.address horizon)
 indexer_staked="$(cast call "--rpc-url=http://chain:${CHAIN_RPC}" \
   "${staking_address}" 'hasStake(address) (bool)' "${RECEIVER_ADDRESS}")"
 echo "indexer_staked=${indexer_staked}"
@@ -21,9 +23,9 @@ if [ "${indexer_staked}" = "false" ]; then
     "${staking_address}" 'stake(uint256)' '100000000000000000000000'
 fi
 
-export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/horizon.json
-export INDEXER_AGENT_SUBGRAPH_SERVICE_ADDRESS_BOOK=/opt/subgraph-service.json
-export INDEXER_AGENT_TAP_ADDRESS_BOOK=/opt/tap-contracts.json
+export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/config/horizon.json
+export INDEXER_AGENT_SUBGRAPH_SERVICE_ADDRESS_BOOK=/opt/config/subgraph-service.json
+export INDEXER_AGENT_TAP_ADDRESS_BOOK=/opt/config/tap-contracts.json
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
 export INDEXER_AGENT_GATEWAY_ENDPOINT="http://gateway:${GATEWAY}"
 export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}"

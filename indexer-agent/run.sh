@@ -1,9 +1,11 @@
 #!/bin/sh
 set -eu
-. /opt/.env
+. /opt/config/.env
 
-token_address=$(jq -r '."1337".L2GraphToken.address' /opt/horizon.json)
-staking_address=$(jq -r '."1337".HorizonStaking.address' /opt/horizon.json)
+. /opt/shared/lib.sh
+
+token_address=$(contract_addr L2GraphToken.address horizon)
+staking_address=$(contract_addr HorizonStaking.address horizon)
 indexer_staked="$(cast call "--rpc-url=http://chain:${CHAIN_RPC}" \
   "${staking_address}" 'hasStake(address) (bool)' "${RECEIVER_ADDRESS}")"
 echo "indexer_staked=${indexer_staked}"
@@ -23,7 +25,7 @@ fi
 
 # Authorize the indexer as its own operator for the SubgraphService
 # This is required for attestation verification in Horizon
-subgraph_service_address=$(jq -r '."1337".SubgraphService.address' /opt/subgraph-service.json)
+subgraph_service_address=$(contract_addr SubgraphService.address subgraph-service)
 operator_authorized="$(cast call "--rpc-url=http://chain:${CHAIN_RPC}" \
   "${staking_address}" 'isAuthorized(address,address,address)(bool)' \
   "${RECEIVER_ADDRESS}" "${RECEIVER_ADDRESS}" "${subgraph_service_address}")"
@@ -35,9 +37,9 @@ if [ "${operator_authorized}" = "false" ]; then
     "${RECEIVER_ADDRESS}" "${subgraph_service_address}" "true"
 fi
 
-export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/horizon.json
-export INDEXER_AGENT_SUBGRAPH_SERVICE_ADDRESS_BOOK=/opt/subgraph-service.json
-export INDEXER_AGENT_TAP_ADDRESS_BOOK=/opt/tap-contracts.json
+export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/config/horizon.json
+export INDEXER_AGENT_SUBGRAPH_SERVICE_ADDRESS_BOOK=/opt/config/subgraph-service.json
+export INDEXER_AGENT_TAP_ADDRESS_BOOK=/opt/config/tap-contracts.json
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
 export INDEXER_AGENT_GATEWAY_ENDPOINT="http://gateway:${GATEWAY}"
 export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL}"

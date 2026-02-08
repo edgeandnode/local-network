@@ -1,10 +1,12 @@
 #!/bin/sh
 set -eu
-. /opt/.env
+. /opt/config/.env
 
-grt="$(jq -r '."1337".L2GraphToken.address' /opt/horizon.json)"
-graph_tally_collector="$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)"
-payments_escrow="$(jq -r '."1337".PaymentsEscrow.address' /opt/horizon.json)"
+. /opt/shared/lib.sh
+
+grt=$(contract_addr L2GraphToken.address horizon)
+graph_tally_collector=$(contract_addr GraphTallyCollector.address horizon)
+payments_escrow=$(contract_addr PaymentsEscrow.address horizon)
 
 rpk topic create gateway_queries --brokers="redpanda:${REDPANDA_KAFKA}" || true
 rpk topic create gateway_ravs --brokers="redpanda:${REDPANDA_KAFKA}" || true

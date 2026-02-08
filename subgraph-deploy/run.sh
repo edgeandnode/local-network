@@ -1,97 +1,118 @@
-#!/bin/sh
+#!/bin/bash
 set -eu
-. /opt/.env
+. /opt/config/.env
+. /opt/shared/lib.sh
 
-# don't rerun when retriggered via a service_completed_successfully condition
-if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
-  -H 'content-type: application/json' \
-  -d '{"query": "{ subgraphs { id } }" }' \
-  | grep "${SUBGRAPH}"
-then
-  exit 0
-fi
+t0=$SECONDS
+elapsed() { echo "[+$((SECONDS - t0))s] $*"; }
 
-network_subgraph_deployment="$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
-  -H 'content-type: application/json' \
-  -d '{"query": "{ _meta { deployment } }" }' \
-  | jq -r '.data._meta.deployment')"
-block_oracle_deployment="$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle" \
-  -H 'content-type: application/json' \
-  -d '{"query": "{ _meta { deployment } }" }' \
-  | jq -r '.data._meta.deployment')"
-# Wait for TAP subgraph to be available and get deployment ID
-echo "Waiting for TAP subgraph to be available..."
-tap_deployment=""
-for i in {1..30}; do
-  tap_deployment="$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap" \
+# ============================================================
+# Deploy subgraphs to graph-node (in parallel)
+# ============================================================
+
+deploy_network() {
+  echo "==== Network subgraph ===="
+  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
     -H 'content-type: application/json' \
-    -d '{"query": "{ _meta { deployment } }" }' \
-    | jq -r '.data._meta.deployment // empty')"
-  
-  if [ -n "$tap_deployment" ] && [ "$tap_deployment" != "null" ]; then
-    echo "Found TAP subgraph deployment: $tap_deployment"
-    break
+    -d '{"query": "{ _meta { deployment } }" }' | grep -q "_meta"
+  then
+    echo "SKIP: Network subgraph already deployed"
+    return
   fi
-  
-  echo "TAP subgraph not ready yet (attempt $i/30), waiting..."
-  sleep 10
-done
 
-if [ -z "$tap_deployment" ] || [ "$tap_deployment" = "null" ]; then
-  echo "ERROR: Could not get TAP subgraph deployment ID after waiting"
+  # localNetworkAddressScript.ts reads from /opt/horizon.json and /opt/subgraph-service.json
+  cp /opt/config/horizon.json /opt/horizon.json
+  cp /opt/config/subgraph-service.json /opt/subgraph-service.json
+
+  cd /opt/graph-network-subgraph
+  npx ts-node config/localNetworkAddressScript.ts
+  npx mustache ./config/generatedAddresses.json ./config/addresses.template.ts > ./config/addresses.ts
+  npx mustache ./config/generatedAddresses.json subgraph.template.yaml > subgraph.yaml
+  npx graph codegen --output-dir src/types/
+  npx graph create graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN}"
+  npx graph deploy graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN}" --ipfs="http://ipfs:${IPFS_RPC}" --version-label=v0.0.1
+  echo "==== Network subgraph done ===="
+}
+
+deploy_tap() {
+  echo "==== TAP subgraph ===="
+  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap" \
+    -H 'content-type: application/json' \
+    -d '{"query": "{ _meta { deployment } }" }' | grep -q "_meta"
+  then
+    echo "SKIP: TAP subgraph already deployed"
+    return
+  fi
+
+  escrow=$(contract_addr Escrow tap-contracts)
+
+  cd /opt/timeline-aggregation-protocol-subgraph
+  sed -i "s/127.0.0.1:5001/ipfs:${IPFS_RPC}/g" package.json
+  sed -i "s/127.0.0.1:8020/graph-node:${GRAPH_NODE_ADMIN}/g" package.json
+  yq ".dataSources[].source.address=\"${escrow}\"" -i subgraph.yaml
+  yq ".dataSources[].network |= \"hardhat\"" -i subgraph.yaml
+  yarn codegen
+  yarn build
+  yarn create-local
+  yarn deploy-local | tee deploy.txt
+  deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
+  curl -s "http://graph-node:${GRAPH_NODE_ADMIN}" \
+    -H 'content-type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"subgraph_reassign\",\"params\":{\"node_id\":\"default\",\"ipfs_hash\":\"${deployment_id}\"}}"
+  echo "==== TAP subgraph done ===="
+}
+
+deploy_block_oracle() {
+  echo "==== Block-oracle subgraph ===="
+  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle" \
+    -H 'content-type: application/json' \
+    -d '{"query": "{ _meta { deployment } }" }' | grep -q "_meta"
+  then
+    echo "SKIP: Block-oracle subgraph already deployed"
+    return
+  fi
+
+  graph_epoch_manager=$(contract_addr EpochManager.address horizon)
+  data_edge=$(contract_addr DataEdge block-oracle)
+
+  cd /opt/block-oracle/packages/subgraph
+
+  yq -i ".epochManager |= \"${graph_epoch_manager}\"" config/local.json
+  yq -i ".permissionList[0].address |= \"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266\"" config/local.json
+  yq -i ".hardhat.DataEdge.address |= \"${data_edge}\"" networks.json
+
+  pnpm prepare
+  pnpm prep:local
+  pnpm codegen
+  npx graph build --network hardhat
+  yq -i ".dataSources[0].network |= \"hardhat\"" subgraph.yaml
+  npx graph create block-oracle --node="http://graph-node:${GRAPH_NODE_ADMIN}"
+  npx graph deploy block-oracle --node="http://graph-node:${GRAPH_NODE_ADMIN}" --ipfs="http://ipfs:${IPFS_RPC}" --version-label 'v0.0.1' | tee deploy.txt
+  deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
+  echo "deployed block-oracle to deployment_id: ${deployment_id}"
+  curl -s "http://graph-node:${GRAPH_NODE_ADMIN}" \
+    -H 'content-type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"subgraph_reassign\",\"params\":{\"node_id\":\"default\",\"ipfs_hash\":\"${deployment_id}\"}}"
+  echo "==== Block-oracle subgraph done ===="
+}
+
+# Launch all three in parallel
+deploy_network &
+pid_network=$!
+deploy_tap &
+pid_tap=$!
+deploy_block_oracle &
+pid_oracle=$!
+
+# Wait for all, fail if any fails
+failed=0
+wait $pid_network || { echo "FAILED: Network subgraph"; failed=1; }
+wait $pid_tap || { echo "FAILED: TAP subgraph"; failed=1; }
+wait $pid_oracle || { echo "FAILED: Block-oracle subgraph"; failed=1; }
+
+if [ "$failed" -ne 0 ]; then
+  echo "One or more subgraph deployments failed"
   exit 1
 fi
 
-echo "network_subgraph_deployment=${network_subgraph_deployment}"
-echo "block_oracle_deployment=${block_oracle_deployment}"
-echo "tap_deployment=${tap_deployment}"
-
-# force index block oracle subgraph & network subgraph
-graph-indexer indexer connect "http://indexer-agent:${INDEXER_MANAGEMENT}"
-graph-indexer indexer --network=hardhat rules prepare "${network_subgraph_deployment}" -o json
-graph-indexer indexer --network=hardhat rules prepare "${block_oracle_deployment}" -o json
-graph-indexer indexer --network=hardhat rules prepare "${tap_deployment}" -o json
-
-deployment_hex="$(curl -s -X POST "http://ipfs:${IPFS_RPC}/api/v0/cid/format?arg=${block_oracle_deployment}&b=base16" \
-  | jq -r '.Formatted')"
-deployment_hex="${deployment_hex#f01701220}"
-echo "deployment_hex=${deployment_hex}"
-gns="$(jq -r '."1337".L2GNS.address' /opt/subgraph-service.json)"
-cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${MNEMONIC}" \
-  "${gns}" 'publishNewSubgraph(bytes32,bytes32,bytes32)' \
-  "0x${deployment_hex}" \
-  '0x0000000000000000000000000000000000000000000000000000000000000000' \
-  '0x0000000000000000000000000000000000000000000000000000000000000000'
-
-graph-indexer indexer --network=hardhat rules set "${block_oracle_deployment}" decisionBasis always -o json
-
-while true; do
-  # Fetch output from the command and handle errors
-  if ! output=$(graph-indexer indexer --network=hardhat actions get -o json 2>&1); then
-    echo "Error fetching output from graph-indexer, retrying..."
-    sleep 2
-  fi
-
-  # Check for "success" in the output
-  if echo "$output" | grep -q 'success'; then
-    echo "Success detected, exiting loop."
-    break
-  fi
-
-  echo "mining blocks in case the indexer-agent is stuck waiting for registration confirmations"
-  echo "actions cli output: $output"
-
-  # Mine a block and wait
-  cast rpc --rpc-url="http://chain:${CHAIN_RPC}" evm_mine
-  sleep 2
-done
-
-
-# wait for an active allocation
-while ! curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
-  -H 'content-type: application/json' \
-  -d '{"query": "{ allocations(where:{status:Active}) { indexer { id } } }" }' \
-  | grep -i "${RECEIVER_ADDRESS}"
-do
-  sleep 2
-done
+elapsed "==== All subgraphs deployed ===="

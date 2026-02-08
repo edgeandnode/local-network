@@ -11,8 +11,7 @@ network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/s
   -d '{"query": "{ _meta { deployment } }" }' \
   | jq -r '.data._meta.deployment')
 
-# Extract the TAPVerifier address from the contracts.json file
-tap_verifier=$(require_jq '."1337".TAPVerifier' /opt/config/tap-contracts.json)
+tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 
 ## Config
 cat >config.json <<-EOF

@@ -1,9 +1,11 @@
 #!/bin/sh
 set -eu
-. /opt/.env
+. /opt/config/.env
 
-tap_verifier="$(jq -r '."1337".TAPVerifier' /opt/tap-contracts.json)"
-graph_tally_verifier="$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)"
+. /opt/shared/lib.sh
+
+tap_verifier=$(contract_addr TAPVerifier tap-contracts)
+graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
 
 export TAP_PORT="${TAP_AGGREGATOR}"
 export TAP_PRIVATE_KEY="${ACCOUNT1_SECRET}"

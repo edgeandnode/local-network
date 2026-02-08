@@ -8,17 +8,28 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 
 - The network id for manifests is `hardhat`.
 
-## Setup
+## Usage
 
-1. install Docker & Docker Compose
-2. `docker compose down && docker compose up --build`
-3. install foundry on the host for mining blocks
+Requires Docker & Docker Compose. Install foundry on the host for mining blocks.
+
+```bash
+# Start (or resume) the network — skips already-completed setup steps
+docker compose up -d
+
+# Re-initialise from scratch (removes all persisted state)
+docker compose down -v && docker compose up -d
+```
+
+State (chain, postgres, ipfs) is persisted in named volumes, so the network
+restarts where it left off. Use `down -v` only when you want a clean slate.
+
+Add `--build` to rebuild after changes to Docker build context, including modifying `run.sh` or `Dockerfile`, or changed source code.
 
 ## Useful commands
 
-- `docker compose up --build -d ${service}`
-- `docker logs -f ${service}`
-- `docker system prune`
+- `docker compose up -d --build ${service}` — rebuild a single service after code changes
+- `docker compose logs -f ${service}`
+- `scripts/clean.sh` — interactive cleanup (volumes + generated config)
 - `source .env`
 
 ## Components

@@ -1,48 +1,50 @@
 # Development Environments build on local-network
 
-## graph-node 
+## graph-node
 
 Graph node development works with the local network by mounting the source directory defined at `GRAPH_NODE_SOURCE_ROOT`, and builds using the `rust:latest` official rust docker image.
 
 Build artifacts are mounted at /tmp/graph-node-docker-build (host and container), and `CARGO_HOME` is set to `/tmp/graph-node-cargo-home` to reduce build times.
 
 ### Debugging
+
 Local debugging of the service can be enabled, allowing source-level debug with gdb or an IDE. With the env var `WAIT_FOR_DEBUG` is not an empty string, we will execute the `graph-node` binary in a gdb server exposed on :2345.
 
 ### Example vscode launch.json
-```json 
+
+```json
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach to Remote GDB Server",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/graph-node", // Path to the binary on the local machine
+      "miDebuggerServerAddress": "localhost:2345", // Address of the remote GDB server
+      "miDebuggerPath": "/usr/bin/gdb", // Path to GDB on the local machine
+      "cwd": "${workspaceFolder}", // Current working directory
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
         {
-            "name": "Attach to Remote GDB Server",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/target/debug/graph-node", // Path to the binary on the local machine
-            "miDebuggerServerAddress": "localhost:2345", // Address of the remote GDB server
-            "miDebuggerPath": "/usr/bin/gdb", // Path to GDB on the local machine
-            "cwd": "${workspaceFolder}", // Current working directory
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "logging": {
-                "engineLogging": true
-            },
-            "sourceFileMap": {
-                "/app": "${workspaceFolder}" // Maps the /app directory in the container to the local workspace
-            }
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
         }
-    ]
+      ],
+      "logging": {
+        "engineLogging": true
+      },
+      "sourceFileMap": {
+        "/app": "${workspaceFolder}" // Maps the /app directory in the container to the local workspace
+      }
+    }
+  ]
 }
 ```
 
@@ -80,11 +82,11 @@ up -d --no-deps indexer-agent
 
 This will apply the overrides to the indexer-agent service to the docker-compose stack running and start it.
 
-## graph-contracts (Network Subgraph)
+## Network Subgraph Development
 
-A Network Subgraph directory can be mounted to the environment for development purposes.
+A Network Subgraph directory can be mounted to the `subgraph-deploy` container for development purposes.
 
-To start the local network with the local Network Subgraph: 
+To start the local network with a local Network Subgraph:
 
 ```bash
 # build
@@ -101,46 +103,25 @@ docker compose \
 up -d graph-contracts
 ```
 
-Note that running in this mode will leave the `graph-contracts` container running so you can ssh into it for debugging/development. This might interfere with other components that depend on the container exiting.
+Note that running in this mode will leave the `graph-contracts` container running so you can ssh into it for debugging/development. This might interfere with other components that depend on the container exiting. The network subgraph source is mounted into `subgraph-deploy` which handles subgraph deployment.
 
-## Horizon upgrade: Phase 3
+## Indexing Payments
 
-Override at `horizon-phase-3` helps test the upgrade during the Phase 3 where components run on the following versions:
+Override at `indexing-payments/` adds the dipper service for indexing fee payments via GRT transfers.
 
-| Component | Version |
-|----------|----------|
-| protocol contracts  | legacy with Phase 1, 2 and 3 steps completed  |
-| network subgraph  | horizon  |
-| gateway | legacy |
-| tap-aggregator | legacy |
-| tap-escrow-manager | legacy |
-| indexer-agent | horizon |
-| indexer-service-rs | horizon |
-| tap-agent | horizon |
+**Use case:** Testing indexing payment flows without TAP allocation complexity
 
-To start the local network with the horizon phase 3 override:
+**Key features:**
+
+- GRT transfers (no allocations needed)
+- Receipt ID system for async processing
+- 1% automatic protocol burn
+- Co-exists with TAP for query fees
+
+To start with indexing payments:
 
 ```bash
-# build
-docker compose \
--f docker-compose.yaml \
--f overrides/horizon-phase-3/docker-compose.yaml \
-build
-
-# start
-docker compose \
--f docker-compose.yaml \
--f overrides/horizon-phase-3/docker-compose.yaml \
-up -d
+docker compose -f docker-compose.yaml -f overrides/indexing-payments/docker-compose.yaml up -d
 ```
 
-To finalize the Horizon upgrade and test the transition you can run:
-```bash
-./scripts/horizon-phase-4.sh
-```
-
-Then build the gateway components from the main `docker-compose.yaml` and restart them:
-```bash
-docker compose build gateway tap-aggregator tap-escrow-manager
-docker compose up -d --no-deps --force-recreate gateway tap-aggregator tap-escrow-manager
-```
+See [indexing-payments/README.md](indexing-payments/README.md) for detailed usage.

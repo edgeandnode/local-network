@@ -1,19 +1,13 @@
 services:
-  init-config:
-    container_name: init-config
-    image: node:23.11-bookworm-slim
-    user: "1000"
-    command: sh config/create-local-config-files.sh
-    volumes:
-      - ./config:/work/config
-    working_dir: /work
-
   chain:
     container_name: chain
     build: { context: chain }
     ports: ["${CHAIN_RPC}:8545"]
-    command: ["anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0"]
+    volumes:
+      - chain-data:/data
     healthcheck: { interval: 1s, retries: 10, test: cast block }
+    stop_grace_period: 30s
+    restart: on-failure:3
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
@@ -28,9 +22,12 @@ services:
     container_name: ipfs
     image: ipfs/kubo:v0.38.2
     ports: ["${IPFS_RPC}:5001"]
+    volumes:
+      - ipfs-data:/data/ipfs
     environment:
       IPFS_PROFILE: server
     healthcheck: { interval: 1s, retries: 50, test: ipfs id }
+    restart: on-failure:3
 
   postgres:
     container_name: postgres
@@ -38,12 +35,14 @@ services:
     ports: ["${POSTGRES}:5432"]
     command: postgres -c 'max_connections=1000' -c 'shared_preload_libraries=pg_stat_statements'
     volumes:
+      - postgres-data:/var/lib/postgresql/data
       - ./postgres/setup.sql:/docker-entrypoint-initdb.d/setup.sql:ro
     environment:
       POSTGRES_INITDB_ARGS: "--encoding UTF8 --locale=C"
       POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_USER: postgres
     healthcheck: { interval: 1s, retries: 20, test: pg_isready -U postgres }
+    restart: on-failure:3
 
   graph-node:
     container_name: graph-node
@@ -62,9 +61,12 @@ services:
       - ${GRAPH_NODE_STATUS}:8030
       - ${GRAPH_NODE_METRICS}:8040
     volumes:
-      - ./.env:/opt/.env:ro
+      - ./config/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - ./config/local:/opt/config:ro
     healthcheck:
       { interval: 1s, retries: 20, test: curl -f http://127.0.0.1:8030 }
+    restart: on-failure:3
 
   graph-contracts:
     container_name: graph-contracts
@@ -72,31 +74,15 @@ services:
       context: graph-contracts
       args:
         CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
-        NETWORK_SUBGRAPH_COMMIT: ${NETWORK_SUBGRAPH_COMMIT}
+        TAP_CONTRACTS_COMMIT: ${TAP_CONTRACTS_COMMIT}
     depends_on:
-      init-config: { condition: service_completed_successfully }
-      graph-node: { condition: service_healthy }
+      chain: { condition: service_healthy }
     volumes:
-      - ./.env:/opt/.env:ro
-      - ./config/local/horizon.json:/opt/contracts/packages/horizon/addresses-local-network.json
-      - ./config/local/subgraph-service.json:/opt/contracts/packages/subgraph-service/addresses-local-network.json
+      - ./config/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - ./config/local:/opt/config
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
-
-  # These provide TAPv1 support - TODO: after horizon transition period we can remove them
-  tap-contracts:
-    container_name: tap-contracts
-    build:
-      context: tap-contracts
-      args:
-        TAP_CONTRACTS_COMMIT: ${TAP_CONTRACTS_COMMIT}
-        TAP_SUBGRAPH_COMMIT: ${TAP_SUBGRAPH_COMMIT}
-    depends_on:
-      graph-contracts: { condition: service_completed_successfully }
-    volumes:
-      - ./.env:/opt/.env:ro
-      - ./config/local/horizon.json:/opt/horizon.json:ro
-      - ./config/local/tap-contracts.json:/opt/tap-contracts.json
 
   block-oracle:
     container_name: block-oracle
@@ -105,11 +91,12 @@ services:
       args:
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
     depends_on:
-      tap-contracts: { condition: service_completed_successfully }
+      graph-contracts: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
-      - ./.env:/opt/.env:ro
-      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - ./config/local:/opt/config:ro
     environment:
       RUST_BACKTRACE: full
     healthcheck:
@@ -118,6 +105,7 @@ services:
         retries: 600,
         test: curl -f http://127.0.0.1:9090/metrics,
       }
+    restart: on-failure:3
 
   indexer-agent:
     container_name: indexer-agent
@@ -127,28 +115,43 @@ services:
         INDEXER_AGENT_VERSION: ${INDEXER_AGENT_VERSION}
     platform: linux/amd64
     depends_on:
-      block-oracle: { condition: service_healthy }
+      graph-contracts: { condition: service_completed_successfully }
     ports: ["${INDEXER_MANAGEMENT}:7600"]
     stop_signal: SIGKILL
     volumes:
-      - ./.env:/opt/.env:ro
-      - ./config/local/horizon.json:/opt/horizon.json:ro
-      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
-      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - ./config/local:/opt/config:ro
     healthcheck:
       { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
+    restart: on-failure:3
 
   subgraph-deploy:
     container_name: subgraph-deploy
-    build: { context: subgraph-deploy }
+    build:
+      context: subgraph-deploy
+      args:
+        NETWORK_SUBGRAPH_COMMIT: ${NETWORK_SUBGRAPH_COMMIT}
+        TAP_SUBGRAPH_COMMIT: ${TAP_SUBGRAPH_COMMIT}
+        BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
     depends_on:
+      graph-contracts: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
-      indexer-agent: { condition: service_healthy }
-      ipfs: { condition: service_healthy }
-      chain: { condition: service_healthy }
     volumes:
-      - ./.env:/opt/.env:ro
-      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
+      - ./config/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - ./config/local:/opt/config:ro
+
+  start-indexing:
+    container_name: start-indexing
+    build: { context: start-indexing }
+    depends_on:
+      subgraph-deploy: { condition: service_completed_successfully }
+      indexer-agent: { condition: service_healthy }
+    volumes:
+      - ./config/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - ./config/local:/opt/config:ro
 
   redpanda:
     container_name: redpanda
@@ -169,12 +172,15 @@ services:
       - --advertise-kafka-addr=INTERNAL://redpanda:9092,EXTERNAL://localhost:29092
       - --pandaproxy-addr 0.0.0.0:8082
       - --schema-registry-addr 0.0.0.0:8081
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
     healthcheck:
       {
         interval: 1s,
         retries: 600,
         test: rpk topic list --brokers="localhost:9092",
       }
+    restart: on-failure:3
 
   tap-aggregator:
     container_name: tap-aggregator
@@ -183,16 +189,17 @@ services:
       args:
         TAP_AGGREGATOR_VERSION: ${TAP_AGGREGATOR_VERSION}
     depends_on:
-      tap-contracts: { condition: service_completed_successfully }
+      graph-contracts: { condition: service_completed_successfully }
     ports: ["${TAP_AGGREGATOR}:7610"]
     stop_signal: SIGKILL
     volumes:
-      - ./.env:/opt/.env:ro
-      - ./config/local/horizon.json:/opt/horizon.json:ro
-      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - ./config/local:/opt/config:ro
     environment:
       RUST_LOG: info,tap_aggregator=trace
       RUST_BACKTRACE: 1
+    restart: on-failure:3
 
   tap-escrow-manager:
     container_name: tap-escrow-manager
@@ -201,15 +208,17 @@ services:
       args:
         TAP_ESCROW_MANAGER_COMMIT: ${TAP_ESCROW_MANAGER_COMMIT}
     depends_on:
-      redpanda: { condition: service_healthy }
       subgraph-deploy: { condition: service_completed_successfully }
+      redpanda: { condition: service_healthy }
     stop_signal: SIGKILL
     volumes:
-      - ./.env:/opt/.env:ro
-      - ./config/local/horizon.json:/opt/horizon.json:ro
+      - ./config/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - ./config/local:/opt/config:ro
     environment:
       RUST_LOG: info,tap_escrow_manager=trace
       RUST_BACKTRACE: 1
+    restart: on-failure:3
 
   gateway:
     container_name: gateway
@@ -218,17 +227,14 @@ services:
       args:
         GATEWAY_COMMIT: ${GATEWAY_COMMIT}
     depends_on:
-      subgraph-deploy: { condition: service_completed_successfully }
       indexer-service: { condition: service_healthy }
       redpanda: { condition: service_healthy }
-      tap-escrow-manager: { condition: service_started }
     ports: ["${GATEWAY}:7700"]
     stop_signal: SIGKILL
     volumes:
-      - ./.env:/opt/.env:ro
-      - ./config/local/horizon.json:/opt/horizon.json:ro
-      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
-      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - ./config/local:/opt/config:ro
     environment:
       RUST_LOG: info,graph_gateway=trace
       RUST_BACKTRACE: 1
@@ -245,37 +251,52 @@ services:
         INDEXER_SERVICE_RS_VERSION: ${INDEXER_SERVICE_RS_VERSION}
     depends_on:
       indexer-agent: { condition: service_healthy }
-      ipfs: { condition: service_healthy }
-      tap-escrow-manager: { condition: service_started }
+      subgraph-deploy: { condition: service_completed_successfully }
     ports:
       - "${INDEXER_SERVICE}:7601"
     stop_signal: SIGKILL
     volumes:
-      - ./.env:/opt/.env:ro
-      - ./config/local/horizon.json:/opt/horizon.json:ro
-      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
-      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - ./config/local:/opt/config:ro
     environment:
       RUST_LOG: info,indexer_service_rs=trace
       RUST_BACKTRACE: 1
     healthcheck:
       { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
+    restart: on-failure:3
 
   tap-agent:
     container_name: tap-agent
     build:
       target: "wrapper" # Set to "wrapper-dev" for building from source
-      context: tap-agent
+      context: indexer-service
+      dockerfile: Dockerfile.tap-agent
       args:
         INDEXER_TAP_AGENT_VERSION: ${INDEXER_TAP_AGENT_VERSION}
     depends_on:
       indexer-agent: { condition: service_healthy }
+      subgraph-deploy: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
-      - ./.env:/opt/.env:ro
-      - ./config/local/horizon.json:/opt/horizon.json:ro
-      - ./config/local/subgraph-service.json:/opt/subgraph-service.json:ro
-      - ./config/local/tap-contracts.json:/opt/tap-contracts.json:ro
+      - ./config/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - ./config/local:/opt/config:ro
     environment:
       RUST_LOG: info,indexer_tap_agent=trace
       RUST_BACKTRACE: 1
+    restart: on-failure:3
+
+  ready:
+    container_name: ready
+    image: busybox:latest
+    depends_on:
+      start-indexing: { condition: service_completed_successfully }
+      gateway: { condition: service_healthy }
+    command: echo "Local network ready"
+
+volumes:
+  chain-data:
+  postgres-data:
+  ipfs-data:
+  redpanda-data:

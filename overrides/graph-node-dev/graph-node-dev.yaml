@@ -5,7 +5,6 @@ services:
       context: "./overrides/graph-node-dev"
       dockerfile: Dockerfile
     volumes:
-      - ./.env:/opt/.env:ro
       - ./overrides/graph-node-dev/run-override.sh:/opt/run-override.sh:ro
       - /tmp/graph-node-cargo-home:/tmp/graph-node-cargo-home
       - /tmp/graph-node-docker-build:/tmp/graph-node-docker-build

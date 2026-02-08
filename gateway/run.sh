@@ -1,13 +1,15 @@
 #!/bin/sh
 set -eu
-. /opt/.env
+. /opt/config/.env
+
+. /opt/shared/lib.sh
 
 cd /opt
-graph_tally_verifier=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
-tap_verifier=$(jq -r '."1337".TAPVerifier' /opt/tap-contracts.json)
-dispute_manager=$(jq -r '."1337".DisputeManager.address' /opt/subgraph-service.json)
-legacy_dispute_manager=$(jq -r '."1337".LegacyDisputeManager.address' /opt/subgraph-service.json)
-subgraph_service=$(jq -r '."1337".SubgraphService.address' /opt/subgraph-service.json)
+graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
+tap_verifier=$(contract_addr TAPVerifier tap-contracts)
+dispute_manager=$(contract_addr DisputeManager.address subgraph-service)
+legacy_dispute_manager=$(contract_addr LegacyDisputeManager.address subgraph-service)
+subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \

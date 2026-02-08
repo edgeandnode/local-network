@@ -9,3 +9,7 @@ require_jq() {
   fi
   printf '%s' "$_val"
 }
+
+contract_addr() {
+  require_jq ".\"1337\".$1" "/opt/config/$2.json"
+}

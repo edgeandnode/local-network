@@ -5,9 +5,9 @@ set -eu
 . /opt/shared/lib.sh
 
 cd /opt
-tap_verifier=$(require_jq '."1337".TAPVerifier' /opt/config/tap-contracts.json)
-graph_tally_verifier=$(require_jq '."1337".GraphTallyCollector.address' /opt/config/horizon.json)
-subgraph_service=$(require_jq '."1337".SubgraphService.address' /opt/config/subgraph-service.json)
+tap_verifier=$(contract_addr TAPVerifier tap-contracts)
+graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
+subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 
 cat >endpoints.yaml <<-EOF
 ${ACCOUNT0_ADDRESS}: "http://tap-aggregator:${TAP_AGGREGATOR}"

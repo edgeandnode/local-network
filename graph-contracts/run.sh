@@ -1,20 +1,29 @@
-#!/bin/sh
+#!/bin/bash
 set -eu
-. /opt/.env
+. /opt/config/.env
+. /opt/shared/lib.sh
 
-# == HELPER: ENSURE DISPUTE MANAGER REGISTERED IN CONTROLLER ==
-# The Horizon DisputeManager is deployed separately from legacy contracts.
-# The network subgraph reads DisputeManager from Controller.getContractProxy(keccak256("DisputeManager")).
-# Without this registration, attestation verification fails because gateway and indexer-service
-# would use different DisputeManager addresses for EIP-712 domain construction.
+# -- Ensure config files exist (empty JSON on first run) --
+for f in horizon.json subgraph-service.json issuance.json tap-contracts.json block-oracle.json; do
+  [ -f "/opt/config/$f" ] || echo '{}' > "/opt/config/$f"
+done
+
+# -- Symlink Hardhat address books to config directory --
+# Hardhat reads/writes addresses-local-network.json; symlinks let those
+# writes land in /opt/config/ without individual Docker file mounts.
+ln -sf /opt/config/horizon.json /opt/contracts/packages/horizon/addresses-local-network.json
+ln -sf /opt/config/subgraph-service.json /opt/contracts/packages/subgraph-service/addresses-local-network.json
+ln -sf /opt/config/issuance.json /opt/contracts/packages/issuance/addresses-local-network.json
+
+# ============================================================
+# Phase 1: Graph protocol contracts
+# ============================================================
+echo "==== Phase 1/3: Graph protocol contracts ===="
+
+# -- Helper: ensure DisputeManager registered in Controller --
 ensure_dispute_manager_registered() {
-  if [ ! -f "/opt/horizon.json" ] || [ ! -f "/opt/subgraph-service.json" ]; then
-    echo "Contract address files not found, skipping DisputeManager registration check"
-    return
-  fi
-
-  controller_address=$(jq -r '.["1337"].Controller.address // empty' /opt/horizon.json)
-  dispute_manager_address=$(jq -r '.["1337"].DisputeManager.address // empty' /opt/subgraph-service.json)
+  controller_address=$(jq -r '.["1337"].Controller.address // empty' /opt/config/horizon.json)
+  dispute_manager_address=$(jq -r '.["1337"].DisputeManager.address // empty' /opt/config/subgraph-service.json)
 
   if [ -z "$controller_address" ] || [ -z "$dispute_manager_address" ]; then
     echo "Controller or DisputeManager address not found, skipping registration"
@@ -25,7 +34,6 @@ ensure_dispute_manager_registered() {
   current_proxy=$(cast call --rpc-url="http://chain:${CHAIN_RPC}" \
     "${controller_address}" "getContractProxy(bytes32)(address)" "${dispute_manager_id}" 2>/dev/null || echo "0x")
 
-  # Normalize addresses to lowercase for comparison (cast returns lowercase, JSON may be checksummed)
   current_proxy_lower=$(echo "$current_proxy" | tr '[:upper:]' '[:lower:]')
   dispute_manager_lower=$(echo "$dispute_manager_address" | tr '[:upper:]' '[:lower:]')
 
@@ -36,76 +44,149 @@ ensure_dispute_manager_registered() {
     echo "  Controller: ${controller_address}"
     echo "  DisputeManager: ${dispute_manager_address}"
     echo "  Current proxy: ${current_proxy}"
-    # Controller governor is ACCOUNT1 in this deployment
     cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --private-key="${ACCOUNT1_SECRET}" \
       "${controller_address}" "setContractProxy(bytes32,address)" "${dispute_manager_id}" "${dispute_manager_address}"
   fi
 }
 
-# don't rerun when retriggered via a service_completed_successfully condition
-# but also check if contracts are actually deployed on the current chain
-if curl -s http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network \
-  -H 'content-type: application/json' \
-  -d '{"query": "{ _meta { deployment } }" }' | \
-  grep "_meta"
-then
-  # Additional check: verify contracts are actually deployed on current chain
-  if [ -f "/opt/contracts/packages/horizon/addresses-local-network.json" ]; then
-    l2_graph_token=$(jq -r '.["1337"].L2GraphToken.address // empty' /opt/contracts/packages/horizon/addresses-local-network.json)
-    if [ -n "$l2_graph_token" ]; then
-      # Check if the contract actually has code on the current chain
-      code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC}" "$l2_graph_token" 2>/dev/null || echo "0x")
-      if [ "$code_check" = "0x" ]; then
-        echo "Contract addresses in horizon.json are stale (no code at $l2_graph_token), redeploying..."
-      else
-        echo "Contracts already deployed and graph-network subgraph exists"
-        # Copy address files so helper can read them
-        cp /opt/contracts/packages/horizon/addresses-local-network.json /opt/horizon.json
-        cp /opt/contracts/packages/subgraph-service/addresses-local-network.json /opt/subgraph-service.json
-        # Ensure DisputeManager is registered (handles upgrades to this version)
-        ensure_dispute_manager_registered
-        echo "Skipping deployment."
-        exit 0
-      fi
-    fi
+# -- Idempotency check --
+phase1_skip=false
+l2_graph_token=$(jq -r '.["1337"].L2GraphToken.address // empty' /opt/config/horizon.json 2>/dev/null || true)
+if [ -n "$l2_graph_token" ]; then
+  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC}" "$l2_graph_token" 2>/dev/null || echo "0x")
+  if [ "$code_check" != "0x" ]; then
+    echo "Graph protocol contracts already deployed (L2GraphToken at $l2_graph_token)"
+    ensure_dispute_manager_registered
+    echo "SKIP: Phase 1"
+    phase1_skip=true
   else
-    echo "addresses-local-network.json not found, proceeding with deployment..."
+    echo "Contract addresses in horizon.json are stale (no code at $l2_graph_token), redeploying..."
   fi
 fi
 
-# == DEPLOY PROTOCOL WITH SUBGRAPH SERVICE ==
-echo "No FORK_RPC_URL detected, deploying new version of the protocol"
-cd /opt/contracts/packages/subgraph-service
-npx hardhat deploy:protocol --network localNetwork --subgraph-service-config localNetwork
+if [ "$phase1_skip" = "false" ]; then
+  echo "Deploying new version of the protocol"
+  cd /opt/contracts/packages/subgraph-service
+  npx hardhat deploy:protocol --network localNetwork --subgraph-service-config localNetwork
 
-# Add legacy contracts to the deployed addresses (mounted file at addresses-local-network.json)
-# The hardhat deployment doesn't include these, but the gateway needs them
-# Use a temp variable to avoid breaking the Docker volume mount (mv creates a new inode)
-TEMP_JSON=$(jq '.["1337"] += {
-  "LegacyServiceRegistry": {"address": "0x0000000000000000000000000000000000000000"},
-  "LegacyDisputeManager": {"address": "0x0000000000000000000000000000000000000000"}
-}' addresses-local-network.json)
-printf '%s\n' "$TEMP_JSON" > addresses-local-network.json
+  # Add legacy contract stubs (gateway needs these)
+  TEMP_JSON=$(jq '.["1337"] += {
+    "LegacyServiceRegistry": {"address": "0x0000000000000000000000000000000000000000"},
+    "LegacyDisputeManager": {"address": "0x0000000000000000000000000000000000000000"}
+  }' addresses-local-network.json)
+  printf '%s\n' "$TEMP_JSON" > addresses-local-network.json
 
-# == DEPLOY NETWORK SUBGRAPH ==
-cp /opt/contracts/packages/horizon/addresses-local-network.json /opt/horizon.json
-cp /opt/contracts/packages/subgraph-service/addresses-local-network.json /opt/subgraph-service.json
-cd /opt/graph-network-subgraph
+  ensure_dispute_manager_registered
+fi
 
-# Build and deploy the subgraph
-npx ts-node config/localNetworkAddressScript.ts
-npx mustache ./config/generatedAddresses.json ./config/addresses.template.ts > ./config/addresses.ts
-npx mustache ./config/generatedAddresses.json subgraph.template.yaml > subgraph.yaml
-echo -e "\n== Subgraph manifest ==\n"
-cat subgraph.yaml
-npx graph codegen --output-dir src/types/
-npx graph create graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN}"
-npx graph deploy graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN}" --ipfs="http://ipfs:${IPFS_RPC}" --version-label=v0.0.1
+echo "==== Phase 1/3 complete ===="
 
-# Register DisputeManager in Controller (uses helper defined above)
-ensure_dispute_manager_registered
+# ============================================================
+# Phase 2: TAP contracts
+# ============================================================
+echo "==== Phase 2/3: TAP contracts ===="
 
-# Keep the container running - for development purposes
+# -- Idempotency check --
+phase2_skip=false
+escrow_address=$(jq -r '."1337".Escrow // empty' /opt/config/tap-contracts.json 2>/dev/null || true)
+if [ -n "$escrow_address" ]; then
+  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC}" "$escrow_address" 2>/dev/null || echo "0x")
+  if [ "$code_check" != "0x" ]; then
+    echo "TAP contracts already deployed (Escrow at $escrow_address)"
+    echo "SKIP: Phase 2"
+    phase2_skip=true
+  else
+    echo "TAP contract addresses are stale (no code at Escrow $escrow_address), redeploying..."
+  fi
+fi
+
+if [ "$phase2_skip" = "false" ]; then
+  cd /opt/timeline-aggregation-protocol-contracts
+
+  staking=$(contract_addr HorizonStaking.address horizon)
+  graph_token=$(contract_addr L2GraphToken.address horizon)
+
+  # Note: forge may output alloy log lines to stdout after the JSON; sed extracts only the JSON object
+  forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC}" --mnemonic="${MNEMONIC}" \
+    src/AllocationIDTracker.sol:AllocationIDTracker \
+    | tee allocation_tracker.json
+  allocation_tracker="$(sed -n '/^{/,/^}/p' allocation_tracker.json | jq -r '.deployedTo')"
+
+  forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC}" --mnemonic="${MNEMONIC}" \
+    src/TAPVerifier.sol:TAPVerifier --constructor-args 'TAP' '1' \
+    | tee verifier.json
+  verifier="$(sed -n '/^{/,/^}/p' verifier.json | jq -r '.deployedTo')"
+
+  forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC}" --mnemonic="${MNEMONIC}" \
+    src/Escrow.sol:Escrow --constructor-args "${graph_token}" "${staking}" "${verifier}" "${allocation_tracker}" 10 15 \
+    | tee escrow.json
+  escrow="$(sed -n '/^{/,/^}/p' escrow.json | jq -r '.deployedTo')"
+
+  cat <<EOF > /opt/config/tap-contracts.json
+{
+  "1337": {
+    "AllocationIDTracker": "$allocation_tracker",
+    "TAPVerifier": "$verifier",
+    "Escrow": "$escrow"
+  }
+}
+EOF
+fi
+
+echo "==== Phase 2/3 complete ===="
+
+# ============================================================
+# Phase 3: DataEdge contract
+# ============================================================
+echo "==== Phase 3/3: DataEdge contract ===="
+
+# -- Idempotency check --
+phase3_skip=false
+data_edge=$(jq -r '."1337".DataEdge // empty' /opt/config/block-oracle.json 2>/dev/null || true)
+if [ -n "$data_edge" ]; then
+  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC}" "$data_edge" 2>/dev/null || echo "0x")
+  if [ "$code_check" != "0x" ]; then
+    echo "DataEdge contract already deployed at $data_edge"
+    echo "SKIP: Phase 3"
+    phase3_skip=true
+  else
+    echo "DataEdge address stale (no code at $data_edge), redeploying..."
+  fi
+fi
+
+if [ "$phase3_skip" = "false" ]; then
+  cd /opt/contracts-data-edge/packages/data-edge
+  export MNEMONIC="${MNEMONIC}"
+  sed -i "s/myth like bonus scare over problem client lizard pioneer submit female collect/${MNEMONIC}/g" hardhat.config.ts
+  npx hardhat data-edge:deploy --contract EventfulDataEdge --deploy-name EBO --network ganache | tee deploy.txt
+  data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
+
+  echo "=== Data edge deployed at: $data_edge ==="
+
+  cat <<ADDR_EOF > /opt/config/block-oracle.json
+{
+  "1337": {
+    "DataEdge": "$data_edge"
+  }
+}
+ADDR_EOF
+
+  # Register network in DataEdge
+  output=$(cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${MNEMONIC}" \
+    "${data_edge}" \
+    '0xa1dce3320000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000f030103176569703135353a313333370000000000000000000000000000000000' 2>&1)
+  exit_code=$?
+  if [ $exit_code -ne 0 ]; then
+    echo "Error during cast send: $output" | tee -a error.log
+  else
+    echo "$output"
+  fi
+fi
+
+echo "==== Phase 3/3 complete ===="
+echo "==== All contract deployments complete ===="
+
+# Optional: keep container running for debugging
 if [ -n "${KEEP_CONTAINER_RUNNING:-}" ]; then
   tail -f /dev/null
 fi

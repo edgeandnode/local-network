@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -eu
 
 FORK_ARG=""
@@ -7,4 +7,6 @@ if [ -n "${FORK_RPC_URL:-}" ]; then
   FORK_ARG="--fork-url $FORK_RPC_URL"
 fi
 
-anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0 $FORK_ARG
+exec anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0 \
+  --state /data/anvil-state.json \
+  $FORK_ARG
