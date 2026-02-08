@@ -1,11 +1,13 @@
 #!/bin/sh
 set -eu
-. /opt/.env
+. /opt/config/.env
+
+. /opt/shared/lib.sh
 
 cd /opt
-tap_verifier="$(jq -r '."1337".TAPVerifier' /opt/tap-contracts.json)"
-graph_tally_verifier=$(jq -r '."1337".GraphTallyCollector.address' /opt/horizon.json)
-subgraph_service=$(jq -r '."1337".SubgraphService.address' /opt/subgraph-service.json)
+tap_verifier=$(require_jq '."1337".TAPVerifier' /opt/config/tap-contracts.json)
+graph_tally_verifier=$(require_jq '."1337".GraphTallyCollector.address' /opt/config/horizon.json)
+subgraph_service=$(require_jq '."1337".SubgraphService.address' /opt/config/subgraph-service.json)
 
 cat >endpoints.yaml <<-EOF
 ${ACCOUNT0_ADDRESS}: "http://tap-aggregator:${TAP_AGGREGATOR}"
