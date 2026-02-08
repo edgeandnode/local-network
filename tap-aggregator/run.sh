@@ -7,7 +7,7 @@ set -eu
 tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
 
-export TAP_PORT="${TAP_AGGREGATOR}"
+export TAP_PORT="${TAP_AGGREGATOR_PORT}"
 export TAP_PRIVATE_KEY="${ACCOUNT1_SECRET}"
 export TAP_DOMAIN_CHAIN_ID=1337
 export TAP_DOMAIN_VERIFYING_CONTRACT="${tap_verifier}"

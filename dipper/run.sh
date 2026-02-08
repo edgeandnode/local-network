@@ -6,7 +6,7 @@ set -eu
 
 ## Parameters
 # Pull the network subgraph deployment ID from the graph-node
-network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
+network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
   | jq -r '.data._meta.deployment')
@@ -43,13 +43,13 @@ cat >config.json <<-EOF
     ]
   },
   "db": {
-    "url": "postgres://postgres:${POSTGRES}/dipper_1",
+    "url": "postgres://postgres:${POSTGRES_PORT}/dipper_1",
     "username": "postgres",
     "password": "postgres",
     "max_connections": 10
   },
   "network": {
-    "gateway_url": "http://gateway:${GATEWAY}",
+    "gateway_url": "http://gateway:${GATEWAY_PORT}",
     "api_key": "${GATEWAY_API_KEY}",
     "deployment_id": "${network_subgraph_deployment}",
     "update_interval": 60

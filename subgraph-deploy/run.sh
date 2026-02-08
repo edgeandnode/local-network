@@ -12,7 +12,7 @@ elapsed() { echo "[+$((SECONDS - t0))s] $*"; }
 
 deploy_network() {
   echo "==== Network subgraph ===="
-  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
+  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network" \
     -H 'content-type: application/json' \
     -d '{"query": "{ _meta { deployment } }" }' | grep -q "_meta"
   then
@@ -29,14 +29,14 @@ deploy_network() {
   npx mustache ./config/generatedAddresses.json ./config/addresses.template.ts > ./config/addresses.ts
   npx mustache ./config/generatedAddresses.json subgraph.template.yaml > subgraph.yaml
   npx graph codegen --output-dir src/types/
-  npx graph create graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN}"
-  npx graph deploy graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN}" --ipfs="http://ipfs:${IPFS_RPC}" --version-label=v0.0.1
+  npx graph create graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}"
+  npx graph deploy graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}" --ipfs="http://ipfs:${IPFS_RPC_PORT}" --version-label=v0.0.1
   echo "==== Network subgraph done ===="
 }
 
 deploy_tap() {
   echo "==== TAP subgraph ===="
-  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/semiotic/tap" \
+  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/semiotic/tap" \
     -H 'content-type: application/json' \
     -d '{"query": "{ _meta { deployment } }" }' | grep -q "_meta"
   then
@@ -47,8 +47,8 @@ deploy_tap() {
   escrow=$(contract_addr Escrow tap-contracts)
 
   cd /opt/timeline-aggregation-protocol-subgraph
-  sed -i "s/127.0.0.1:5001/ipfs:${IPFS_RPC}/g" package.json
-  sed -i "s/127.0.0.1:8020/graph-node:${GRAPH_NODE_ADMIN}/g" package.json
+  sed -i "s/127.0.0.1:5001/ipfs:${IPFS_RPC_PORT}/g" package.json
+  sed -i "s/127.0.0.1:8020/graph-node:${GRAPH_NODE_ADMIN_PORT}/g" package.json
   yq ".dataSources[].source.address=\"${escrow}\"" -i subgraph.yaml
   yq ".dataSources[].network |= \"hardhat\"" -i subgraph.yaml
   yarn codegen
@@ -56,7 +56,7 @@ deploy_tap() {
   yarn create-local
   yarn deploy-local | tee deploy.txt
   deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
-  curl -s "http://graph-node:${GRAPH_NODE_ADMIN}" \
+  curl -s "http://graph-node:${GRAPH_NODE_ADMIN_PORT}" \
     -H 'content-type: application/json' \
     -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"subgraph_reassign\",\"params\":{\"node_id\":\"default\",\"ipfs_hash\":\"${deployment_id}\"}}"
   echo "==== TAP subgraph done ===="
@@ -64,7 +64,7 @@ deploy_tap() {
 
 deploy_block_oracle() {
   echo "==== Block-oracle subgraph ===="
-  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle" \
+  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/block-oracle" \
     -H 'content-type: application/json' \
     -d '{"query": "{ _meta { deployment } }" }' | grep -q "_meta"
   then
@@ -86,11 +86,11 @@ deploy_block_oracle() {
   pnpm codegen
   npx graph build --network hardhat
   yq -i ".dataSources[0].network |= \"hardhat\"" subgraph.yaml
-  npx graph create block-oracle --node="http://graph-node:${GRAPH_NODE_ADMIN}"
-  npx graph deploy block-oracle --node="http://graph-node:${GRAPH_NODE_ADMIN}" --ipfs="http://ipfs:${IPFS_RPC}" --version-label 'v0.0.1' | tee deploy.txt
+  npx graph create block-oracle --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}"
+  npx graph deploy block-oracle --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}" --ipfs="http://ipfs:${IPFS_RPC_PORT}" --version-label 'v0.0.1' | tee deploy.txt
   deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
   echo "deployed block-oracle to deployment_id: ${deployment_id}"
-  curl -s "http://graph-node:${GRAPH_NODE_ADMIN}" \
+  curl -s "http://graph-node:${GRAPH_NODE_ADMIN_PORT}" \
     -H 'content-type: application/json' \
     -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"subgraph_reassign\",\"params\":{\"node_id\":\"default\",\"ipfs_hash\":\"${deployment_id}\"}}"
   echo "==== Block-oracle subgraph done ===="

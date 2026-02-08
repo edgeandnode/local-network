@@ -2,7 +2,7 @@ services:
   chain:
     container_name: chain
     build: { context: chain }
-    ports: ["${CHAIN_RPC}:8545"]
+    ports: ["${CHAIN_RPC_PORT}:8545"]
     volumes:
       - chain-data:/data
     healthcheck: { interval: 1s, retries: 10, test: cast block }
@@ -16,12 +16,12 @@ services:
     build: { context: block-explorer, args: { RPC_URL: http://localhost:8545 } }
     depends_on:
       chain: { condition: service_healthy }
-    ports: ["${BLOCK_EXPLORER}:3000"]
+    ports: ["${BLOCK_EXPLORER_PORT}:3000"]
 
   ipfs:
     container_name: ipfs
     image: ipfs/kubo:v0.38.2
-    ports: ["${IPFS_RPC}:5001"]
+    ports: ["${IPFS_RPC_PORT}:5001"]
     volumes:
       - ipfs-data:/data/ipfs
     environment:
@@ -32,7 +32,7 @@ services:
   postgres:
     container_name: postgres
     image: postgres:17-alpine
-    ports: ["${POSTGRES}:5432"]
+    ports: ["${POSTGRES_PORT}:5432"]
     command: postgres -c 'max_connections=1000' -c 'shared_preload_libraries=pg_stat_statements'
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -56,10 +56,10 @@ services:
       postgres: { condition: service_healthy }
     stop_signal: SIGKILL
     ports:
-      - ${GRAPH_NODE_GRAPHQL}:8000
-      - ${GRAPH_NODE_ADMIN}:8020
-      - ${GRAPH_NODE_STATUS}:8030
-      - ${GRAPH_NODE_METRICS}:8040
+      - ${GRAPH_NODE_GRAPHQL_PORT}:8000
+      - ${GRAPH_NODE_ADMIN_PORT}:8020
+      - ${GRAPH_NODE_STATUS_PORT}:8030
+      - ${GRAPH_NODE_METRICS_PORT}:8040
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
@@ -116,7 +116,7 @@ services:
     platform: linux/amd64
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
-    ports: ["${INDEXER_MANAGEMENT}:7600"]
+    ports: ["${INDEXER_MANAGEMENT_PORT}:7600"]
     stop_signal: SIGKILL
     volumes:
       - ./config/shared:/opt/shared:ro
@@ -157,11 +157,11 @@ services:
     container_name: redpanda
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
     ports:
-      - ${REDPANDA_KAFKA}:9092
-      - ${REDPANDA_KAFKA_EXTERNAL}:29092
-      - ${REDPANDA_ADMIN}:9644
-      - ${REDPANDA_PANDAPROXY}:8082
-      - ${REDPANDA_SCHEMA_REGISTRY}:8081
+      - ${REDPANDA_KAFKA_PORT}:9092
+      - ${REDPANDA_KAFKA_EXTERNAL_PORT}:29092
+      - ${REDPANDA_ADMIN_PORT}:9644
+      - ${REDPANDA_PANDAPROXY_PORT}:8082
+      - ${REDPANDA_SCHEMA_REGISTRY_PORT}:8081
     command:
       - redpanda start
       - --smp 1
@@ -190,7 +190,7 @@ services:
         TAP_AGGREGATOR_VERSION: ${TAP_AGGREGATOR_VERSION}
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
-    ports: ["${TAP_AGGREGATOR}:7610"]
+    ports: ["${TAP_AGGREGATOR_PORT}:7610"]
     stop_signal: SIGKILL
     volumes:
       - ./config/shared:/opt/shared:ro
@@ -229,7 +229,7 @@ services:
     depends_on:
       indexer-service: { condition: service_healthy }
       redpanda: { condition: service_healthy }
-    ports: ["${GATEWAY}:7700"]
+    ports: ["${GATEWAY_PORT}:7700"]
     stop_signal: SIGKILL
     volumes:
       - ./config/shared:/opt/shared:ro
@@ -253,7 +253,7 @@ services:
       indexer-agent: { condition: service_healthy }
       subgraph-deploy: { condition: service_completed_successfully }
     ports:
-      - "${INDEXER_SERVICE}:7601"
+      - "${INDEXER_SERVICE_PORT}:7601"
     stop_signal: SIGKILL
     volumes:
       - ./config/shared:/opt/shared:ro

@@ -31,7 +31,7 @@ ensure_dispute_manager_registered() {
   fi
 
   dispute_manager_id=$(cast keccak256 "DisputeManager")
-  current_proxy=$(cast call --rpc-url="http://chain:${CHAIN_RPC}" \
+  current_proxy=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
     "${controller_address}" "getContractProxy(bytes32)(address)" "${dispute_manager_id}" 2>/dev/null || echo "0x")
 
   current_proxy_lower=$(echo "$current_proxy" | tr '[:upper:]' '[:lower:]')
@@ -44,7 +44,7 @@ ensure_dispute_manager_registered() {
     echo "  Controller: ${controller_address}"
     echo "  DisputeManager: ${dispute_manager_address}"
     echo "  Current proxy: ${current_proxy}"
-    cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --private-key="${ACCOUNT1_SECRET}" \
+    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --private-key="${ACCOUNT1_SECRET}" \
       "${controller_address}" "setContractProxy(bytes32,address)" "${dispute_manager_id}" "${dispute_manager_address}"
   fi
 }
@@ -53,7 +53,7 @@ ensure_dispute_manager_registered() {
 phase1_skip=false
 l2_graph_token=$(jq -r '.["1337"].L2GraphToken.address // empty' /opt/config/horizon.json 2>/dev/null || true)
 if [ -n "$l2_graph_token" ]; then
-  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC}" "$l2_graph_token" 2>/dev/null || echo "0x")
+  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$l2_graph_token" 2>/dev/null || echo "0x")
   if [ "$code_check" != "0x" ]; then
     echo "Graph protocol contracts already deployed (L2GraphToken at $l2_graph_token)"
     ensure_dispute_manager_registered
@@ -90,7 +90,7 @@ echo "==== Phase 2/3: TAP contracts ===="
 phase2_skip=false
 escrow_address=$(jq -r '."1337".Escrow // empty' /opt/config/tap-contracts.json 2>/dev/null || true)
 if [ -n "$escrow_address" ]; then
-  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC}" "$escrow_address" 2>/dev/null || echo "0x")
+  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$escrow_address" 2>/dev/null || echo "0x")
   if [ "$code_check" != "0x" ]; then
     echo "TAP contracts already deployed (Escrow at $escrow_address)"
     echo "SKIP: Phase 2"
@@ -107,17 +107,17 @@ if [ "$phase2_skip" = "false" ]; then
   graph_token=$(contract_addr L2GraphToken.address horizon)
 
   # Note: forge may output alloy log lines to stdout after the JSON; sed extracts only the JSON object
-  forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC}" --mnemonic="${MNEMONIC}" \
+  forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC_PORT}" --mnemonic="${MNEMONIC}" \
     src/AllocationIDTracker.sol:AllocationIDTracker \
     | tee allocation_tracker.json
   allocation_tracker="$(sed -n '/^{/,/^}/p' allocation_tracker.json | jq -r '.deployedTo')"
 
-  forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC}" --mnemonic="${MNEMONIC}" \
+  forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC_PORT}" --mnemonic="${MNEMONIC}" \
     src/TAPVerifier.sol:TAPVerifier --constructor-args 'TAP' '1' \
     | tee verifier.json
   verifier="$(sed -n '/^{/,/^}/p' verifier.json | jq -r '.deployedTo')"
 
-  forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC}" --mnemonic="${MNEMONIC}" \
+  forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC_PORT}" --mnemonic="${MNEMONIC}" \
     src/Escrow.sol:Escrow --constructor-args "${graph_token}" "${staking}" "${verifier}" "${allocation_tracker}" 10 15 \
     | tee escrow.json
   escrow="$(sed -n '/^{/,/^}/p' escrow.json | jq -r '.deployedTo')"
@@ -144,7 +144,7 @@ echo "==== Phase 3/3: DataEdge contract ===="
 phase3_skip=false
 data_edge=$(jq -r '."1337".DataEdge // empty' /opt/config/block-oracle.json 2>/dev/null || true)
 if [ -n "$data_edge" ]; then
-  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC}" "$data_edge" 2>/dev/null || echo "0x")
+  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$data_edge" 2>/dev/null || echo "0x")
   if [ "$code_check" != "0x" ]; then
     echo "DataEdge contract already deployed at $data_edge"
     echo "SKIP: Phase 3"
@@ -172,7 +172,7 @@ if [ "$phase3_skip" = "false" ]; then
 ADDR_EOF
 
   # Register network in DataEdge
-  output=$(cast send --rpc-url="http://chain:${CHAIN_RPC}" --confirmations=0 --mnemonic="${MNEMONIC}" \
+  output=$(cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --mnemonic="${MNEMONIC}" \
     "${data_edge}" \
     '0xa1dce3320000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000f030103176569703135353a313333370000000000000000000000000000000000' 2>&1)
   exit_code=$?

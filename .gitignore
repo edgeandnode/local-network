@@ -1,7 +1,21 @@
 # IDEs
 .vscode
 .claude
+.idea
+
+# Environment overrides
+.env.local
 .env.secrets
+
+# OS
+.DS_Store
+Thumbs.db
+.nfs*
+
+# Editors
+*.swp
+*.swo
+*~
 
 # Local config files
 config/local/

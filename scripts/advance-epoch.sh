@@ -6,17 +6,19 @@ EPOCHS_TO_ADVANCE=${1:-1}
 # Get the EpochManager contract address from horizon.json
 EPOCH_MANAGER_ADDRESS=$(jq -r '."1337".EpochManager.address' horizon.json)
 
+RPC_URL="http://${CHAIN_HOST:-localhost}:${CHAIN_RPC_PORT:-8545}"
+
 # Get current epoch
-CURRENT_EPOCH=$(cast call $EPOCH_MANAGER_ADDRESS "currentEpoch()(uint256)" --rpc-url http://localhost:8545)
+CURRENT_EPOCH=$(cast call $EPOCH_MANAGER_ADDRESS "currentEpoch()(uint256)" --rpc-url "$RPC_URL")
 
 # Get epoch length
-EPOCH_LENGTH=$(cast call $EPOCH_MANAGER_ADDRESS "epochLength()(uint256)" --rpc-url http://localhost:8545)
+EPOCH_LENGTH=$(cast call $EPOCH_MANAGER_ADDRESS "epochLength()(uint256)" --rpc-url "$RPC_URL")
 
 # Get current block number
-CURRENT_BLOCK=$(cast block latest --rpc-url http://localhost:8545 | grep number | awk '{print $2}')
+CURRENT_BLOCK=$(cast block latest --rpc-url "$RPC_URL" | grep number | awk '{print $2}')
 
 # Get current epoch block
-CURRENT_EPOCH_BLOCK=$(cast call $EPOCH_MANAGER_ADDRESS "currentEpochBlock()(uint256)" --rpc-url http://localhost:8545)
+CURRENT_EPOCH_BLOCK=$(cast call $EPOCH_MANAGER_ADDRESS "currentEpochBlock()(uint256)" --rpc-url "$RPC_URL")
 
 # Calculate blocks until next epoch
 BLOCKS_IN_CURRENT_EPOCH=$((CURRENT_BLOCK - CURRENT_EPOCH_BLOCK))
@@ -34,5 +36,5 @@ echo "Blocks to mine: $BLOCKS_TO_MINE"
 ./scripts/mine-block.sh $BLOCKS_TO_MINE
 
 # Verify we're in the next epoch
-NEW_EPOCH=$(cast call $EPOCH_MANAGER_ADDRESS "currentEpoch()(uint256)" --rpc-url http://localhost:8545)
+NEW_EPOCH=$(cast call $EPOCH_MANAGER_ADDRESS "currentEpoch()(uint256)" --rpc-url "$RPC_URL")
 echo "New epoch: $NEW_EPOCH"

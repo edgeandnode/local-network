@@ -85,7 +85,7 @@ if [ -z "$INDEXER_TEST_JRPC_PROVIDER_URL" ]; then
     # Check if local chain is running
     if docker compose ps chain 2>/dev/null | grep -q "running\|Up"; then
         echo -e "${YELLOW}Using local chain for tests${NC}"
-        export INDEXER_TEST_JRPC_PROVIDER_URL="http://localhost:8545"
+        export INDEXER_TEST_JRPC_PROVIDER_URL="http://${CHAIN_HOST:-localhost}:${CHAIN_RPC_PORT:-8545}"
     else
         echo -e "${YELLOW}Using public Arbitrum Sepolia RPC for tests${NC}"
         export INDEXER_TEST_JRPC_PROVIDER_URL="https://sepolia-rollup.arbitrum.io/rpc"

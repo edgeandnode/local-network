@@ -14,7 +14,7 @@ owner_address = "${ACCOUNT0_ADDRESS#0x}"
 owner_private_key = "${ACCOUNT0_SECRET#0x}"
 data_edge_address = "${data_edge#0x}"
 epoch_manager_address = "${graph_epoch_manager#0x}"
-subgraph_url = "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/block-oracle"
+subgraph_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/block-oracle"
 bearer_token = "TODO"
 log_level = "trace"
 

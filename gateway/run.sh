@@ -10,7 +10,7 @@ tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 dispute_manager=$(contract_addr DisputeManager.address subgraph-service)
 legacy_dispute_manager=$(contract_addr LegacyDisputeManager.address subgraph-service)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
-network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL}/subgraphs/name/graph-network" \
+network_subgraph_deployment=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ _meta { deployment } }" }' \
   | jq -r '.data._meta.deployment')
@@ -32,14 +32,14 @@ cat >config.json <<-EOF
   "graph_env_id": "local",
   "indexer_selection_retry_limit": 2,
   "kafka": {
-    "bootstrap.servers": "redpanda:${REDPANDA_KAFKA}"
+    "bootstrap.servers": "redpanda:${REDPANDA_KAFKA_PORT}"
   },
   "log_json": false,
   "min_graph_node_version": "0.0.0",
   "min_indexer_version": "0.0.0",
   "trusted_indexers": [
     {
-      "url": "http://indexer-service:${INDEXER_SERVICE}/subgraphs/id/${network_subgraph_deployment}",
+      "url": "http://indexer-service:${INDEXER_SERVICE_PORT}/subgraphs/id/${network_subgraph_deployment}",
       "auth": "freestuff"
     }
   ],
