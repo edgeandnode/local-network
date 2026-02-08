@@ -22,9 +22,13 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 - `source .env`
 
 ## Components
+
 ### chain
 
 - Foundry docs: https://book.getfoundry.sh/
+- Automine: blocks are mined instantly on each transaction
+- Chain state persists across restarts via `--state` flag
+- Use `scripts/mine-block.sh` to manually advance blocks if needed
 
 ### block-explorer
 
@@ -51,53 +55,53 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 - GraphiQL interface: http://localhost:8000/subgraphs/name/${subgraph_name}/graphql
 - Status endpoint: http://localhost:8030/graphql/playground
 
-### graph-contracts
+### graph-contracts / subgraph-deploy
 
-- subgraph: http://localhost:8000/subgraphs/name/graph-network
+- network subgraph: http://localhost:8000/subgraphs/name/graph-network
 
   ```graphql
-    {
-      indexers {
+  {
+    indexers {
+      id
+      url
+      geoHash
+    }
+    provisions {
+      id
+      indexer {
         id
-        url
-        geoHash
+        stakedTokens
       }
-      provisions {
+      tokensProvisioned
+      thawingPeriod
+      maxVerifierCut
+      dataService {
         id
-        indexer {
-          id
-          stakedTokens
-        }
-        tokensProvisioned
-        thawingPeriod
-        maxVerifierCut
-        dataService {
-          id
-          totalTokensProvisioned
-        }
+        totalTokensProvisioned
       }
-      subgraphs {
-        id
-        versions {
-          subgraphDeployment {
-            ipfsHash
-            indexerAllocations {
+    }
+    subgraphs {
+      id
+      versions {
+        subgraphDeployment {
+          ipfsHash
+          indexerAllocations {
+            id
+            status
+            indexer {
               id
-              status
-              indexer {
-                id
-              }
             }
           }
         }
       }
-      _meta {
-        block {
-          number
-        }
-        deployment
-      }
     }
+    _meta {
+      block {
+        number
+      }
+      deployment
+    }
+  }
   ```
 
 ### block-oracle
@@ -149,7 +153,7 @@ curl "http://localhost:7700/api/subgraphs/id/BFr2mx7FgkJ36Y6pE5BiXs1KmNUmVDCnL82
 docker exec -it redpanda rpk topic consume gateway_client_query_results --brokers="localhost:9092"
 ```
 
-### tap-contracts
+### TAP subgraph
 
 - subgraph: http://localhost:8000/subgraphs/name/semiotic/tap
 
@@ -173,19 +177,36 @@ docker exec -it redpanda rpk topic consume gateway_client_query_results --broker
   }
   ```
 
+## Optional: Indexing Payments
+
+To enable payments for indexing work (alternative to TAP allocations):
+
+```bash
+# Start with indexing payments
+docker compose -f docker-compose.yaml -f overrides/indexing-payments/docker-compose.yaml up
+
+# Or use helper script
+./overrides/indexing-payments/start.sh
+```
+
+See [overrides/indexing-payments/README.md](overrides/indexing-payments/README.md) for details.
 
 ## Building components from source
 
 ### docker compose overrides
+
 The following components allow building from source by overriding `docker-compose.yml`:
+
 - graph-node
-- graph-contracts
+- graph-contracts (contracts)
 - indexer-agent
 
 Please refer to `overrides/README.md` for instructions.
 
 ### git submodules source
+
 The following components allow building from source by cloning them with submodules:
+
 - indexer-service
 - tap-agent
 
@@ -198,7 +219,7 @@ And then select the `wrapper-dev` target when building the Docker image in the `
 ```diff
   indexer-service:
     container_name: indexer-service
-    build: { 
+    build: {
 -     target: "wrapper", # Set to "wrapper-dev" for building from source
 +     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
       context: indexer-service,
@@ -206,7 +227,7 @@ And then select the `wrapper-dev` target when building the Docker image in the `
 
   tap-agent:
     container_name: tap-agent
-    build: { 
+    build: {
 -     target: "wrapper", # Set to "wrapper-dev" for building from source
 +     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
       context: tap-agent,
@@ -218,9 +239,9 @@ And then select the `wrapper-dev` target when building the Docker image in the `
 ### `too far behind`
 
 Gateway error:
+
 ```
-ERROR graph_gateway::network::subgraph_client: indexer=http://indexer-service:7601/subgraphs/id/Qmc2CbqucMvaS4GFvt2QUZWvRwSZ3K5ipeGvbC6UUBf616 network_subgraph_query_err="response too far behind"
+ERROR graph_gateway::network::subgraph_client: network_subgraph_query_err="response too far behind"
 ```
 
-Solution:
-This happens because the network does not automine, can be fixed by running `scripts/mine-block.sh 10`
+This happens when subgraphs fall behind the chain head. With automine (default), this is a harmless warning during startup. Run `scripts/mine-block.sh 10` to advance blocks manually if needed.
