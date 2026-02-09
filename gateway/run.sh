@@ -37,6 +37,7 @@ cat >config.json <<-EOF
   "log_json": false,
   "min_graph_node_version": "0.0.0",
   "min_indexer_version": "0.0.0",
+  "network_subgraph_max_lag_seconds": 604800,
   "trusted_indexers": [
     {
       "url": "http://indexer-service:${INDEXER_SERVICE_PORT}/subgraphs/id/${network_subgraph_deployment}",
