@@ -17,6 +17,13 @@ This directory contains detailed documentation for the local-network project.
 - [UserExperience.md](./indexing-payments/archive/UserExperience.md) - What changes with override
 - [TestingStatus.md](./indexing-payments/archive/TestingStatus.md) - Current testing status
 
+## Eligibility Oracle
+
+**[Start Here: eligibility-oracle/Goal.md](./eligibility-oracle/Goal.md)**
+
+- [Goal.md](./eligibility-oracle/Goal.md) - Objective and scope
+- [Status.md](./eligibility-oracle/Status.md) - Implementation progress and log
+
 ## Usage
 
 **To enable Indexing Payments:**
