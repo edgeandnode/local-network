@@ -63,7 +63,7 @@ services:
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     healthcheck:
       { interval: 1s, retries: 20, test: curl -f http://127.0.0.1:8030 }
     restart: on-failure:3
@@ -80,7 +80,7 @@ services:
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config
+      - config-local:/opt/config
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
@@ -96,7 +96,7 @@ services:
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_BACKTRACE: full
     healthcheck:
@@ -121,7 +121,7 @@ services:
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     healthcheck:
       { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
     restart: on-failure:3
@@ -140,7 +140,7 @@ services:
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
 
   start-indexing:
     container_name: start-indexing
@@ -151,7 +151,7 @@ services:
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
 
   redpanda:
     container_name: redpanda
@@ -195,7 +195,7 @@ services:
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_LOG: info,tap_aggregator=trace
       RUST_BACKTRACE: 1
@@ -214,7 +214,7 @@ services:
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_LOG: info,tap_escrow_manager=trace
       RUST_BACKTRACE: 1
@@ -234,7 +234,7 @@ services:
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_LOG: info,graph_gateway=trace
       RUST_BACKTRACE: 1
@@ -258,7 +258,7 @@ services:
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_LOG: info,indexer_service_rs=trace
       RUST_BACKTRACE: 1
@@ -281,7 +281,7 @@ services:
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_LOG: info,indexer_tap_agent=trace
       RUST_BACKTRACE: 1
@@ -300,3 +300,4 @@ volumes:
   postgres-data:
   ipfs-data:
   redpanda-data:
+  config-local:

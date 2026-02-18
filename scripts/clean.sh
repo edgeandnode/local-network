@@ -19,22 +19,15 @@ cd "$REPO_ROOT"
 echo -e "${YELLOW}Stopping and removing containers...${NC}"
 docker compose down --remove-orphans
 
-# Remove all persistent state (volumes + config files) together
-# These must be removed together to avoid inconsistent state
-read -p "Remove all persistent state (volumes + config)? [y/N] " -n 1 -r
+# Remove all persistent state (volumes including config-local)
+read -p "Remove all persistent state (Docker volumes)? [y/N] " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${YELLOW}Removing Docker volumes...${NC}"
+    echo -e "${YELLOW}Removing Docker volumes (chain, postgres, config, etc.)...${NC}"
     docker compose down --volumes
     echo -e "${GREEN}Volumes removed${NC}"
-
-    echo -e "${YELLOW}Removing generated config files...${NC}"
-    if [ -d "config/local" ]; then
-        rm -rf config/local/*
-        echo -e "${GREEN}Config files removed${NC}"
-    fi
 else
-    echo -e "${YELLOW}Skipping state removal (volumes and config preserved)${NC}"
+    echo -e "${YELLOW}Skipping state removal (volumes preserved)${NC}"
 fi
 
 # Prune Docker images (optional, ask user)

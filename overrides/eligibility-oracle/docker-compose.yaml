@@ -5,7 +5,7 @@
 # Prerequisites:
 #   - eligibility-oracle-node image built locally:
 #       cd /path/to/eligibility-oracle-node && docker build -t eligibility-oracle-node .
-#   - REO contract deployed (address in config/local/issuance.json)
+#   - REO contract deployed (address in issuance.json on config-local volume)
 #   - gateway_queries Redpanda topic exists (created by tap-escrow-manager)
 
 services:
@@ -20,7 +20,7 @@ services:
     volumes:
       - ./config/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_LOG: eligibility_oracle=debug
       BLOCKCHAIN_PRIVATE_KEY: ${ACCOUNT0_SECRET}

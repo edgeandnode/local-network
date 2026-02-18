@@ -154,7 +154,7 @@ Override at `eligibility-oracle/` adds the REO node service that determines inde
   cd /path/to/eligibility-oracle-node
   docker build -t eligibility-oracle-node .
   ```
-- REO contract deployed (address in `config/local/issuance.json`)
+- REO contract deployed (Phase 4 in graph-contracts)
 
 **What it does:**
 

@@ -17,5 +17,5 @@ Thumbs.db
 *.swo
 *~
 
-# Local config files
+# Legacy local config directory (now uses config-local Docker volume)
 config/local/

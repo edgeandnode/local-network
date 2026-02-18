@@ -25,17 +25,16 @@ RPC_URL="http://${CHAIN_HOST:-localhost}:${CHAIN_RPC_PORT}"
 GATEWAY_URL="http://${GATEWAY_HOST:-localhost}:${GATEWAY_PORT}"
 QUERY_COUNT="${1:-10}"
 INDEXER="${RECEIVER_ADDRESS}"
-REO_CYCLE_WAIT=75  # REO node cycles every 60s; wait a bit longer
+REO_POLL_TIMEOUT=150  # Max wait: 2.5 cycles (worst case: just missed a cycle)
+REO_POLL_INTERVAL=10  # Check every 10s
 
-# -- Read REO contract address --
-ISSUANCE_JSON="$REPO_ROOT/config/local/issuance.json"
-if [ ! -f "$ISSUANCE_JSON" ]; then
-  echo "ERROR: $ISSUANCE_JSON not found. Is the REO contract deployed?"
-  exit 1
-fi
-REO_ADDRESS=$(jq -r '.["1337"].RewardsEligibilityOracle.address // empty' "$ISSUANCE_JSON")
+# -- Read REO contract address from config-local volume --
+REO_ADDRESS=$(docker exec graph-node cat /opt/config/issuance.json 2>/dev/null \
+  | jq -r '.["1337"].RewardsEligibilityOracle.address // empty' 2>/dev/null || true)
 if [ -z "$REO_ADDRESS" ]; then
-  echo "ERROR: RewardsEligibilityOracle address not found in issuance.json"
+  echo "ERROR: RewardsEligibilityOracle address not found."
+  echo "  Is the local network running? Is the REO contract deployed (Phase 4)?"
+  echo "  Check: docker exec graph-node cat /opt/config/issuance.json | jq ."
   exit 1
 fi
 
@@ -147,33 +146,29 @@ fi
 echo ""
 
 # ============================================================
-# Step 4: Wait for REO node cycle
+# Step 4: Poll until indexer is eligible (or timeout)
 # ============================================================
 echo "--- Step 4: Wait for REO node to process queries ---"
-echo "  REO node cycles every 60s. Waiting ${REO_CYCLE_WAIT}s..."
-echo "  (Tip: watch logs with 'docker compose -f docker-compose.yaml -f overrides/eligibility-oracle/docker-compose.yaml logs -f eligibility-oracle-node')"
+echo "  Polling every ${REO_POLL_INTERVAL}s, timeout ${REO_POLL_TIMEOUT}s"
+echo "  (REO node cycles every 60s; may need up to 2 cycles if we just missed one)"
 echo ""
 
-# Progress indicator
 elapsed=0
-interval=5
-while [ $elapsed -lt $REO_CYCLE_WAIT ]; do
-  sleep $interval
-  elapsed=$((elapsed + interval))
-  remaining=$((REO_CYCLE_WAIT - elapsed))
-  printf "  %ds remaining...\r" "$remaining"
+eligible_after="false"
+while [ $elapsed -lt $REO_POLL_TIMEOUT ]; do
+  sleep $REO_POLL_INTERVAL
+  elapsed=$((elapsed + REO_POLL_INTERVAL))
+  eligible_after=$(check_eligible "$INDEXER")
+  if [ "$eligible_after" = "true" ]; then
+    echo "  Eligible after ${elapsed}s"
+    break
+  fi
+  printf "  %ds / %ds — not yet eligible...\r" "$elapsed" "$REO_POLL_TIMEOUT"
 done
-echo "  Done waiting.          "
 
-echo ""
-
-# ============================================================
-# Step 5: Verify indexer IS eligible
-# ============================================================
-echo "--- Step 5: Verify indexer IS eligible ---"
-
-eligible_after=$(check_eligible "$INDEXER")
-echo "  isEligible($INDEXER) = $eligible_after"
+if [ "$eligible_after" != "true" ]; then
+  echo "  Timed out after ${REO_POLL_TIMEOUT}s            "
+fi
 
 echo ""
 

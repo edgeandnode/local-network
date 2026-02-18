@@ -34,7 +34,7 @@ services:
       - "${DIPPER_INDEXER_RPC_PORT}:${DIPPER_INDEXER_RPC_PORT}"
     volumes:
       - ./config/shared:/opt/shared:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_BACKTRACE: full
       RUST_LOG: debug

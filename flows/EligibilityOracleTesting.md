@@ -47,8 +47,7 @@ The script:
 2. Seeds `lastOracleUpdateTime` to disable the fail-safe (if needed)
 3. Verifies the indexer is NOT eligible
 4. Sends queries through the gateway
-5. Waits for the REO node cycle (~75s)
-6. Verifies the indexer IS eligible
+5. Polls `isEligible()` every 10s until true or timeout (150s)
 
 ## Manual Step-by-Step
 
@@ -56,7 +55,7 @@ The script:
 
 ```bash
 source .env
-REO=$(jq -r '.["1337"].RewardsEligibilityOracle.address' config/local/issuance.json)
+REO=$(docker exec graph-node cat /opt/config/issuance.json | jq -r '.["1337"].RewardsEligibilityOracle.address')
 RPC="http://localhost:${CHAIN_RPC_PORT}"
 echo "REO: $REO"
 ```
