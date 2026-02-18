@@ -29,7 +29,6 @@ Add `--build` to rebuild after changes to Docker build context, including modify
 
 - `docker compose up -d --build ${service}` — rebuild a single service after code changes
 - `docker compose logs -f ${service}`
-- `scripts/clean.sh` — interactive cleanup (volumes + generated config)
 - `source .env`
 
 ## Components

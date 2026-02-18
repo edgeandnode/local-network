@@ -81,5 +81,3 @@ docker compose down -v
 
 This removes all Docker volumes (chain data, postgres, config-local, etc.),
 giving a fully clean state for `docker compose up`.
-
-For a guided cleanup with image removal options: `./scripts/clean.sh`
