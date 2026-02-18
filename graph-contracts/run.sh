@@ -190,46 +190,57 @@ echo "==== Phase 3 complete ===="
 # ============================================================
 echo "==== Phase 4: Rewards Eligibility Oracle ===="
 
-# -- Idempotency check --
-phase4_skip=false
-reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address // empty' /opt/config/issuance.json 2>/dev/null || true)
-if [ -n "$reo_address" ]; then
-  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$reo_address" 2>/dev/null || echo "0x")
-  if [ "$code_check" != "0x" ]; then
-    echo "REO already deployed at $reo_address"
-    echo "SKIP: Phase 4"
-    phase4_skip=true
-  else
-    echo "REO address stale (no code at $reo_address), redeploying..."
+# Ensure NetworkOperator in issuance address book (required by configure step)
+TEMP_JSON=$(jq --arg op "${ACCOUNT0_ADDRESS}" \
+  '.["1337"].NetworkOperator = {"address": $op}' /opt/config/issuance.json)
+printf '%s\n' "$TEMP_JSON" > /opt/config/issuance.json
+
+cd /opt/contracts/packages/deployment
+
+# Clean any stale governance TX batches from partial runs
+rm -rf /opt/contracts/packages/deployment/txs/localNetwork
+
+# Full REO lifecycle via deployment package tags:
+#   sync → deploy → configure → transfer → integrate → verify
+# Deploy scripts are idempotent (skip if already deployed/configured).
+# The mnemonic provides both deployer (ACCOUNT0) and governor (ACCOUNT1),
+# so all steps including RM integration execute directly.
+#
+# Some steps (upgrade) exit with code 1 after saving governance TX batches.
+# On localNetwork, the governor key is available so we auto-execute and retry.
+export GOVERNOR_KEY="${ACCOUNT1_SECRET}"
+for attempt in 1 2 3; do
+  echo "  Deploy attempt $attempt..."
+  if npx hardhat deploy --tags rewards-eligibility --network localNetwork --skip-prompts; then
+    break
   fi
-fi
+  # Check for pending governance TXs and execute them
+  if ls /opt/contracts/packages/deployment/txs/localNetwork/*.json 2>/dev/null | grep -qv executed; then
+    echo "  Executing pending governance TXs..."
+    npx hardhat deploy:execute-governance --network localNetwork || true
+  else
+    echo "  No governance TXs to execute, deployment failed for another reason"
+    exit 1
+  fi
+done
 
-if [ "$phase4_skip" = "false" ]; then
-  # Ensure NetworkOperator in issuance address book (required by configure step)
-  TEMP_JSON=$(jq --arg op "${ACCOUNT0_ADDRESS}" \
-    '.["1337"].NetworkOperator = {"address": $op}' /opt/config/issuance.json)
-  printf '%s\n' "$TEMP_JSON" > /opt/config/issuance.json
+# Read deployed REO address from issuance address book
+reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address' /opt/config/issuance.json)
+echo "  REO deployed at: $reo_address"
 
-  cd /opt/contracts/packages/deployment
-
-  # Full REO lifecycle via deployment package tags:
-  #   sync → deploy → configure → transfer → integrate → verify
-  # The mnemonic provides both deployer (ACCOUNT0) and governor (ACCOUNT1),
-  # so all steps including RM integration execute directly.
-  npx hardhat deploy --tags rewards-eligibility --network localNetwork --skip-prompts
-
-  # Read deployed REO address from issuance address book
-  reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address' /opt/config/issuance.json)
-  echo "  REO deployed at: $reo_address"
-
-  # Grant ORACLE_ROLE to the REO node signing key (ACCOUNT0)
-  # The configure step grants GOVERNOR_ROLE to ACCOUNT1 (protocol governor),
-  # so use ACCOUNT1 to grant ORACLE_ROLE.
-  oracle_role=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
-    "${reo_address}" "ORACLE_ROLE()(bytes32)")
-  echo "  Granting ORACLE_ROLE to ${ACCOUNT0_ADDRESS}"
+# Grant ORACLE_ROLE to the REO node signing key (ACCOUNT0).
+# OPERATOR_ROLE is the admin for ORACLE_ROLE, and ACCOUNT0 has OPERATOR_ROLE.
+# Idempotent: only grants if not already granted.
+oracle_role=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+  "${reo_address}" "ORACLE_ROLE()(bytes32)")
+has_role=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+  "${reo_address}" "hasRole(bytes32,address)(bool)" "${oracle_role}" "${ACCOUNT0_ADDRESS}" 2>/dev/null || echo "false")
+if [ "$has_role" = "true" ]; then
+  echo "  ORACLE_ROLE already granted to ${ACCOUNT0_ADDRESS}"
+else
+  echo "  Granting ORACLE_ROLE to ${ACCOUNT0_ADDRESS} (via OPERATOR_ROLE)"
   cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
-    --private-key="${ACCOUNT1_SECRET}" \
+    --private-key="${ACCOUNT0_SECRET}" \
     "${reo_address}" "grantRole(bytes32,address)" "${oracle_role}" "${ACCOUNT0_ADDRESS}"
 fi
 
