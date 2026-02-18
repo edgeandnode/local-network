@@ -125,3 +125,27 @@ docker compose -f docker-compose.yaml -f overrides/indexing-payments/docker-comp
 ```
 
 See [indexing-payments/README.md](indexing-payments/README.md) for detailed usage.
+
+## Eligibility Oracle
+
+Override at `eligibility-oracle/` adds the REO node service that determines indexer rewards eligibility based on query-serving performance.
+
+**Prerequisites:**
+
+- REO contract deployed (address in `config/local/issuance.json`)
+- Source code symlinked at `eligibility-oracle-node/source/`
+
+**What it does:**
+
+- Consumes `gateway_queries` from Redpanda
+- Evaluates indexer eligibility over a rolling window
+- Submits eligible indexers on-chain via `renewIndexerEligibility()`
+- Creates the compacted `indexer_daily_metrics` topic on startup
+
+To start with the eligibility oracle:
+
+```bash
+docker compose -f docker-compose.yaml -f overrides/eligibility-oracle/docker-compose.yaml up -d
+```
+
+See [docs/eligibility-oracle/](../docs/eligibility-oracle/) for goal, status, and gap analysis.

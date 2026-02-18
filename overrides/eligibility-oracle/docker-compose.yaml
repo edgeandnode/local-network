@@ -1,0 +1,25 @@
+# Eligibility Oracle Override
+# Adds the REO node service for indexer rewards eligibility
+# Usage: docker compose -f docker-compose.yaml -f overrides/eligibility-oracle/docker-compose.yaml up
+#
+# Prerequisites:
+#   - REO contract deployed (address in config/local/issuance.json)
+#   - gateway_queries Redpanda topic exists (created by tap-escrow-manager)
+
+services:
+  eligibility-oracle-node:
+    container_name: eligibility-oracle-node
+    build:
+      context: ./eligibility-oracle-node
+      dockerfile: Dockerfile
+      target: wrapper-dev
+    depends_on:
+      redpanda: { condition: service_healthy }
+      gateway: { condition: service_healthy }
+    volumes:
+      - ./config/shared:/opt/shared:ro
+      - ./config/local:/opt/config:ro
+    environment:
+      RUST_LOG: eligibility_oracle=debug
+      BLOCKCHAIN_PRIVATE_KEY: ${ACCOUNT0_SECRET}
+    restart: unless-stopped
