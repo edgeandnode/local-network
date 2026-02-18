@@ -2,6 +2,8 @@
 
 This folder contains all documentation for the Indexing Payments Safe-based payment system implementation.
 
+This approach is obsolete.
+
 ## Overview
 
 The Indexing Payments Safe payment system replaces TAP (Timeline Aggregation Protocol) for indexing fee payments, using on-chain GRT transfers via Safe Module pattern with asynchronous processing.
