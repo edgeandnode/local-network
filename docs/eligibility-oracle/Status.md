@@ -16,7 +16,7 @@ Adding the REO to the local network. Two workstreams:
 - [x] Created goal documentation ([Goal.md](./Goal.md))
 - [x] Surveyed existing local network components (19 services, 3 contract deployment phases)
 - [x] Identified `issuance.json` already referenced in `graph-contracts/run.sh` but issuance contracts not yet deployed
-- [x] Explored REO contract in `graphprotocol/contracts` baseline branch
+- [x] Explored REO contract in `graphprotocol/contracts` post-audit branch
 - [x] Explored REO node at `/git/local/eligibility-oracle-node/eligibility-oracle-node`
 - [x] Explored deployment package scripts and documentation for local network feasibility
 - [x] Identified deployment package gaps and REO node contract signature mismatch
@@ -38,37 +38,23 @@ Adding the REO to the local network. Two workstreams:
 
 ## Gaps To Fix
 
-### 1. Deployment package: no local network (chain 1337) support
+### 1. Deployment package: extend for local network (chain 1337) deployment
 
-**Where:** `packages/deployment/hardhat.config.ts` and `packages/deployment/rocketh/config.ts`
+**Branch:** `post-audit` in `graphprotocol/contracts`
 
-The deployment package only supports chain IDs 31337 (hardhat/localhost), 421614 (Arbitrum Sepolia), 42161 (Arbitrum One). The local network uses chain ID 1337.
+**Where:** `packages/deployment/` - multiple files
 
-**Fix:** Add chain 1337 as a supported environment (or allow the existing localNetwork config from the subgraph-service package pattern).
+The deployment package currently supports fork-based local testing (chain 31337 + `FORK_NETWORK`) and production networks (421614, 42161). It does not support deploying to a fresh local network (chain 1337) where contracts are deployed from scratch - the pattern used by rem-local-network.
 
-### 2. Deployment package: sync step blocks pure local network
+This is not broken - fork testing works fine. It's a new capability needed so the deployment package can deploy the REO into the local network alongside the contracts already deployed by `packages/subgraph-service` (which does support `--network localNetwork`).
 
-**Where:** `packages/deployment/deploy/common/00_sync.ts` (lines 48-58)
+**What needs to change:**
 
-The sync step throws an error if running on localhost (chain 31337) without `FORK_NETWORK` set. For a pure local network this needs to be different - the contracts are deployed locally but the sync step doesn't know about them.
-
-**Fix:** Allow the sync step to work against local networks by reading addresses from mounted files or an alternative address book source. The local network already has all prerequisite contracts (Controller, L2GraphToken, RewardsManager) deployed in Phase 1 - their addresses are in `config/local/horizon.json`.
-
-### 3. Deployment package: no address book entries for chain 1337
-
-**Where:** `packages/horizon/addresses.json`, `packages/issuance/addresses.json`
-
-Address books only contain entries for production/testnet chains. For local network deployment, the address books need to be populated with the locally-deployed contract addresses.
-
-**Fix:** Either support runtime address book population from external sources, or add a "localNetwork" entry mechanism.
-
-### 4. Deployment docs: no local network deployment guidance
-
-**Where:** `packages/deployment/docs/deploy/RewardsEligibilityOracleDeployment.md`, `packages/deployment/docs/LocalForkTesting.md`
-
-Docs only cover fork-based testing and production deployment. No guidance for pure local network deployment.
-
-**Fix:** Add local network deployment documentation once the support is implemented.
+- `rocketh/config.ts`: add chain 1337 environment
+- `hardhat.config.ts`: add localNetwork network config (chain 1337, `http://chain:8545`)
+- `00_sync.ts`: allow sync against local network by reading addresses from the local chain or mounted address files (Phase 1 deploys Controller, L2GraphToken, RewardsManager - their addresses are in `config/local/horizon.json`)
+- Address books: mechanism to populate from local deployments rather than static JSON for production chains
+- Docs: add local network deployment guidance alongside existing fork testing docs
 
 ### 5. REO node: contract signature mismatch
 
@@ -147,7 +133,7 @@ Need to decide which Hardhat account gets ORACLE_ROLE. Current accounts:
 ### 2026-02-18 - Project started
 
 - Created [Goal.md](./Goal.md) and this status document
-- Explored REO contract in `graphprotocol/contracts` baseline branch: upgradeable proxy pattern, role-based access, time-based eligibility with fail-safe
+- Explored REO contract in `graphprotocol/contracts` post-audit branch: upgradeable proxy pattern, role-based access, time-based eligibility with fail-safe
 - Explored REO node: Rust service, Redpanda consumer, batched on-chain submission, no Dockerfile yet
 - Identified key integration point: `RewardsManager.setRewardsEligibilityOracle()` connects the two systems
 - Local network already has the `gateway_queries` Redpanda topic from gateway service
@@ -169,3 +155,10 @@ Need to decide which Hardhat account gets ORACLE_ROLE. Current accounts:
 - Config uses relaxed local network thresholds: 1-day window, 1 min online day, 60s cycle interval
 - Uses `ACCOUNT0_SECRET` as the oracle signing key (needs ORACLE_ROLE granted once contract is deployed)
 - Updated overrides/README.md with eligibility oracle section
+
+### 2026-02-18 - Checked post-audit branch
+
+- Switched target from `baseline` to `post-audit` branch (freshly rebased with all changes)
+- Confirmed deployment package gap still present on `post-audit`: no chain 1337 / localNetwork support
+- Fork-based testing (chain 31337 + FORK_NETWORK) works fine - this is a new capability needed, not a broken feature
+- Rephrased gap #1 to clarify the distinction
