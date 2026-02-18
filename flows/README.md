@@ -11,6 +11,14 @@ Test the Indexing Payments system including:
 - Monitoring payment flows
 - Verifying receipt aggregation
 
+### [Eligibility Oracle Testing](./EligibilityOracleTesting.md)
+Test the Rewards Eligibility Oracle (REO) end-to-end cycle:
+- Verifying deny-by-default (indexer not eligible)
+- Sending gateway queries to generate eligibility data
+- REO node evaluation and on-chain submission
+- Verifying indexer becomes eligible
+- Automated script: `./scripts/test-reo-eligibility.sh`
+
 ### [Indexer Setup](./indexer-setup.md) *(coming soon)*
 Complete workflow for setting up a new indexer including:
 - Indexer registration

@@ -244,6 +244,32 @@ else
     "${reo_address}" "grantRole(bytes32,address)" "${oracle_role}" "${ACCOUNT0_ADDRESS}"
 fi
 
+# Enable eligibility validation (deny-by-default).
+# The contract defaults to validation disabled (everyone eligible). For local
+# testing we want the realistic deny-by-default behaviour. Idempotent.
+# Requires OPERATOR_ROLE (ACCOUNT0).
+validation_enabled=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+  "${reo_address}" "getEligibilityValidation()(bool)" 2>/dev/null || echo "false")
+if [ "$validation_enabled" = "true" ]; then
+  echo "  Eligibility validation already enabled"
+else
+  echo "  Enabling eligibility validation (deny-by-default)"
+  cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
+    --private-key="${ACCOUNT0_SECRET}" \
+    "${reo_address}" "setEligibilityValidation(bool)" true
+fi
+
+# Clean deployment metadata from address books.
+# The deployment package writes fields like implementationDeployment and
+# proxyDeployment that the indexer-agent doesn't recognise, causing it to
+# crash with "Address book entry contains invalid fields".
+for ab in horizon.json subgraph-service.json; do
+  if [ -f "/opt/config/$ab" ]; then
+    TEMP_JSON=$(jq 'walk(if type == "object" then del(.implementationDeployment, .proxyDeployment) else . end)' "/opt/config/$ab")
+    printf '%s\n' "$TEMP_JSON" > "/opt/config/$ab"
+  fi
+done
+
 echo "==== Phase 4 complete ===="
 echo "==== All contract deployments complete ===="
 

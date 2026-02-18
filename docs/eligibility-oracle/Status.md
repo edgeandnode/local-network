@@ -2,14 +2,15 @@
 
 > Last updated: 2026-02-18
 
-## Current Phase: Integration testing
+## Current Phase: End-to-end verified
 
 ### Summary
 
-Adding the REO to the local network. Two workstreams:
+REO is fully integrated into the local network. Both workstreams complete and end-to-end flow verified:
 
-1. **Contract deployment** - DONE: deployment package supports localNetwork, Phase 4 added to graph-contracts/run.sh
-2. **REO node containerisation** - DONE: Dockerfile, config, docker-compose override created
+1. **Contract deployment** - DONE: Phase 4 deploys REO, integrates with RewardsManager, grants ORACLE_ROLE
+2. **REO node** - DONE: consumes gateway_queries, evaluates eligibility, submits on-chain
+3. **End-to-end** - VERIFIED: queries through gateway -> REO node -> `isEligible()` returns true
 
 ## Completed
 
@@ -24,14 +25,16 @@ Adding the REO to the local network. Two workstreams:
 - [x] Fixed deployment package: added localNetwork support (chain 1337) on post-audit branch
 - [x] Added Phase 4 (REO) to `graph-contracts/run.sh` with idempotency, RM integration, ORACLE_ROLE grant
 - [x] Fixed REO node ABI mismatch: added `bytes calldata data` param and `uint256` return type
+- [x] Updated `CONTRACTS_COMMIT` in `.env` to post-audit branch (`0003fe3a`)
+- [x] Fixed address book compatibility: deployment package writes `implementationDeployment` field that indexer-agent rejects; added cleanup step in Phase 4
+- [x] Fixed docker-compose override: added `.env` bind mount for REO node container
+- [x] End-to-end verified: gateway queries -> Redpanda -> REO node -> on-chain eligibility
 
 ## Up Next
 
-- [ ] Update `CONTRACTS_COMMIT` in `.env` to post-audit branch (currently 143 commits behind)
-- [ ] Test end-to-end: build containers, deploy contracts, run REO node
-- [ ] Create compacted `indexer_daily_metrics` Redpanda topic (handled by `eligibility-oracle-node/run.sh`)
-- [ ] Verify queries -> Redpanda -> REO node -> on-chain eligibility flow
-- [ ] Document testing procedure in `flows/`
+- [ ] Clean run test: `docker compose down -v && up` to verify full lifecycle from scratch
+- [x] Document testing procedure in `flows/`
+- [x] Create automated test script (`scripts/test-reo-eligibility.sh`)
 
 ## Gaps To Fix
 
@@ -70,6 +73,20 @@ Adding the REO to the local network. Two workstreams:
 - If governor is in the accounts list (e.g., mnemonic-derived), execute directly with governor as executor
 - If not (e.g., Safe multisig in production), generate governance TX file as before
 - Removed `requireDeployer` dependency since executor is now the governor
+
+### 7. Indexer-agent: strict address book validation
+
+**Status:** Worked around in local network; upstream fix recommended
+
+The indexer-agent validates address book JSON entries and rejects any with unknown fields. The deployment package (post-audit) now writes `implementationDeployment` and `proxyDeployment` metadata to address books, causing the agent to crash with:
+
+```
+Address book entry contains invalid fields: implementationDeployment
+```
+
+**Local workaround:** Phase 4 in `graph-contracts/run.sh` strips these fields from `horizon.json` and `subgraph-service.json` after deployment.
+
+**Proper fix:** The indexer-agent should use permissive parsing that extracts known fields and ignores unknown ones. This would prevent breakage as the address book format evolves.
 
 ## Notes
 
@@ -179,3 +196,38 @@ Default REO node config is for production (28-day windows, 3-hour cycles). For l
   - Phase 4 updated to use full `rewards-eligibility` tag (single npx invocation)
   - Only remaining cast call: ORACLE_ROLE grant (local network specific)
 - Note: `CONTRACTS_COMMIT` in `.env` needs updating to post-audit (143 commits behind)
+
+### 2026-02-18 - End-to-end integration testing
+
+- Updated `CONTRACTS_COMMIT` in `.env` to `0003fe3a` (post-audit HEAD, already in sync with origin)
+- Built all images and started network with REO override
+- Phase 4 deployed REO contract at `0x86a2ee8faf9a840f7a2c64ca3d51209f9a02081d`
+- RewardsManager integrated, ORACLE_ROLE granted to ACCOUNT0
+- **Bug found**: indexer-agent crashes with `Address book entry contains invalid fields: implementationDeployment`
+  - Cause: deployment package (post-audit) writes `implementationDeployment` metadata to horizon.json
+  - indexer-agent strictly validates address book fields and rejects unknown ones
+  - Fix: added `jq walk(... del(.implementationDeployment, .proxyDeployment))` cleanup after Phase 4 in run.sh
+  - This is arguably an indexer-agent bug (should ignore unknown fields, not reject them)
+- **Bug found**: REO node container missing `.env` bind mount
+  - Override only had `./config/local:/opt/config:ro`, not `./.env:/opt/config/.env:ro`
+  - Caused `CHAIN_ID: unbound variable` crash
+  - Fix: added `.env` bind mount to override's volumes
+- After fixes, full flow verified:
+  - Sent 10 queries through gateway (subgraph `BFr2mx7...`)
+  - REO node consumed 11 messages from `gateway_queries` (10 + 1 from gateway health check)
+  - Evaluated: 1 eligible indexer (`0xf4ef...`), days_online=1, good_queries=11
+  - Submitted `renewIndexerEligibility` on-chain (tx `0x0f48d617...`)
+  - `isEligible(0xf4ef...)` returns `true` on-chain
+
+### 2026-02-18 - Demonstration script and testing documentation
+
+- Created `scripts/test-reo-eligibility.sh`: automated full-cycle test
+  - Enables eligibility validation on the REO contract (default is disabled)
+  - Seeds `lastOracleUpdateTime` via empty `renewIndexerEligibility([])` to disable fail-safe
+  - Verifies indexer is NOT eligible (deny-by-default)
+  - Sends queries through gateway, waits for REO node cycle (75s)
+  - Verifies indexer IS eligible after REO submission
+- Created `flows/EligibilityOracleTesting.md`: step-by-step manual and automated testing guide
+  - Includes contract behaviour reference table (three layers: validation toggle, fail-safe, per-indexer)
+  - Troubleshooting section for common issues
+- Note: previous e2e test did not verify initial ineligibility — only checked `isEligible()` after REO had already submitted. The new script properly demonstrates the full deny→allow transition

@@ -19,6 +19,7 @@ services:
       gateway: { condition: service_healthy }
     volumes:
       - ./config/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
       - ./config/local:/opt/config:ro
     environment:
       RUST_LOG: eligibility_oracle=debug
