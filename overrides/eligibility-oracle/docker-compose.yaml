@@ -3,6 +3,8 @@
 # Usage: docker compose -f docker-compose.yaml -f overrides/eligibility-oracle/docker-compose.yaml up
 #
 # Prerequisites:
+#   - eligibility-oracle-node image built locally:
+#       cd /path/to/eligibility-oracle-node && docker build -t eligibility-oracle-node .
 #   - REO contract deployed (address in config/local/issuance.json)
 #   - gateway_queries Redpanda topic exists (created by tap-escrow-manager)
 
@@ -12,7 +14,6 @@ services:
     build:
       context: ./eligibility-oracle-node
       dockerfile: Dockerfile
-      target: wrapper-dev
     depends_on:
       redpanda: { condition: service_healthy }
       gateway: { condition: service_healthy }

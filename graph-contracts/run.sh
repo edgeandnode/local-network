@@ -18,7 +18,7 @@ ln -sf /opt/config/issuance.json /opt/contracts/packages/issuance/addresses-loca
 # ============================================================
 # Phase 1: Graph protocol contracts
 # ============================================================
-echo "==== Phase 1/3: Graph protocol contracts ===="
+echo "==== Phase 1: Graph protocol contracts ===="
 
 # -- Helper: ensure DisputeManager registered in Controller --
 ensure_dispute_manager_registered() {
@@ -79,12 +79,12 @@ if [ "$phase1_skip" = "false" ]; then
   ensure_dispute_manager_registered
 fi
 
-echo "==== Phase 1/3 complete ===="
+echo "==== Phase 1 complete ===="
 
 # ============================================================
 # Phase 2: TAP contracts
 # ============================================================
-echo "==== Phase 2/3: TAP contracts ===="
+echo "==== Phase 2: TAP contracts ===="
 
 # -- Idempotency check --
 phase2_skip=false
@@ -133,12 +133,12 @@ if [ "$phase2_skip" = "false" ]; then
 EOF
 fi
 
-echo "==== Phase 2/3 complete ===="
+echo "==== Phase 2 complete ===="
 
 # ============================================================
 # Phase 3: DataEdge contract
 # ============================================================
-echo "==== Phase 3/3: DataEdge contract ===="
+echo "==== Phase 3: DataEdge contract ===="
 
 # -- Idempotency check --
 phase3_skip=false
@@ -183,7 +183,57 @@ ADDR_EOF
   fi
 fi
 
-echo "==== Phase 3/3 complete ===="
+echo "==== Phase 3 complete ===="
+
+# ============================================================
+# Phase 4: Rewards Eligibility Oracle (REO)
+# ============================================================
+echo "==== Phase 4: Rewards Eligibility Oracle ===="
+
+# -- Idempotency check --
+phase4_skip=false
+reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address // empty' /opt/config/issuance.json 2>/dev/null || true)
+if [ -n "$reo_address" ]; then
+  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$reo_address" 2>/dev/null || echo "0x")
+  if [ "$code_check" != "0x" ]; then
+    echo "REO already deployed at $reo_address"
+    echo "SKIP: Phase 4"
+    phase4_skip=true
+  else
+    echo "REO address stale (no code at $reo_address), redeploying..."
+  fi
+fi
+
+if [ "$phase4_skip" = "false" ]; then
+  # Ensure NetworkOperator in issuance address book (required by configure step)
+  TEMP_JSON=$(jq --arg op "${ACCOUNT0_ADDRESS}" \
+    '.["1337"].NetworkOperator = {"address": $op}' /opt/config/issuance.json)
+  printf '%s\n' "$TEMP_JSON" > /opt/config/issuance.json
+
+  cd /opt/contracts/packages/deployment
+
+  # Full REO lifecycle via deployment package tags:
+  #   sync → deploy → configure → transfer → integrate → verify
+  # The mnemonic provides both deployer (ACCOUNT0) and governor (ACCOUNT1),
+  # so all steps including RM integration execute directly.
+  npx hardhat deploy --tags rewards-eligibility --network localNetwork --skip-prompts
+
+  # Read deployed REO address from issuance address book
+  reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address' /opt/config/issuance.json)
+  echo "  REO deployed at: $reo_address"
+
+  # Grant ORACLE_ROLE to the REO node signing key (ACCOUNT0)
+  # The configure step grants GOVERNOR_ROLE to ACCOUNT1 (protocol governor),
+  # so use ACCOUNT1 to grant ORACLE_ROLE.
+  oracle_role=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+    "${reo_address}" "ORACLE_ROLE()(bytes32)")
+  echo "  Granting ORACLE_ROLE to ${ACCOUNT0_ADDRESS}"
+  cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
+    --private-key="${ACCOUNT1_SECRET}" \
+    "${reo_address}" "grantRole(bytes32,address)" "${oracle_role}" "${ACCOUNT0_ADDRESS}"
+fi
+
+echo "==== Phase 4 complete ===="
 echo "==== All contract deployments complete ===="
 
 # Optional: keep container running for debugging

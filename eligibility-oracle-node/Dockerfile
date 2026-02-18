@@ -1,42 +1,13 @@
-## Rust builder
-FROM rust:1.89.0-slim-bookworm AS rust-builder
+## Local-network wrapper for eligibility-oracle-node
+#
+# Requires a locally-built base image. Build it from the REO repo first:
+#   cd /path/to/eligibility-oracle-node && docker build -t eligibility-oracle-node .
+ARG REO_IMAGE=eligibility-oracle-node
+FROM ${REO_IMAGE}
 
-RUN --mount=type=cache,target=/var/cache/apt \
-  apt-get update \
+RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-      build-essential \
-      clang \
-      cmake \
-      git \
-      lld \
-      pkg-config \
-      libssl-dev \
-      librdkafka-dev \
-  && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /src
-COPY source/ ./
-
-ENV CC=clang CXX=clang++
-ENV RUSTFLAGS="-C link-arg=-fuse-ld=lld"
-
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/src/target \
-    cargo build --release -p eligibility-oracle && \
-    cp target/release/eligibility-oracle /eligibility-oracle
-
-## Wrapper image for local-network
-FROM debian:bookworm-slim AS wrapper-dev
-
-RUN --mount=type=cache,target=/var/cache/apt \
-  apt-get update \
-  && apt-get install -y --no-install-recommends \
-      ca-certificates \
-      curl \
-      jq \
-      libssl3 \
-      librdkafka1 \
-      unzip \
+      curl jq unzip \
   && rm -rf /var/lib/apt/lists/*
 
 # rpk CLI for Redpanda topic management
@@ -46,8 +17,6 @@ RUN curl -sLO https://github.com/redpanda-data/redpanda/releases/latest/download
 
 WORKDIR /opt
 
-COPY --from=rust-builder /eligibility-oracle /usr/local/bin/eligibility-oracle
-
 ADD run.sh /opt/run.sh
 
-ENTRYPOINT ["bash", "-c", "/opt/run.sh"]
+ENTRYPOINT ["bash", "/opt/run.sh"]

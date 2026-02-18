@@ -1,10 +1,11 @@
 services:
   graph-contracts:
     volumes:
-      - ./horizon.json:/opt/contracts/packages/horizon/addresses-local-network.json
-      - ./subgraph-service.json:/opt/contracts/packages/subgraph-service/addresses-local-network.json
-    environment:
-      - KEEP_CONTAINER_RUNNING=true
+      # Mount local contracts repo for WIP development (skip image rebuild).
+      # Set CONTRACTS_SOURCE_ROOT to the local repo path, e.g.:
+      #   CONTRACTS_SOURCE_ROOT=/git/graphprotocol/contracts/post-audit
+      # The repo must have pnpm install and pnpm build already run.
+      - ${CONTRACTS_SOURCE_ROOT:?Set CONTRACTS_SOURCE_ROOT to local contracts repo}:/opt/contracts
   subgraph-deploy:
     volumes:
       # Paths need to be absolute or relative to the location of the docker-compose.yaml file

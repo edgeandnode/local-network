@@ -126,14 +126,35 @@ docker compose -f docker-compose.yaml -f overrides/indexing-payments/docker-comp
 
 See [indexing-payments/README.md](indexing-payments/README.md) for detailed usage.
 
+## Graph Contracts Dev
+
+Override at `graph-contracts/graph-contracts-dev.yaml` mounts a local contracts repo for WIP development without rebuilding the Docker image.
+
+**Setup:**
+
+```bash
+# The local repo must have pnpm install and pnpm build already run
+export CONTRACTS_SOURCE_ROOT=/git/graphprotocol/contracts/post-audit
+
+docker compose -f docker-compose.yaml \
+  -f overrides/graph-contracts/graph-contracts-dev.yaml \
+  up -d graph-contracts
+```
+
+The local repo is mounted over `/opt/contracts`, so changes to deployment scripts take effect on the next container run without rebuilding the image.
+
 ## Eligibility Oracle
 
 Override at `eligibility-oracle/` adds the REO node service that determines indexer rewards eligibility based on query-serving performance.
 
 **Prerequisites:**
 
+- REO base image built locally from the REO repo:
+  ```bash
+  cd /path/to/eligibility-oracle-node
+  docker build -t eligibility-oracle-node .
+  ```
 - REO contract deployed (address in `config/local/issuance.json`)
-- Source code symlinked at `eligibility-oracle-node/source/`
 
 **What it does:**
 
@@ -146,6 +167,29 @@ To start with the eligibility oracle:
 
 ```bash
 docker compose -f docker-compose.yaml -f overrides/eligibility-oracle/docker-compose.yaml up -d
+```
+
+### Dev mode (local binary)
+
+A dev override mounts a locally-built binary, skipping image rebuild during iteration:
+
+```bash
+# Build locally first
+cd /git/local/eligibility-oracle-node/eligibility-oracle-node
+cargo build --release -p eligibility-oracle
+
+export REO_BINARY=$PWD/target/release/eligibility-oracle
+
+docker compose -f docker-compose.yaml \
+  -f overrides/eligibility-oracle/docker-compose.yaml \
+  -f overrides/eligibility-oracle/eligibility-oracle-dev.yaml \
+  up -d eligibility-oracle-node
+```
+
+After rebuilding the binary locally, restart the container to pick up the new version:
+
+```bash
+docker compose restart eligibility-oracle-node
 ```
 
 See [docs/eligibility-oracle/](../docs/eligibility-oracle/) for goal, status, and gap analysis.
