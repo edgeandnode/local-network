@@ -24,6 +24,17 @@ This directory contains detailed documentation for the local-network project.
 - [Goal.md](./eligibility-oracle/Goal.md) - Objective and scope
 - [Status.md](./eligibility-oracle/Status.md) - Implementation progress and log
 
+## Test Plan Automation
+
+**[Start Here: testing/reo/Goal.md](./testing/reo/Goal.md)**
+
+- [Goal.md](./testing/reo/Goal.md) - Layered automation approach and workflow sequence
+- [Status.md](./testing/reo/Status.md) - Progress, bugs found, and gaps
+
+**Scripts:**
+- `scripts/test-baseline-queries.sh` - Validate BaselineTestPlan GraphQL queries
+- `scripts/test-indexer-guide-queries.sh` - Validate IndexerTestGuide queries and cast commands
+
 ## Usage
 
 **To enable Indexing Payments:**
