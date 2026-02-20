@@ -188,6 +188,9 @@ echo "==== Phase 3 complete ===="
 # ============================================================
 # Phase 4: Rewards Eligibility Oracle (REO)
 # ============================================================
+if [ "${REO_ENABLED:-0}" != "1" ]; then
+  echo "==== Phase 4: Rewards Eligibility Oracle (SKIPPED — REO_ENABLED not set) ===="
+else
 echo "==== Phase 4: Rewards Eligibility Oracle ===="
 
 # Ensure NetworkOperator in issuance address book (required by configure step)
@@ -259,6 +262,34 @@ else
     "${reo_address}" "setEligibilityValidation(bool)" true
 fi
 
+# Set eligibility period (how long an indexer stays eligible after renewal).
+# Contract default is 14 days; local network uses a short value for fast iteration.
+# Requires OPERATOR_ROLE (ACCOUNT0).
+current_period=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+  "${reo_address}" "getEligibilityPeriod()(uint256)" 2>/dev/null | awk '{print $1}')
+if [ "$current_period" = "${REO_ELIGIBILITY_PERIOD}" ]; then
+  echo "  Eligibility period already set to ${REO_ELIGIBILITY_PERIOD}s"
+else
+  echo "  Setting eligibility period to ${REO_ELIGIBILITY_PERIOD}s (was ${current_period}s)"
+  cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
+    --private-key="${ACCOUNT0_SECRET}" \
+    "${reo_address}" "setEligibilityPeriod(uint256)" "${REO_ELIGIBILITY_PERIOD}"
+fi
+
+# Set oracle update timeout (fail-safe: all indexers eligible if no oracle update for this long).
+# Contract default is 7 days; local network uses a longer value to avoid accidental fail-safe.
+# Requires OPERATOR_ROLE (ACCOUNT0).
+current_timeout=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+  "${reo_address}" "getOracleUpdateTimeout()(uint256)" 2>/dev/null | awk '{print $1}')
+if [ "$current_timeout" = "${REO_ORACLE_UPDATE_TIMEOUT}" ]; then
+  echo "  Oracle update timeout already set to ${REO_ORACLE_UPDATE_TIMEOUT}s"
+else
+  echo "  Setting oracle update timeout to ${REO_ORACLE_UPDATE_TIMEOUT}s (was ${current_timeout}s)"
+  cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
+    --private-key="${ACCOUNT0_SECRET}" \
+    "${reo_address}" "setOracleUpdateTimeout(uint256)" "${REO_ORACLE_UPDATE_TIMEOUT}"
+fi
+
 # Clean deployment metadata from address books.
 # The deployment package writes fields like implementationDeployment and
 # proxyDeployment that the indexer-agent doesn't recognise, causing it to
@@ -271,6 +302,7 @@ for ab in horizon.json subgraph-service.json; do
 done
 
 echo "==== Phase 4 complete ===="
+fi  # REO_ENABLED
 echo "==== All contract deployments complete ===="
 
 # Optional: keep container running for debugging
