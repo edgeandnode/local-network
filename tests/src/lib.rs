@@ -30,6 +30,12 @@ pub struct TestNetwork {
     pub subgraph_id: String,
     pub indexer_address: String,
     pub account0_secret: String,
+    /// The governor's private key (ACCOUNT1_SECRET). Needed for RewardsManager
+    /// governance operations (setReclaimAddress, setMinimumSubgraphSignal, etc.).
+    pub account1_secret: String,
+    /// The subgraph availability oracle's private key. Needed for setDenied()
+    /// on the RewardsManager. Derived from the deployment mnemonic (index 4).
+    pub oracle_secret: String,
     /// The indexer's private key (RECEIVER_SECRET). Needed for calling
     /// `collect()` on the SubgraphService (requires `onlyAuthorizedForProvision`).
     pub receiver_secret: String,
@@ -113,6 +119,15 @@ impl TestNetwork {
             .get("ACCOUNT0_SECRET")
             .cloned()
             .context("ACCOUNT0_SECRET not set in .env")?;
+        let account1_secret = vars
+            .get("ACCOUNT1_SECRET")
+            .cloned()
+            .context("ACCOUNT1_SECRET not set in .env")?;
+        // The subgraph availability oracle is mnemonic index 4 of the deployment
+        // mnemonic (myth like bonus scare...). Its key is deterministic.
+        let oracle_secret = vars.get("ORACLE_SECRET").cloned().unwrap_or_else(|| {
+            "0xadd53f9a7e588d003326d1cbf9e4a43c061aadd9bc938c843a79e7b4fd2ad743".into()
+        });
         let receiver_secret = vars
             .get("RECEIVER_SECRET")
             .cloned()
@@ -135,6 +150,8 @@ impl TestNetwork {
             subgraph_id,
             indexer_address,
             account0_secret,
+            account1_secret,
+            oracle_secret,
             receiver_secret,
             chain_id,
             contracts,

@@ -1,34 +1,39 @@
 # Test Plan Automation - Status
 
-> Last updated: 2026-02-22
+> Last updated: 2026-02-23
 
-## Current Phase: Layers 0-3 complete
+## Current Phase: Layers 0-3 complete + RewardsConditions & SubgraphDenial
 
 ### Summary
 
-All test layers are implemented and passing. 12 Rust integration tests cover network state observation, allocation lifecycle, reward collection, eligibility lifecycle, and query fee flow. Infrastructure changes enable the reward pipeline (curation signal + issuance config) and speed up epoch advancement (1s EBO polling).
+All test layers are implemented and passing. 43 Rust integration tests cover network state observation, allocation lifecycle, reward collection, eligibility lifecycle, query fee flow, rewards conditions (reclaim system, signal thresholds, POI paths), and subgraph denial (state management, accumulator freeze, recovery, edge cases). Infrastructure changes enable the reward pipeline (curation signal + issuance config) and speed up epoch advancement (1s EBO polling).
 
 ## Layer Progress
 
-| Layer | Status | Implementation |
-|-------|--------|----------------|
-| 0 - Query Validation | Done | `test-baseline-queries.sh`, `test-indexer-guide-queries.sh` |
-| 1 - State Observation | Done | `test-baseline-state.sh` + Rust `network_state.rs` (6 tests) |
-| 2 - Operational Lifecycle | Done | Rust `allocation_lifecycle.rs` (2 tests) |
-| 3 - Timing-Dependent Flows | Done | Rust `eligibility.rs` (1 test), `reward_collection.rs` (1 test), `query_fees.rs` (2 tests) |
+| Layer                      | Status | Implementation                                                                             |
+| -------------------------- | ------ | ------------------------------------------------------------------------------------------ |
+| 0 - Query Validation       | Done   | `test-baseline-queries.sh`, `test-indexer-guide-queries.sh`                                |
+| 1 - State Observation      | Done   | `test-baseline-state.sh` + Rust `network_state.rs` (6 tests)                               |
+| 2 - Operational Lifecycle  | Done   | Rust `allocation_lifecycle.rs` (2 tests)                                                   |
+| 3 - Timing-Dependent Flows | Done   | Rust `eligibility.rs` (1 test), `reward_collection.rs` (1 test), `query_fees.rs` (2 tests) |
 
-### Rust Test Suite (12 tests)
+### Rust Test Suite (43 tests)
 
 ```
 tests/tests/
-  network_state.rs        6 tests   ~1s    read-only state checks
-  allocation_lifecycle.rs 2 tests   ~38s   create/close/query lifecycle
-  eligibility.rs          1 test    ~100s  eligible/ineligible/re-eligible cycle
-  reward_collection.rs    1 test    ~54s   collect(IndexingRewards) → stake increase
-  query_fees.rs           2 tests   ~1s    gateway receipts + escrow observability
+  network_state.rs         7 tests   ~1s    read-only state checks
+  stake_management.rs      2 tests   ~2s    stake add/remove
+  provision_management.rs  1 test    ~20s   provision add/thaw/deprovision
+  allocation_lifecycle.rs  3 tests   ~38s   create/close/query lifecycle
+  eligibility.rs           1 test    ~100s  eligible/ineligible/re-eligible cycle
+  reward_collection.rs     1 test    ~54s   collect(IndexingRewards) → stake increase
+  query_fees.rs            2 tests   ~1s    gateway receipts + escrow observability
+  reo_governance.rs       15 tests   ~30s   REO coordinator/governance operations
+  rewards_conditions.rs    6 tests   ~TBD   reclaim system, signal, POI paths, observability
+  subgraph_denial.rs       5 tests   ~TBD   denial state, accumulator freeze, recovery
 ```
 
-Run with: `cd tests && cargo test -- --nocapture`
+Run with: `cd tests && cargo nextest run --no-capture`
 
 ## Completed
 
@@ -51,33 +56,34 @@ Run with: `cd tests && cargo test -- --nocapture`
 
 ### BaselineTestPlan.md (3 bugs)
 
-| Bug | Tests affected | Fix |
-|-----|---------------|-----|
-| `unallocatedStake` field doesn't exist on Indexer | 2.1, 2.2, 3.2, 3.4, 6.1 | Changed to `availableStake` |
-| `type: "ProvisionThaw"` invalid enum value | 3.3 | Changed to `type: Provision` (enum, not string) |
-| `indexingRewardAmount` doesn't exist on Indexer | 6.1 | Changed to `rewardsEarned` |
+| Bug                                               | Tests affected          | Fix                                             |
+| ------------------------------------------------- | ----------------------- | ----------------------------------------------- |
+| `unallocatedStake` field doesn't exist on Indexer | 2.1, 2.2, 3.2, 3.4, 6.1 | Changed to `availableStake`                     |
+| `type: "ProvisionThaw"` invalid enum value        | 3.3                     | Changed to `type: Provision` (enum, not string) |
+| `indexingRewardAmount` doesn't exist on Indexer   | 6.1                     | Changed to `rewardsEarned`                      |
 
 ### IndexerTestGuide.md (1 bug)
 
-| Bug | Test affected | Fix |
-|-----|--------------|-----|
-| `subgraphDeployment { id { id } }` invalid nested scalar selection | 1.1 | Changed to `subgraphDeployment { ipfsHash }` |
+| Bug                                                                | Test affected | Fix                                          |
+| ------------------------------------------------------------------ | ------------- | -------------------------------------------- |
+| `subgraphDeployment { id { id } }` invalid nested scalar selection | 1.1           | Changed to `subgraphDeployment { ipfsHash }` |
 
 ### Infrastructure bugs found during test development
 
-| Bug | Impact | Fix |
-|-----|--------|-----|
-| No curation signal on any deployment | `accRewardsPerSignal = 0` — all rewards are zero regardless of issuance | Added `L2Curation.mint()` in `start-indexing/run.sh` |
-| `issuancePerBlock` not configured | Default issuance too low for meaningful testing | Added `setIssuancePerBlock(100e18)` in `graph-contracts/run.sh` |
-| `closeAllocation` returns 0 rewards when indexer ineligible | `RewardsDeniedDueToEligibility` event fires instead of `HorizonRewardsAssigned` | Tests renew eligibility before reward-dependent operations |
-| `PaymentsEscrow.getBalance()` needs 3 args | Signature is `(payer, collector, receiver)` not `(payer, receiver)` | Fixed in `query_fees.rs` |
-| EBO polling at 20s causes slow tests | Epoch sync takes ~2min per test with epoch advancement | Reduced `polling_interval_in_seconds` to 1 |
+| Bug                                                         | Impact                                                                          | Fix                                                             |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| No curation signal on any deployment                        | `accRewardsPerSignal = 0` — all rewards are zero regardless of issuance         | Added `L2Curation.mint()` in `start-indexing/run.sh`            |
+| `issuancePerBlock` not configured                           | Default issuance too low for meaningful testing                                 | Added `setIssuancePerBlock(100e18)` in `graph-contracts/run.sh` |
+| `closeAllocation` returns 0 rewards when indexer ineligible | `RewardsDeniedDueToEligibility` event fires instead of `HorizonRewardsAssigned` | Tests renew eligibility before reward-dependent operations      |
+| `PaymentsEscrow.getBalance()` needs 3 args                  | Signature is `(payer, collector, receiver)` not `(payer, receiver)`             | Fixed in `query_fees.rs`                                        |
+| EBO polling at 20s causes slow tests                        | Epoch sync takes ~2min per test with epoch advancement                          | Reduced `polling_interval_in_seconds` to 1                      |
 
 ## Key Technical Findings
 
 ### Reward Pipeline Requirements
 
 For indexing rewards to flow, ALL of these must be true:
+
 1. `issuancePerBlock > 0` on RewardsManager (requires Governor = ACCOUNT1_SECRET)
 2. Curation signal exists on the deployment (`signalledTokens > 0` via `L2Curation.mint()`)
 3. Allocation spans multiple epochs
@@ -98,6 +104,7 @@ Mining ~100 blocks for epoch advancement adds ~1200s of chain time (12s per bloc
 ### TAP Query Fee Pipeline
 
 The TAP stack works end-to-end for receipt generation (20/20 gateway queries succeed). However:
+
 - TAP escrow deposits are not observed (escrow balance = 0)
 - TAP subgraph shows 0 escrow accounts
 - This is expected — the TAP escrow manager processes asynchronously and may need longer running time
@@ -173,3 +180,27 @@ Tests assume an already-running network. Full validation from `docker compose do
 - Found and fixed eligibility expiry during mining (300s period, ~1200s chain time in 2 epoch advances)
 - Fixed `PaymentsEscrow.getBalance()` signature: 3 args (payer, collector, receiver)
 - All 12 tests passing
+
+### 2026-02-23 — RewardsConditions and SubgraphDenial automation
+
+- Added `account1_secret` (Governor key) to `TestNetwork` for governance operations
+- Added ~15 new `cast.rs` wrappers: reclaim config, signal threshold, denial state, accumulator reads, GRT balance, event filtering, governor operations
+- Added `graphql.rs` helpers: `query_deployment_id()`, `query_deployments_with_signal()`
+- Created `rewards_conditions.rs` (6 tests):
+  - `reclaim_configuration`: per-condition + default reclaim addresses, fallback routing, baseline balances (Cycle 1)
+  - `reclaim_unauthorized_reverts`: access control (Cycle 1.4)
+  - `below_minimum_signal_lifecycle`: threshold raise → freeze → reclaim → restore → resume (Cycle 2)
+  - `zero_allocated_tokens_lifecycle`: close all allocs → reclaim → new alloc baseline preserved (Cycle 3)
+  - `poi_normal_claim`: healthy close with event check (Cycle 4.1)
+  - `poi_allocation_too_young`: same-epoch close returns 0 (Cycle 4.4)
+  - `observability_accumulator_growth`: view function growth verification (Cycle 6.3)
+- Created `subgraph_denial.rs` (5 tests):
+  - `denial_state_management`: deny, idempotent, unauthorized revert (Cycle 2)
+  - `accumulator_freeze_and_reclaim`: freeze verification + reclaim (Cycle 3)
+  - `denial_lifecycle`: full deny → verify → undeny → resume → close → rewards (Cycles 2+5)
+  - `edge_rapid_deny_undeny`: rapid toggle (Cycle 6.3)
+  - `edge_denial_vs_eligibility`: denial precedence over eligibility (Cycle 6.4)
+- Updated `tests/README.md` with complete test mapping for all 5 test plans
+- Updated reo-testing docs: removed DRAFT WIP, added local automation status
+- Added indexer awareness section to IndexerTestGuide (denial, POI staleness, signal)
+- 43 tests total (compile-checked, not yet run against live network)

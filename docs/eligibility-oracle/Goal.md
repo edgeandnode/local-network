@@ -58,7 +58,7 @@ The REO determines which **indexers** are eligible for rewards based on their qu
 
 | Component                         | Location                                                               | Branch     |
 | --------------------------------- | ---------------------------------------------------------------------- | ---------- |
-| REO contract + deployment scripts | `/git/graphprotocol/contracts`                                         | `post-audit` |
+| REO contract + deployment scripts | `/git/graphprotocol/contracts`                                         | `main` |
 | REO contract source               | `packages/issuance/contracts/eligibility/RewardsEligibilityOracle.sol` |            |
 | REO deployment scripts            | `packages/deployment/deploy/rewards/eligibility/`                      |            |
 | REO node (Rust service)           | `/git/local/eligibility-oracle-node/eligibility-oracle-node`           |            |
@@ -67,7 +67,7 @@ The REO determines which **indexers** are eligible for rewards based on their qu
 
 ### 1. Contract Deployment & Integration
 
-- Update `CONTRACTS_COMMIT` in `.env` to point to `post-audit` branch
+- Update `CONTRACTS_COMMIT` in `.env` to point to `main` branch
 - Add local network (chain 1337) support to `packages/deployment` (see [Status.md](./Status.md#gaps-to-fix))
 - Add REO contract deployment as a new phase in `graph-contracts/run.sh`
 - Configure roles: grant ORACLE_ROLE to the REO node's signing key
@@ -111,5 +111,5 @@ For local testing, sensible overrides to the REO node defaults:
 ## Related Documentation
 
 - [Local Network README](../../README.md)
-- [REO Contract Spec](file:///git/graphprotocol/contracts/post-audit/packages/issuance/contracts/eligibility/RewardsEligibilityOracle.md)
-- [REO Deployment Guide](file:///git/graphprotocol/contracts/post-audit/packages/deployment/docs/deploy/RewardsEligibilityOracleDeployment.md)
+- [REO Contract Spec](file:///git/graphprotocol/contracts/main/packages/issuance/contracts/eligibility/RewardsEligibilityOracle.md)
+- [REO Deployment Guide](file:///git/graphprotocol/contracts/main/packages/deployment/docs/deploy/RewardsEligibilityOracleDeployment.md)

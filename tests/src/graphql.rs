@@ -152,6 +152,39 @@ impl TestNetwork {
         }
     }
 
+    /// Query the bytes32 deployment ID for a given IPFS hash.
+    /// The subgraph stores the deployment ID as a hex string (e.g., "0xab12...").
+    pub async fn query_deployment_id(&self, ipfs_hash: &str) -> Result<String> {
+        let query = format!(
+            r#"{{ subgraphDeployments(where: {{ ipfsHash: "{ipfs_hash}" }}) {{
+                id ipfsHash signalledTokens stakedTokens
+            }} }}"#
+        );
+        let resp = self.subgraph_query(&query).await?;
+        let deployments = resp["data"]["subgraphDeployments"]
+            .as_array()
+            .context("expected deployment array")?;
+        let first = deployments
+            .first()
+            .context(format!("no deployment found for IPFS hash {ipfs_hash}"))?;
+        first["id"]
+            .as_str()
+            .map(String::from)
+            .context("deployment missing id")
+    }
+
+    /// Query subgraph deployments with signal info, ordered by signal amount.
+    pub async fn query_deployments_with_signal(&self) -> Result<Value> {
+        let query = r#"{ subgraphDeployments(
+            orderBy: signalledTokens, orderDirection: desc,
+            where: { signalledTokens_gt: "0" }
+        ) {
+            id ipfsHash signalledTokens stakedTokens
+        } }"#;
+        let resp = self.subgraph_query(query).await?;
+        Ok(resp["data"]["subgraphDeployments"].clone())
+    }
+
     /// Low-level GraphQL POST. Returns the parsed JSON response.
     async fn graphql_post(
         &self,

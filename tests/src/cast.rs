@@ -388,6 +388,241 @@ impl TestNetwork {
             .context("parsing pending rewards")
     }
 
+    // --- Governor Operations ---
+    // On local network, ACCOUNT1_SECRET is the Governor key.
+
+    /// State-changing transaction via `cast send`, signed by the governor (account1).
+    /// Needed for RewardsManager governance (setReclaimAddress, setMinimumSubgraphSignal, etc.).
+    pub fn cast_send_as_governor(&self, to: &str, sig: &str, args: &[&str]) -> Result<String> {
+        self.cast_send_as(&self.account1_secret, to, sig, args)
+    }
+
+    // --- Rewards Conditions Operations (RewardsConditionsTestPlan) ---
+
+    /// Set a per-condition reclaim address. Requires Governor.
+    /// RewardsConditionsTestPlan 1.1.
+    pub fn rewards_set_reclaim_address(&self, condition_hash: &str, address: &str) -> Result<()> {
+        self.cast_send_as_governor(
+            &self.contracts.rewards_manager,
+            "setReclaimAddress(bytes32,address)",
+            &[condition_hash, address],
+        )?;
+        Ok(())
+    }
+
+    /// Get the reclaim address for a condition.
+    /// RewardsConditionsTestPlan 1.1.
+    pub fn rewards_get_reclaim_address(&self, condition_hash: &str) -> Result<String> {
+        let output = self.cast_call(
+            &self.contracts.rewards_manager,
+            "getReclaimAddress(bytes32)(address)",
+            &[condition_hash],
+        )?;
+        Ok(output.trim().to_string())
+    }
+
+    /// Set the default reclaim address. Requires Governor.
+    /// RewardsConditionsTestPlan 1.2.
+    pub fn rewards_set_default_reclaim_address(&self, address: &str) -> Result<()> {
+        self.cast_send_as_governor(
+            &self.contracts.rewards_manager,
+            "setDefaultReclaimAddress(address)",
+            &[address],
+        )?;
+        Ok(())
+    }
+
+    /// Get the default reclaim address.
+    /// RewardsConditionsTestPlan 1.2.
+    pub fn rewards_get_default_reclaim_address(&self) -> Result<String> {
+        let output = self.cast_call(
+            &self.contracts.rewards_manager,
+            "getDefaultReclaimAddress()(address)",
+            &[],
+        )?;
+        Ok(output.trim().to_string())
+    }
+
+    /// Get the minimum subgraph signal threshold.
+    /// RewardsConditionsTestPlan 2.1.
+    pub fn rewards_minimum_signal(&self) -> Result<u128> {
+        let output = self.cast_call(
+            &self.contracts.rewards_manager,
+            "minimumSubgraphSignal()(uint256)",
+            &[],
+        )?;
+        cast_parse_uint(&output)
+            .parse()
+            .context("parsing minimumSubgraphSignal")
+    }
+
+    /// Set the minimum subgraph signal threshold. Requires Governor.
+    /// RewardsConditionsTestPlan 2.2.
+    pub fn rewards_set_minimum_signal(&self, threshold: &str) -> Result<()> {
+        self.cast_send_as_governor(
+            &self.contracts.rewards_manager,
+            "setMinimumSubgraphSignal(uint256)",
+            &[threshold],
+        )?;
+        Ok(())
+    }
+
+    /// Get accumulated rewards for a subgraph deployment.
+    /// RewardsConditionsTestPlan 2.3, SubgraphDenialTestPlan 3.1.
+    pub fn rewards_acc_for_subgraph(&self, deployment_id: &str) -> Result<u128> {
+        let output = self.cast_call(
+            &self.contracts.rewards_manager,
+            "getAccRewardsForSubgraph(bytes32)(uint256)",
+            &[deployment_id],
+        )?;
+        cast_parse_uint(&output)
+            .parse()
+            .context("parsing accRewardsForSubgraph")
+    }
+
+    /// Get accumulated rewards per allocated token for a subgraph.
+    /// Returns just the first value (accumulated amount).
+    /// RewardsConditionsTestPlan 3.3, SubgraphDenialTestPlan 3.1.
+    pub fn rewards_acc_per_allocated_token(&self, deployment_id: &str) -> Result<u128> {
+        let output = self.cast_call(
+            &self.contracts.rewards_manager,
+            "getAccRewardsPerAllocatedToken(bytes32)(uint256,uint256)",
+            &[deployment_id],
+        )?;
+        // Returns two values on separate lines; take the first
+        let first_line = output.lines().next().unwrap_or(&output);
+        cast_parse_uint(first_line)
+            .parse()
+            .context("parsing accRewardsPerAllocatedToken")
+    }
+
+    /// Trigger accumulator update for a subgraph's signal.
+    /// RewardsConditionsTestPlan 2.2-2.4, SubgraphDenialTestPlan 3.3.
+    pub fn rewards_on_subgraph_signal_update(&self, deployment_id: &str) -> Result<()> {
+        self.cast_send(
+            &self.contracts.rewards_manager,
+            "onSubgraphSignalUpdate(bytes32)",
+            &[deployment_id],
+        )?;
+        Ok(())
+    }
+
+    /// Trigger accumulator update for a subgraph's allocation.
+    /// RewardsConditionsTestPlan 3.2.
+    pub fn rewards_on_subgraph_allocation_update(&self, deployment_id: &str) -> Result<()> {
+        self.cast_send(
+            &self.contracts.rewards_manager,
+            "onSubgraphAllocationUpdate(bytes32)",
+            &[deployment_id],
+        )?;
+        Ok(())
+    }
+
+    // --- Subgraph Denial Operations (SubgraphDenialTestPlan) ---
+
+    /// Ensure the oracle account has ETH for gas. The subgraph availability
+    /// oracle (deployment mnemonic index 4) may not be funded on fresh chains.
+    fn ensure_oracle_funded(&self) -> Result<()> {
+        let oracle_addr = "0xd03ea8624C8C5987235048901fB614fDcA89b117";
+        let output = run_command(
+            Command::new("cast")
+                .arg("balance")
+                .arg(oracle_addr)
+                .arg(format!("--rpc-url={}", self.rpc_url)),
+        )?;
+        let balance: u128 = cast_parse_uint(&output).parse().unwrap_or(0);
+        if balance == 0 {
+            // Fund oracle with 1 ETH from account0 (plain ETH transfer)
+            run_command(
+                Command::new("cast")
+                    .arg("send")
+                    .arg(format!("--rpc-url={}", self.rpc_url))
+                    .arg("--confirmations=0")
+                    .arg(format!("--private-key={}", self.account0_secret))
+                    .arg("--value=1ether")
+                    .arg(oracle_addr),
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Set denied status for a subgraph deployment.
+    /// Requires the subgraph availability oracle role (deployment mnemonic index 4).
+    /// SubgraphDenialTestPlan 2.2.
+    pub fn rewards_set_denied(&self, deployment_id: &str, denied: bool) -> Result<()> {
+        self.ensure_oracle_funded()?;
+        self.cast_send_as(
+            &self.oracle_secret,
+            &self.contracts.rewards_manager,
+            "setDenied(bytes32,bool)",
+            &[deployment_id, if denied { "true" } else { "false" }],
+        )?;
+        Ok(())
+    }
+
+    /// Check if a subgraph deployment is denied.
+    /// SubgraphDenialTestPlan 2.1.
+    pub fn rewards_is_denied(&self, deployment_id: &str) -> Result<bool> {
+        let output = self.cast_call(
+            &self.contracts.rewards_manager,
+            "isDenied(bytes32)(bool)",
+            &[deployment_id],
+        )?;
+        Ok(output.trim() == "true")
+    }
+
+    /// Get the maxPOIStaleness value from SubgraphService.
+    /// RewardsConditionsTestPlan 4.2.
+    pub fn max_poi_staleness(&self) -> Result<u64> {
+        let output = self.cast_call(
+            &self.contracts.subgraph_service,
+            "maxPOIStaleness()(uint256)",
+            &[],
+        )?;
+        cast_parse_uint(&output)
+            .parse()
+            .context("parsing maxPOIStaleness")
+    }
+
+    // --- GRT Token Operations ---
+
+    /// Get GRT balance of an address.
+    /// RewardsConditionsTestPlan 1.5, SubgraphDenialTestPlan 1.2.
+    pub fn grt_balance_of(&self, address: &str) -> Result<u128> {
+        let output = self.cast_call(
+            &self.contracts.grt_token,
+            "balanceOf(address)(uint256)",
+            &[address],
+        )?;
+        cast_parse_uint(&output)
+            .parse()
+            .context("parsing GRT balance")
+    }
+
+    // --- Event Filtering ---
+
+    /// Query event logs filtered by topic0 (event signature).
+    pub fn cast_logs_with_topic(
+        &self,
+        address: &str,
+        from_block: u64,
+        to_block: u64,
+        topic0: &str,
+    ) -> Result<Vec<serde_json::Value>> {
+        let mut cmd = std::process::Command::new("cast");
+        cmd.arg("logs")
+            .arg("--json")
+            .arg(format!("--from-block={from_block}"))
+            .arg(format!("--to-block={to_block}"))
+            .arg(format!("--address={address}"))
+            .arg(format!("--rpc-url={}", self.rpc_url))
+            .arg(topic0);
+        let output = run_command(&mut cmd)?;
+        let logs: Vec<serde_json::Value> =
+            serde_json::from_str(&output).context("parsing filtered cast logs JSON")?;
+        Ok(logs)
+    }
+
     // --- Utility helpers ---
 
     /// Get the latest block number (sync, via cast).

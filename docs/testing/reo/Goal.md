@@ -8,10 +8,13 @@ The test plans live in [graphprotocol/contracts](https://github.com/graphprotoco
 
 ## Source Test Plans
 
-| Document | Scope | Tests |
-|----------|-------|-------|
-| [BaselineTestPlan.md](https://github.com/graphprotocol/contracts/blob/reo-testing/packages/issuance/docs/testing/reo/BaselineTestPlan.md) | Standard indexer operations (stake, provision, allocate, query, rewards) | 7 cycles, 22 tests |
-| [IndexerTestGuide.md](https://github.com/graphprotocol/contracts/blob/reo-testing/packages/issuance/docs/testing/reo/IndexerTestGuide.md) | REO eligibility flows (renew, expire, deny, recover) | 5 sets, 8 tests |
+| Document                                                                                                                                                    | Scope                                                                    | Tests              | Automated         |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------ | ----------------- |
+| [BaselineTestPlan.md](https://github.com/graphprotocol/contracts/blob/main/packages/issuance/docs/testing/reo/BaselineTestPlan.md)                   | Standard indexer operations (stake, provision, allocate, query, rewards) | 7 cycles, 22 tests | Yes               |
+| [IndexerTestGuide.md](https://github.com/graphprotocol/contracts/blob/main/packages/issuance/docs/testing/reo/IndexerTestGuide.md)                   | REO eligibility flows (renew, expire, deny, recover)                     | 5 sets, 8 tests    | Yes               |
+| [ReoTestPlan.md](https://github.com/graphprotocol/contracts/blob/main/packages/issuance/docs/testing/reo/ReoTestPlan.md)                             | REO coordinator/governance operations                                    | 8 cycles, 31 tests | Yes               |
+| [RewardsConditionsTestPlan.md](https://github.com/graphprotocol/contracts/blob/main/packages/issuance/docs/testing/reo/RewardsConditionsTestPlan.md) | Reclaim system, signal conditions, POI paths, observability              | 7 cycles, 26 tests | Cycles 1-4, 6     |
+| [SubgraphDenialTestPlan.md](https://github.com/graphprotocol/contracts/blob/main/packages/issuance/docs/testing/reo/SubgraphDenialTestPlan.md)       | Subgraph denial: accumulator freeze, deferral, recovery                  | 6 cycles, 18 tests | Cycles 2, 3, 5, 6 |
 
 ## Automation Layers
 
@@ -33,6 +36,7 @@ Layer 3: Timing-Dependent      ← scripts manage epoch advancement and eligibil
 **Speed**: Seconds. No state changes. Safe to run anytime.
 
 **Scripts**:
+
 - `scripts/test-baseline-queries.sh` — all 14 BaselineTestPlan queries
 - `scripts/test-indexer-guide-queries.sh` — IndexerTestGuide queries + cast commands
 
@@ -63,6 +67,7 @@ Layer 3: Timing-Dependent      ← scripts manage epoch advancement and eligibil
 **Why**: These are the hardest tests to run manually — an indexer on testnet waits hours for epochs to advance. On local network we can cycle in seconds.
 
 **Covers**:
+
 - IndexerTestGuide Sets 2-4 (eligible → expire → ineligible → re-renew → full rewards)
 - BaselineTestPlan 2.2 (unstake thawing), 3.3-3.4 (provision thawing)
 
@@ -72,13 +77,13 @@ Layer 3: Timing-Dependent      ← scripts manage epoch advancement and eligibil
 
 The local network can do things testnet can't:
 
-| Capability | Testnet | Local |
-|-----------|---------|-------|
-| Advance epoch | Wait ~110 min | `./scripts/advance-epoch.sh` (seconds) |
-| Control eligibility period | Fixed by coordinator | `REO_ELIGIBILITY_PERIOD` in `.env` |
-| Advance chain time | Wait | `evm_increaseTime` RPC |
-| Reset state | Can't | `docker compose down -v && up` |
-| Full log access | Partial | All containers, all levels |
+| Capability                 | Testnet              | Local                                  |
+| -------------------------- | -------------------- | -------------------------------------- |
+| Advance epoch              | Wait ~110 min        | `./scripts/advance-epoch.sh` (seconds) |
+| Control eligibility period | Fixed by coordinator | `REO_ELIGIBILITY_PERIOD` in `.env`     |
+| Advance chain time         | Wait                 | `evm_increaseTime` RPC                 |
+| Reset state                | Can't                | `docker compose down -v && up`         |
+| Full log access            | Partial              | All containers, all levels             |
 
 ## Workflow Sequence
 
