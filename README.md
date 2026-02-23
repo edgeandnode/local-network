@@ -10,7 +10,7 @@ Epochs are set up to be 554 blocks long, use `scripts/mine-block.sh` to advance 
 
 ## Usage
 
-Requires Docker & Docker Compose. Install foundry on the host for mining blocks.
+Requires Docker & Docker Compose v2.24+. Install foundry on the host for mining blocks.
 
 ```bash
 # Start (or resume) the network — skips already-completed setup steps
@@ -25,11 +25,22 @@ restarts where it left off. Use `down -v` only when you want a clean slate.
 
 Add `--build` to rebuild after changes to Docker build context, including modifying `run.sh` or `Dockerfile`, or changed source code.
 
+## Local Overrides
+
+Create `.env.local` (gitignored) to override defaults without touching `.env`:
+
+```bash
+# .env.local — your local settings
+COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer,indexing-payments
+GRAPH_NODE_VERSION=v0.38.0-rc1
+```
+
+Host scripts source `.env.local` automatically after `.env`.
+
 ## Useful commands
 
 - `docker compose up -d --build ${service}` — rebuild a single service after code changes
 - `docker compose logs -f ${service}`
-- `scripts/clean.sh` — interactive cleanup (volumes + generated config)
 - `source .env`
 
 ## Components
@@ -188,62 +199,66 @@ docker exec -it redpanda rpk topic consume gateway_client_query_results --broker
   }
   ```
 
-## Optional: Indexing Payments
+## Service Profiles
 
-To enable payments for indexing work (alternative to TAP allocations):
+Optional services are controlled via `COMPOSE_PROFILES` in `.env`.
+By default, profiles that work out of the box are enabled:
 
 ```bash
-# Start with indexing payments
-docker compose -f docker-compose.yaml -f overrides/indexing-payments/docker-compose.yaml up
-
-# Or use helper script
-./overrides/indexing-payments/start.sh
+COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer
 ```
 
-See [overrides/indexing-payments/README.md](overrides/indexing-payments/README.md) for details.
+Available profiles:
 
-## Building components from source
+| Profile               | Services                          | Prerequisites              |
+| --------------------- | --------------------------------- | -------------------------- |
+| `block-oracle`        | block-oracle                      | none                       |
+| `explorer`            | block-explorer UI                 | none                       |
+| `rewards-eligibility` | eligibility-oracle-node           | none (clones from GitHub)  |
+| `indexing-payments`   | dipper, iisa, iisa-scoring        | GHCR auth (below)          |
 
-### docker compose overrides
+To enable all profiles, uncomment the full line in `.env`:
 
-The following components allow building from source by overriding `docker-compose.yml`:
-
-- graph-node
-- graph-contracts (contracts)
-- indexer-agent
-
-Please refer to `overrides/README.md` for instructions.
-
-### git submodules source
-
-The following components allow building from source by cloning them with submodules:
-
-- indexer-service
-- tap-agent
-
-Building from source requires the Git submodules to be initialized first:
-
-- `git submodule update --init --recursive`
-
-And then select the `wrapper-dev` target when building the Docker image in the `docker-compose.yaml` file.
-
-```diff
-  indexer-service:
-    container_name: indexer-service
-    build: {
--     target: "wrapper", # Set to "wrapper-dev" for building from source
-+     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
-      context: indexer-service,
-    }
-
-  tap-agent:
-    container_name: tap-agent
-    build: {
--     target: "wrapper", # Set to "wrapper-dev" for building from source
-+     target: "wrapper-dev", # Set to "wrapper-dev" for building from source
-      context: tap-agent,
-    }
+```bash
+COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer,indexing-payments
 ```
+
+### GHCR authentication (indexing-payments)
+
+The `indexing-payments` profile pulls private images from `ghcr.io/edgeandnode`.
+Create a GitHub **classic** Personal Access Token with `read:packages` scope
+(https://github.com/settings/tokens — fine-grained tokens do not support packages) and log in once:
+
+```bash
+echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_USERNAME --password-stdin
+```
+
+Then set the image versions in `.env` or `.env.local`:
+
+```bash
+DIPPER_VERSION=<tag>
+IISA_VERSION=<tag>
+```
+
+## Building Components from Source
+
+### Dev overrides (compose/dev/)
+
+For local development, mount locally-built binaries into running containers.
+Set `COMPOSE_FILE` in `.env` to include dev override files:
+
+```bash
+# Mount local indexer-service binary
+INDEXER_SERVICE_BINARY=/path/to/indexer-rs/target/release/indexer-service-rs
+COMPOSE_FILE=docker-compose.yaml:compose/dev/indexer-service.yaml
+
+# Multiple overrides
+COMPOSE_FILE=docker-compose.yaml:compose/dev/indexer-service.yaml:compose/dev/tap-agent.yaml
+```
+
+Each override requires a binary path env var. Source repos own their own build;
+local-network just wraps the published image with `run.sh` and utilities.
+See [compose/dev/README.md](compose/dev/README.md) for details.
 
 ## Common issues
 

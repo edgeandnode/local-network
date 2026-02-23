@@ -1,7 +1,7 @@
 services:
   chain:
     container_name: chain
-    build: { context: chain }
+    build: { context: containers/core/chain }
     ports: ["${CHAIN_RPC_PORT}:8545"]
     volumes:
       - chain-data:/data
@@ -13,7 +13,8 @@ services:
 
   block-explorer:
     container_name: block-explorer
-    build: { context: block-explorer, args: { RPC_URL: http://localhost:8545 } }
+    profiles: [explorer]
+    build: { context: containers/ui/block-explorer, args: { RPC_URL: http://localhost:8545 } }
     depends_on:
       chain: { condition: service_healthy }
     ports: ["${BLOCK_EXPLORER_PORT}:3000"]
@@ -36,7 +37,7 @@ services:
     command: postgres -c 'max_connections=1000' -c 'shared_preload_libraries=pg_stat_statements'
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./postgres/setup.sql:/docker-entrypoint-initdb.d/setup.sql:ro
+      - ./containers/core/postgres/setup.sql:/docker-entrypoint-initdb.d/setup.sql:ro
     environment:
       POSTGRES_INITDB_ARGS: "--encoding UTF8 --locale=C"
       POSTGRES_HOST_AUTH_METHOD: trust
@@ -47,7 +48,7 @@ services:
   graph-node:
     container_name: graph-node
     build:
-      context: "graph-node"
+      context: containers/indexer/graph-node
       args:
         GRAPH_NODE_VERSION: ${GRAPH_NODE_VERSION}
     depends_on:
@@ -61,9 +62,9 @@ services:
       - ${GRAPH_NODE_STATUS_PORT}:8030
       - ${GRAPH_NODE_METRICS_PORT}:8040
     volumes:
-      - ./config/shared:/opt/shared:ro
+      - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     healthcheck:
       { interval: 1s, retries: 20, test: curl -f http://127.0.0.1:8030 }
     restart: on-failure:3
@@ -71,32 +72,33 @@ services:
   graph-contracts:
     container_name: graph-contracts
     build:
-      context: graph-contracts
+      context: containers/core/graph-contracts
       args:
         CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
         TAP_CONTRACTS_COMMIT: ${TAP_CONTRACTS_COMMIT}
     depends_on:
       chain: { condition: service_healthy }
     volumes:
-      - ./config/shared:/opt/shared:ro
+      - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config
+      - config-local:/opt/config
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
   block-oracle:
     container_name: block-oracle
+    profiles: [block-oracle, indexing-payments]
     build:
-      context: block-oracle
+      context: containers/oracles/block-oracle
       args:
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
-      - ./config/shared:/opt/shared:ro
+      - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_BACKTRACE: full
     healthcheck:
@@ -110,7 +112,7 @@ services:
   indexer-agent:
     container_name: indexer-agent
     build:
-      context: indexer-agent
+      context: containers/indexer/indexer-agent
       args:
         INDEXER_AGENT_VERSION: ${INDEXER_AGENT_VERSION}
     platform: linux/amd64
@@ -119,9 +121,9 @@ services:
     ports: ["${INDEXER_MANAGEMENT_PORT}:7600"]
     stop_signal: SIGKILL
     volumes:
-      - ./config/shared:/opt/shared:ro
+      - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     healthcheck:
       { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
     restart: on-failure:3
@@ -129,7 +131,7 @@ services:
   subgraph-deploy:
     container_name: subgraph-deploy
     build:
-      context: subgraph-deploy
+      context: containers/core/subgraph-deploy
       args:
         NETWORK_SUBGRAPH_COMMIT: ${NETWORK_SUBGRAPH_COMMIT}
         TAP_SUBGRAPH_COMMIT: ${TAP_SUBGRAPH_COMMIT}
@@ -138,20 +140,20 @@ services:
       graph-contracts: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
     volumes:
-      - ./config/shared:/opt/shared:ro
+      - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
 
   start-indexing:
     container_name: start-indexing
-    build: { context: start-indexing }
+    build: { context: containers/indexer/start-indexing }
     depends_on:
       subgraph-deploy: { condition: service_completed_successfully }
       indexer-agent: { condition: service_healthy }
     volumes:
-      - ./config/shared:/opt/shared:ro
+      - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
 
   redpanda:
     container_name: redpanda
@@ -185,7 +187,7 @@ services:
   tap-aggregator:
     container_name: tap-aggregator
     build:
-      context: tap-aggregator
+      context: containers/query-payments/tap-aggregator
       args:
         TAP_AGGREGATOR_VERSION: ${TAP_AGGREGATOR_VERSION}
     depends_on:
@@ -193,9 +195,9 @@ services:
     ports: ["${TAP_AGGREGATOR_PORT}:7610"]
     stop_signal: SIGKILL
     volumes:
-      - ./config/shared:/opt/shared:ro
+      - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_LOG: info,tap_aggregator=trace
       RUST_BACKTRACE: 1
@@ -204,7 +206,7 @@ services:
   tap-escrow-manager:
     container_name: tap-escrow-manager
     build:
-      context: tap-escrow-manager
+      context: containers/query-payments/tap-escrow-manager
       args:
         TAP_ESCROW_MANAGER_COMMIT: ${TAP_ESCROW_MANAGER_COMMIT}
     depends_on:
@@ -212,9 +214,9 @@ services:
       redpanda: { condition: service_healthy }
     stop_signal: SIGKILL
     volumes:
-      - ./config/shared:/opt/shared:ro
+      - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_LOG: info,tap_escrow_manager=trace
       RUST_BACKTRACE: 1
@@ -223,7 +225,7 @@ services:
   gateway:
     container_name: gateway
     build:
-      context: gateway
+      context: containers/core/gateway
       args:
         GATEWAY_COMMIT: ${GATEWAY_COMMIT}
     depends_on:
@@ -232,9 +234,9 @@ services:
     ports: ["${GATEWAY_PORT}:7700"]
     stop_signal: SIGKILL
     volumes:
-      - ./config/shared:/opt/shared:ro
+      - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_LOG: info,graph_gateway=trace
       RUST_BACKTRACE: 1
@@ -245,8 +247,7 @@ services:
   indexer-service:
     container_name: indexer-service
     build:
-      target: "wrapper" # Set to "wrapper-dev" for building from source
-      context: indexer-service
+      context: containers/indexer/indexer-service
       args:
         INDEXER_SERVICE_RS_VERSION: ${INDEXER_SERVICE_RS_VERSION}
     depends_on:
@@ -256,9 +257,9 @@ services:
       - "${INDEXER_SERVICE_PORT}:7601"
     stop_signal: SIGKILL
     volumes:
-      - ./config/shared:/opt/shared:ro
+      - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_LOG: info,indexer_service_rs=trace
       RUST_BACKTRACE: 1
@@ -269,9 +270,7 @@ services:
   tap-agent:
     container_name: tap-agent
     build:
-      target: "wrapper" # Set to "wrapper-dev" for building from source
-      context: indexer-service
-      dockerfile: Dockerfile.tap-agent
+      context: containers/query-payments/tap-agent
       args:
         INDEXER_TAP_AGENT_VERSION: ${INDEXER_TAP_AGENT_VERSION}
     depends_on:
@@ -279,13 +278,111 @@ services:
       subgraph-deploy: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
-      - ./config/shared:/opt/shared:ro
+      - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
-      - ./config/local:/opt/config:ro
+      - config-local:/opt/config:ro
     environment:
       RUST_LOG: info,indexer_tap_agent=trace
       RUST_BACKTRACE: 1
     restart: on-failure:3
+
+  # --- Profiled components (activated via COMPOSE_PROFILES in .env) ---
+
+  eligibility-oracle-node:
+    container_name: eligibility-oracle-node
+    profiles: [rewards-eligibility]
+    build:
+      context: containers/oracles/eligibility-oracle-node
+      args:
+        ELIGIBILITY_ORACLE_COMMIT: ${ELIGIBILITY_ORACLE_COMMIT}
+    depends_on:
+      redpanda: { condition: service_healthy }
+      gateway: { condition: service_healthy }
+    volumes:
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    environment:
+      RUST_LOG: eligibility_oracle=debug
+      BLOCKCHAIN_PRIVATE_KEY: ${ACCOUNT0_SECRET}
+    restart: unless-stopped
+
+  iisa-scoring:
+    container_name: iisa-scoring
+    profiles: [indexing-payments]
+    build:
+      context: containers/indexing-payments/iisa
+      dockerfile: Dockerfile.scoring
+    depends_on:
+      redpanda: { condition: service_healthy }
+    environment:
+      REDPANDA_BOOTSTRAP_SERVERS: "redpanda:${REDPANDA_KAFKA_PORT}"
+      REDPANDA_TOPIC: gateway_queries
+      SCORES_FILE_PATH: /app/scores/indexer_scores.json
+      IISA_SCORING_INTERVAL: "600"
+    volumes:
+      - iisa-scores:/app/scores
+    healthcheck:
+      test: ["CMD", "test", "-f", "/app/scores/indexer_scores.json"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  iisa:
+    container_name: iisa
+    profiles: [indexing-payments]
+    image: ghcr.io/edgeandnode/subgraph-dips-indexer-selection:${IISA_VERSION}
+    pull_policy: if_not_present
+    depends_on:
+      iisa-scoring: { condition: service_healthy }
+    ports: ["8080:8080"]
+    environment:
+      IISA_HOST: "0.0.0.0"
+      IISA_PORT: "8080"
+      IISA_LOG_LEVEL: INFO
+      SCORES_FILE_PATH: /app/scores/indexer_scores.json
+    volumes:
+      - iisa-scores:/app/scores
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  dipper:
+    container_name: dipper
+    profiles: [indexing-payments]
+    build:
+      context: containers/indexing-payments/dipper
+      args:
+        DIPPER_VERSION: ${DIPPER_VERSION}
+    depends_on:
+      block-oracle: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      gateway: { condition: service_healthy }
+      iisa: { condition: service_healthy }
+    ports:
+      - "${DIPPER_ADMIN_RPC_PORT}:${DIPPER_ADMIN_RPC_PORT}"
+      - "${DIPPER_INDEXER_RPC_PORT}:${DIPPER_INDEXER_RPC_PORT}"
+    volumes:
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    environment:
+      RUST_BACKTRACE: full
+      RUST_LOG: debug
+    healthcheck:
+      interval: 5s
+      retries: 10
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"health\",\"id\":1}' http://localhost:9000/ | grep -q jsonrpc",
+        ]
+    restart: unless-stopped
+
+  # --- Readiness check ---
 
   ready:
     container_name: ready
@@ -300,3 +397,5 @@ volumes:
   postgres-data:
   ipfs-data:
   redpanda-data:
+  iisa-scores:
+  config-local:

@@ -1,0 +1,26 @@
+[
+  {
+    "indexer": "0xf4ef6650e48d099a4972ea5b414dab86e1998bd3",
+    "url": "http://indexer-service:7601",
+    "lat_lin_reg_coefficient": 0.002,
+    "lat_coefficient_std_error": 0.001,
+    "lat_coefficient_upper_bound": 0.004,
+    "lat_normalized_score": 0.85,
+    "uptime_score": 0.98,
+    "observed_duration_seconds": 86400,
+    "uptime_duration_seconds": 84672,
+    "success_rate": 0.95,
+    "stake_to_fees": 500.0,
+    "stake_to_fees_iqr_deviation": 0.3,
+    "norm_uptime_score": 0.9,
+    "norm_success_rate": 0.88,
+    "norm_stake_to_fees": 0.7,
+    "org": "local-network",
+    "dst_lat": 37.7749,
+    "dst_lon": -122.4194,
+    "existing_dips_agreements": 0,
+    "avg_sync_duration": 5.0,
+    "computed_at": "2026-02-20T00:00:00+00:00",
+    "query_count": 1000
+  }
+]

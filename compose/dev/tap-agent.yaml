@@ -1,0 +1,16 @@
+# TAP Agent Dev Override
+# Mounts a locally-built binary for WIP development (skip image rebuild).
+#
+# Set TAP_AGENT_BINARY to the path of the locally-built binary, e.g.:
+#   TAP_AGENT_BINARY=/path/to/indexer-rs/target/release/indexer-tap-agent
+#
+# Build the binary locally first:
+#   cargo build --release --bin indexer-tap-agent
+#
+# Activate via COMPOSE_FILE in .env:
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/tap-agent.yaml
+
+services:
+  tap-agent:
+    volumes:
+      - ${TAP_AGENT_BINARY:?Set TAP_AGENT_BINARY to locally-built indexer-tap-agent binary}:/usr/local/bin/indexer-tap-agent:ro

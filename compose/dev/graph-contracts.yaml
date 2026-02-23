@@ -1,0 +1,20 @@
+# Graph Contracts Dev Override
+# Mounts local contracts repo for WIP development (skip image rebuild).
+#
+# Set CONTRACTS_SOURCE_ROOT to the local contracts repo path, e.g.:
+#   CONTRACTS_SOURCE_ROOT=/git/graphprotocol/contracts/post-audit
+# The repo must have pnpm install and pnpm build already run.
+#
+# Set GRAPH_CONTRACTS_SOURCE_ROOT to the local graph-network-subgraph repo, e.g.:
+#   GRAPH_CONTRACTS_SOURCE_ROOT=/git/graphprotocol/graph-network-subgraph
+#
+# Activate via COMPOSE_FILE in .env:
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/graph-contracts.yaml
+
+services:
+  graph-contracts:
+    volumes:
+      - ${CONTRACTS_SOURCE_ROOT:?Set CONTRACTS_SOURCE_ROOT to local contracts repo}:/opt/contracts
+  subgraph-deploy:
+    volumes:
+      - ${GRAPH_CONTRACTS_SOURCE_ROOT:?Set GRAPH_CONTRACTS_SOURCE_ROOT to local graph-network-subgraph repo}:/opt/graph-network-subgraph

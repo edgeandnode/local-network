@@ -1,0 +1,16 @@
+# Indexer Service Dev Override
+# Mounts a locally-built binary for WIP development (skip image rebuild).
+#
+# Set INDEXER_SERVICE_BINARY to the path of the locally-built binary, e.g.:
+#   INDEXER_SERVICE_BINARY=/path/to/indexer-rs/target/release/indexer-service-rs
+#
+# Build the binary locally first:
+#   cargo build --release --bin indexer-service-rs
+#
+# Activate via COMPOSE_FILE in .env:
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/indexer-service.yaml
+
+services:
+  indexer-service:
+    volumes:
+      - ${INDEXER_SERVICE_BINARY:?Set INDEXER_SERVICE_BINARY to locally-built indexer-service-rs binary}:/usr/local/bin/indexer-service-rs:ro

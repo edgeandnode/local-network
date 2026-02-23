@@ -1,0 +1,17 @@
+# Eligibility Oracle Dev Override
+# Mounts a locally-built binary for WIP development (skip image rebuild).
+#
+# Set REO_BINARY to the path of the locally-built binary, e.g.:
+#   REO_BINARY=/git/local/eligibility-oracle-node/eligibility-oracle-node/target/release/eligibility-oracle
+#
+# Build the binary locally first:
+#   cargo build --release -p eligibility-oracle
+#
+# Activate via COMPOSE_FILE in .env (requires rewards-eligibility profile):
+#   COMPOSE_PROFILES=rewards-eligibility
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/eligibility-oracle.yaml
+
+services:
+  eligibility-oracle-node:
+    volumes:
+      - ${REO_BINARY:?Set REO_BINARY to locally-built eligibility-oracle binary}:/usr/local/bin/eligibility-oracle:ro

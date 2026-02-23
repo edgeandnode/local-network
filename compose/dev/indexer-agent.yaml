@@ -1,0 +1,19 @@
+# Indexer Agent Dev Override
+# Mounts local indexer-agent source for hot-reload development.
+#
+# Set INDEXER_AGENT_SOURCE_ROOT to the local repo path, e.g.:
+#   INDEXER_AGENT_SOURCE_ROOT=$HOME/Development/en/indexer
+#
+# Activate via COMPOSE_FILE in .env:
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/indexer-agent.yaml
+
+services:
+  indexer-agent:
+    entrypoint: bash -cl /opt/run-override.sh
+    ports:
+      - "${INDEXER_MANAGEMENT}:7600"
+      # Nodejs debugger
+      - 9230:9230
+    volumes:
+      - ./containers/indexer/indexer-agent/dev/run-override.sh:/opt/run-override.sh:ro
+      - ${INDEXER_AGENT_SOURCE_ROOT}:/opt/indexer-agent-source-root
