@@ -2,6 +2,8 @@
 
 This folder contains all documentation for the Indexing Payments Safe-based payment system implementation.
 
+This approach is obsolete.
+
 ## Overview
 
 The Indexing Payments Safe payment system replaces TAP (Timeline Aggregation Protocol) for indexing fee payments, using on-chain GRT transfers via Safe Module pattern with asynchronous processing.
@@ -9,9 +11,11 @@ The Indexing Payments Safe payment system replaces TAP (Timeline Aggregation Pro
 ## Documentation Structure
 
 ### Architecture
+
 - [`Architecture.md`](./Architecture.md) - System architecture, design principles, and component interactions
 
 ### Implementation Plans
+
 - [`IndexerAgentPlan.md`](./IndexerAgentPlan.md) - Changes needed for the Indexer Agent to handle Receipt IDs and polling
 - [`DipperServicePlan.md`](./DipperServicePlan.md) - Core payment processing implementation in the Dipper service
 - [`IndexerServicePlan.md`](./IndexerServicePlan.md) - Minimal protocol buffer updates for the Indexer Service
@@ -19,19 +23,25 @@ The Indexing Payments Safe payment system replaces TAP (Timeline Aggregation Pro
 ## Quick Links
 
 ### For Indexer Agent Development
-Start with the [Indexer Agent Plan](./indexer-agent-plan.md) which covers:
+
+Start with the [Indexer Agent Plan](./IndexerAgentPlan.md) which covers:
+
 - Receipt ID tracking
 - Status polling mechanism
 - Database schema updates
 
 ### For Dipper Development
-See the [Dipper Plan](./dipper-plan.md) for:
+
+See the [Dipper Plan](./DipperServicePlan.md) for:
+
 - Safe Module client implementation
 - Worker-based payment processing
 - Receipt status management
 
 ### For Understanding the System
-Read the [Architecture Document](./architecture.md) to understand:
+
+Read the [Architecture Document](./Architecture.md) to understand:
+
 - Payment flow and state machine
 - Security considerations
 - API specifications

@@ -6,7 +6,7 @@ This guide explains how to run tests for the indexer-agent when developing from 
 
 - Docker installed and running
 - Node.js 20 or 22 installed
-- Indexer-agent source initialized: `git submodule update --init --recursive indexer-agent/source`
+- Indexer-agent source available (set `INDEXER_AGENT_SOURCE_ROOT` to a local clone of graphprotocol/indexer)
 
 ## Quick Start
 
@@ -21,7 +21,8 @@ From the local-network root directory:
 ./scripts/test-indexer-agent.sh test         # More verbose output
 ```
 
-**⚠️ Important**: 
+**⚠️ Important**:
+
 - Tests can take 10-15 minutes or more to complete, especially on first run when dependencies are being installed. The test suite runs tests for multiple packages (indexer-common, indexer-agent, indexer-cli) sequentially.
 - **The test script may exit with a non-zero status code even when it runs successfully** - this just means some tests failed. Always check the output or log file to see the actual test results and failure details.
 
@@ -38,6 +39,7 @@ The test script automatically:
 ## Test Environment
 
 The script sets up the following test database:
+
 - Host: `localhost`
 - Port: `5433`
 - Database: `indexer_tests`
@@ -65,7 +67,7 @@ Since the monorepo contains multiple packages, you can run tests for specific pa
 
 ```bash
 # Run tests only for indexer-agent package
-cd indexer-agent/source/packages/indexer-agent
+cd $INDEXER_AGENT_SOURCE_ROOT/packages/indexer-agent
 export POSTGRES_TEST_HOST=localhost
 export POSTGRES_TEST_PORT=5433
 export POSTGRES_TEST_DATABASE=indexer_tests
@@ -79,13 +81,15 @@ yarn test
 ## Important Learnings
 
 ### Directory Navigation
+
 - **Always check your current directory** before running commands with `pwd`
-- The test script changes directories to `indexer-agent/source` during execution
+- The test script changes directories to `$INDEXER_AGENT_SOURCE_ROOT` during execution
 - Test output files are created in the directory where you run the script
-- After debugging, you might be in `indexer-agent/source` instead of the local-network root
+- After debugging, you might be in `$INDEXER_AGENT_SOURCE_ROOT` instead of the local-network root
 - Use absolute paths when in doubt: `/home/pablo/repos/local-network/scripts/test-indexer-agent.sh`
 
 ### Understanding Test Output
+
 - The test script exits with non-zero status if any tests fail - this is normal
 - Always check the actual test output to understand what happened
 - Tests run for multiple packages sequentially:
@@ -95,33 +99,38 @@ yarn test
 - If indexer-common fails, the other packages won't run at all
 
 ### Making Code Changes
+
 - After modifying TypeScript files, you must compile before running tests:
   ```bash
-  cd indexer-agent/source
+  cd $INDEXER_AGENT_SOURCE_ROOT
   yarn compile
   ```
 - Test error line numbers may not match exactly due to transpilation
 - Debug console.log statements work and will appear in test output
 
 ### Environment Variables
+
 - `INDEXER_TEST_JRPC_PROVIDER_URL` - Ethereum RPC endpoint (defaults to public Arbitrum Sepolia)
 - `INDEXER_TEST_API_KEY` - API key for The Graph's subgraph endpoints (may be required)
 
 ## Troubleshooting
 
 ### Tests fail with connection errors
+
 - Ensure Docker is running
 - Check if port 5433 is available: `lsof -i :5433`
 - Try running with more verbose output: `./scripts/test-indexer-agent.sh test`
 
 ### Dependencies not found
+
 - The script should auto-install dependencies, but you can manually run:
   ```bash
-  cd indexer-agent/source
+  cd $INDEXER_AGENT_SOURCE_ROOT
   yarn install --frozen-lockfile
   ```
 
 ### PostgreSQL container issues
+
 - The script automatically cleans up containers, but you can manually remove:
   ```bash
   docker stop indexer-tests-postgres
@@ -129,6 +138,7 @@ yarn test
   ```
 
 ### Cleaning Test Output
+
 - Remove ANSI escape codes from test output for easier reading:
   ```bash
   cat test-output.log | sed 's/\x1b\[[0-9;]*m//g' > test-output-clean.log
@@ -137,6 +147,7 @@ yarn test
 ## CI Integration
 
 The tests run in CI using GitHub Actions with:
+
 - PostgreSQL service container
 - Matrix testing for Node.js 20 and 22
 - Environment secrets for integration tests (optional)
@@ -144,6 +155,7 @@ The tests run in CI using GitHub Actions with:
 ### Timeout Considerations
 
 When running tests in automation or CI:
+
 - Set appropriate timeouts (15-20 minutes minimum)
 - First runs take longer due to dependency installation
 - The test suite runs multiple packages sequentially (indexer-common → indexer-agent → indexer-cli)
@@ -171,7 +183,7 @@ export POSTGRES_TEST_PASSWORD=testpass
 export NODE_OPTIONS="--dns-result-order=ipv4first"
 
 # Run tests
-cd indexer-agent/source
+cd $INDEXER_AGENT_SOURCE_ROOT
 yarn test
 
 # Clean up
