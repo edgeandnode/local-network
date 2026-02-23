@@ -33,9 +33,10 @@ if [ ! -f "docker-compose.yaml" ]; then
     exit 1
 fi
 
-# Check if indexer-agent source is initialized
-if [ ! -d "indexer-agent/source/packages" ]; then
-    echo -e "${RED}Error: indexer-agent source not found. Run: git submodule update --init --recursive indexer-agent/source${NC}"
+# Check if indexer-agent source is available
+INDEXER_AGENT_SOURCE="${INDEXER_AGENT_SOURCE_ROOT:-}"
+if [ -z "$INDEXER_AGENT_SOURCE" ] || [ ! -d "${INDEXER_AGENT_SOURCE}/packages" ]; then
+    echo -e "${RED}Error: Set INDEXER_AGENT_SOURCE_ROOT to a local clone of graphprotocol/indexer.${NC}"
     exit 1
 fi
 
@@ -98,7 +99,7 @@ fi
 export INDEXER_TEST_API_KEY="${INDEXER_TEST_API_KEY:-}"
 
 # Navigate to indexer source
-cd indexer-agent/source
+cd "${INDEXER_AGENT_SOURCE}"
 
 # Install dependencies if needed
 if [ ! -d "node_modules" ]; then

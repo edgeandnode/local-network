@@ -17,5 +17,8 @@ Thumbs.db
 *.swo
 *~
 
-# Local config files
+# Rust build artifacts
+tests/target/
+
+# Legacy local config directory (now uses config-local Docker volume)
 config/local/

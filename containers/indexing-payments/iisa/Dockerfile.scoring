@@ -1,0 +1,11 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install confluent-kafka for Redpanda connectivity
+RUN pip install --no-cache-dir confluent-kafka
+
+COPY seed_scores.json ./
+COPY scoring.py ./
+
+CMD ["python", "scoring.py"]

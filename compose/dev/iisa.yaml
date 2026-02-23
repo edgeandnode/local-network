@@ -1,0 +1,13 @@
+# IISA Dev Override
+# Uses a locally-built image instead of pulling from GHCR.
+#
+# Build the image in the IISA repo first:
+#   cd /path/to/subgraph-dips-indexer-selection && docker compose build
+#
+# Then set IISA_VERSION=local in .env and activate via COMPOSE_FILE:
+#   COMPOSE_PROFILES=indexing-payments,block-oracle
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/iisa.yaml
+
+services:
+  iisa:
+    image: ghcr.io/edgeandnode/subgraph-dips-indexer-selection:local

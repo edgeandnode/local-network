@@ -1,0 +1,17 @@
+# Dipper Dev Override
+# Mounts a locally-built binary for WIP development (skip image rebuild).
+#
+# Set DIPPER_BINARY to the path of the locally-built binary, e.g.:
+#   DIPPER_BINARY=/path/to/dipper/target/release/dipper-service
+#
+# Build the binary locally first:
+#   cargo build --release --bin dipper-service
+#
+# Activate via COMPOSE_FILE in .env (requires indexing-payments profile):
+#   COMPOSE_PROFILES=indexing-payments,block-oracle
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/dipper.yaml
+
+services:
+  dipper:
+    volumes:
+      - ${DIPPER_BINARY:?Set DIPPER_BINARY to locally-built dipper-service binary}:/usr/local/bin/dipper-service:ro
