@@ -1,0 +1,10 @@
+# All tests share a single blockchain (hardhat chain) and must run serially.
+# Nextest runs each test as a separate process, so #[serial] (in-process
+# locking) doesn't work. Instead, use a test group with max-threads = 1.
+
+[test-groups.shared-chain]
+max-threads = 1
+
+[[profile.default.overrides]]
+filter = "all()"
+test-group = "shared-chain"
