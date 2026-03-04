@@ -1,0 +1,78 @@
+# DIPs Development Override
+#
+# Overrides indexer-service and indexer-agent for DIPs development:
+#   - indexer-service: built from local source with [dips] config section
+#   - indexer-agent: hot-reload from local source with DIPs env vars
+#
+# Prerequisites:
+#   - Sibling checkouts: ../indexer-rs, ../indexer, ../dipper
+#   - indexing-payments profile enabled (for dipper service)
+#
+# Activate via .env:
+#   COMPOSE_PROFILES=indexing-payments,block-oracle
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/dips.yaml
+#   INDEXER_SERVICE_SOURCE_ROOT=../indexer-rs
+#   INDEXER_AGENT_SOURCE_ROOT=../indexer
+#   DIPPER_SOURCE_ROOT=../dipper
+
+services:
+  indexer-service:
+    build:
+      target: "wrapper"
+      dockerfile_inline: |
+        FROM rust:1-slim-bookworm AS wrapper
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential curl git jq pkg-config \
+                protobuf-compiler libssl-dev libsasl2-dev \
+            && rm -rf /var/lib/apt/lists/*
+    entrypoint: ["bash", "/opt/run-dips.sh"]
+    volumes:
+      - ${INDEXER_SERVICE_SOURCE_ROOT:?Set INDEXER_SERVICE_SOURCE_ROOT to local indexer-rs checkout}:/opt/source
+      - ./containers/indexer/indexer-service/dev/run-dips.sh:/opt/run-dips.sh:ro
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    ports:
+      - "${INDEXER_SERVICE_PORT}:7601"
+      - "${INDEXER_SERVICE_DIPS_RPC_PORT}:7602"
+    environment:
+      RUST_LOG: info,indexer_service_rs=info,indexer_monitor=debug,indexer_dips=debug
+      RUST_BACKTRACE: 1
+      SQLX_OFFLINE: "true"
+    healthcheck:
+      interval: 10s
+      retries: 600
+      test: curl -f http://127.0.0.1:7601/
+
+  indexer-agent:
+    entrypoint: ["bash", "-cl", "/opt/run-dips.sh"]
+    ports:
+      - "${INDEXER_MANAGEMENT_PORT}:7600"
+      - 9230:9230
+    volumes:
+      - ./containers/indexer/indexer-agent/dev/run-dips.sh:/opt/run-dips.sh:ro
+      - ${INDEXER_AGENT_SOURCE_ROOT:?Set INDEXER_AGENT_SOURCE_ROOT to local indexer checkout}:/opt/indexer-agent-source-root
+
+  dipper:
+    profiles: []
+    build:
+      dockerfile_inline: |
+        FROM rust:1-slim-bookworm
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential ca-certificates clang cmake curl git jq lld \
+                pkg-config libssl-dev protobuf-compiler \
+            && rm -rf /var/lib/apt/lists/*
+        ENV CC=clang CXX=clang++ RUSTFLAGS="-C link-arg=-fuse-ld=lld"
+    entrypoint: ["bash", "/opt/run.sh"]
+    depends_on:
+      block-oracle: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      gateway: { condition: service_healthy }
+    volumes:
+      - ${DIPPER_SOURCE_ROOT:?Set DIPPER_SOURCE_ROOT to local dipper checkout}:/opt/source
+      - ./containers/indexing-payments/dipper/run.sh:/opt/run.sh:ro
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro

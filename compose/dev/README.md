@@ -31,5 +31,6 @@ Then `docker compose up -d` applies the overrides automatically.
 | `eligibility-oracle.yaml` | eligibility-oracle-node          | `REO_BINARY`                                           |
 | `dipper.yaml`             | dipper                           | `DIPPER_BINARY`                                        |
 | `iisa.yaml`               | iisa                             | `IISA_VERSION=local`                                   |
+| `dips.yaml`               | indexer-service, indexer-agent    | `INDEXER_SERVICE_SOURCE_ROOT`, `INDEXER_AGENT_SOURCE_ROOT` |
 
 See each file's header comments for details.

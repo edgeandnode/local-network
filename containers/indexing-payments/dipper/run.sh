@@ -79,4 +79,11 @@ echo "=== Generated config.json ===" >&2
 cat config.json >&2
 echo "===========================" >&2
 
-dipper-service ./config.json
+# Build from source if mounted, otherwise use pre-built binary
+if [ -d /opt/source ] && [ -f /opt/source/Cargo.toml ]; then
+  cd /opt/source
+  cargo build --bin dipper-service --release
+  exec ./target/release/dipper-service "$OLDPWD/config.json"
+else
+  exec dipper-service ./config.json
+fi
