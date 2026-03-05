@@ -3,7 +3,7 @@ ARG CONTRACTS_COMMIT
 ARG TAP_CONTRACTS_COMMIT
 
 RUN apt-get update \
-  && apt-get install -y curl git jq \
+  && apt-get install -y curl git jq python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 
 # Package managers via corepack (non-strict: repos mix pnpm/yarn packageManager fields)
