@@ -197,6 +197,10 @@ encode_signed_rca() {
   local nonce
   nonce=$(date +%s%N)  # nanosecond timestamp as nonce
 
+  # Export nonce so caller can compute agreementId
+  LAST_RCA_NONCE="$nonce"
+  LAST_RCA_DEADLINE="$deadline"
+
   # 1. ABI-encode metadata (same pattern as encode_rca)
   local terms
   terms=$(cast abi-encode "f((uint256,uint256))" "(50,10)")
@@ -378,6 +382,102 @@ ensure_signer_authorized() {
     "$ACCOUNT0_ADDRESS" "$deadline" "$proof" \
     --confirmations 1 > /dev/null 2>&1
   echo "  OK    Signer authorized on RecurringCollector"
+}
+
+# ── Collection helpers (PLAN_04 scenarios) ─────────────────────────
+
+# Advance hardhat time by N seconds and mine a block.
+# Args: $1 = seconds to advance
+advance_time() {
+  local seconds="$1"
+  curl -sf "$HARDHAT_RPC" \
+    -H "Content-Type: application/json" \
+    -d "{\"jsonrpc\":\"2.0\",\"method\":\"evm_increaseTime\",\"params\":[$seconds],\"id\":1}" \
+    > /dev/null
+  cast rpc --rpc-url="$HARDHAT_RPC" evm_mine > /dev/null
+}
+
+# Compute the agreement ID from RCA parameters.
+# Args: $1=payer, $2=dataService, $3=serviceProvider, $4=deadline, $5=nonce
+# Outputs: bytes16 agreement ID (0x-prefixed)
+get_agreement_id() {
+  local payer="$1"
+  local data_service="$2"
+  local service_provider="$3"
+  local deadline="$4"
+  local nonce="$5"
+
+  cast call --rpc-url "$HARDHAT_RPC" \
+    "$RECURRING_COLLECTOR_ADDRESS" \
+    "generateAgreementId(address,address,address,uint64,uint256)(bytes16)" \
+    "$payer" "$data_service" "$service_provider" "$deadline" "$nonce"
+}
+
+# Get the lastCollectionAt timestamp for an agreement.
+# Args: $1 = agreement ID (bytes16, 0x-prefixed)
+# Outputs: lastCollectionAt as decimal string
+get_last_collection_at() {
+  local agreement_id="$1"
+
+  # getAgreement returns a struct; lastCollectionAt is the 5th field
+  local result
+  result=$(cast call --rpc-url "$HARDHAT_RPC" \
+    "$RECURRING_COLLECTOR_ADDRESS" \
+    "getAgreement(bytes16)(address,address,address,uint64,uint64,uint64,uint256,uint256,uint32,uint32,uint32,uint64,uint8)" \
+    "$agreement_id")
+
+  # lastCollectionAt is the 5th value (0-indexed: field index 4)
+  echo "$result" | sed -n '5p'
+}
+
+# Get the state of an agreement.
+# Args: $1 = agreement ID (bytes16, 0x-prefixed)
+# Outputs: state as decimal (0=NotAccepted, 1=Accepted, 2=CanceledBySP, 3=CanceledByPayer)
+get_agreement_state() {
+  local agreement_id="$1"
+
+  local result
+  result=$(cast call --rpc-url "$HARDHAT_RPC" \
+    "$RECURRING_COLLECTOR_ADDRESS" \
+    "getAgreement(bytes16)(address,address,address,uint64,uint64,uint64,uint256,uint256,uint32,uint32,uint32,uint64,uint8)" \
+    "$agreement_id")
+
+  # state is the 13th value (last field)
+  echo "$result" | sed -n '13p'
+}
+
+# Cancel an agreement as the payer.
+# Args: $1 = agreement ID (bytes16, 0x-prefixed)
+cancel_agreement() {
+  local agreement_id="$1"
+
+  cast send --rpc-url "$HARDHAT_RPC" --private-key "$ACCOUNT0_SECRET" \
+    "$RECURRING_COLLECTOR_ADDRESS" \
+    "cancel(bytes16,uint8)" \
+    "$agreement_id" 1 \
+    --confirmations 1 > /dev/null 2>&1
+}
+
+# Poll until lastCollectionAt changes from an initial value.
+# Args: $1 = agreement ID, $2 = initial lastCollectionAt, $3 = timeout (optional)
+# Returns: 0 if changed, 1 if timeout
+poll_collection() {
+  local agreement_id="$1"
+  local initial_value="$2"
+  local timeout="${3:-300}"
+  local elapsed=0
+  local interval=10
+
+  while [ "$elapsed" -lt "$timeout" ]; do
+    local current
+    current=$(get_last_collection_at "$agreement_id")
+    if [ "$current" != "$initial_value" ] && [ -n "$current" ]; then
+      return 0
+    fi
+    sleep "$interval"
+    elapsed=$((elapsed + interval))
+  done
+  return 1
 }
 
 # ── Prerequisites ─────────────────────────────────────────────────────
@@ -645,17 +745,29 @@ scenario_6_agent_restart() {
   echo ""
 }
 
-scenario_8_onchain_accept() {
-  echo "=== Scenario 8: Valid on-chain accept — proposal accepted ==="
+scenario_8_onchain_accept_and_collect() {
+  echo "=== Scenario 8: Valid on-chain accept + collection ==="
 
-  # Use a unique deployment per run to avoid AllocationAlreadyHasIndexingAgreement.
-  # The agent creates a fresh allocation via multicall (startService + acceptIndexingAgreement).
-  local ts
-  ts=$(date +%s)
-  local deployment_bytes32
-  deployment_bytes32=$(printf "0x08%062x" "$ts")
+  # Use an existing indexed deployment so Graph Node can produce POI for collection.
   local deployment_ipfs
-  deployment_ipfs=$(bytes32_to_ipfs "$deployment_bytes32")
+  deployment_ipfs=$(gql "$AGENT_URL" \
+    "{ indexingRules(merged: false) { identifier identifierType decisionBasis } }" \
+    | jq -r '.data.indexingRules[] | select(.identifierType == "deployment" and .decisionBasis == "always") | .identifier' \
+    | head -1)
+
+  if [ -z "$deployment_ipfs" ] || [ "$deployment_ipfs" = "null" ]; then
+    echo "  SKIP  No existing deployment with 'always' rule found"
+    return
+  fi
+
+  # Verify an active allocation exists for this deployment
+  if ! check_allocation_exists "$deployment_ipfs"; then
+    echo "  SKIP  No active allocation for $deployment_ipfs"
+    return
+  fi
+
+  local deployment_bytes32
+  deployment_bytes32=$(ipfs_to_bytes32 "$deployment_ipfs")
 
   local uuid="00000008-0008-0008-0008-000000000008"
 
@@ -663,6 +775,8 @@ scenario_8_onchain_accept() {
   ensure_payer_escrow
   ensure_signer_authorized
 
+  local ts
+  ts=$(date +%s)
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
   local payload
@@ -673,11 +787,131 @@ scenario_8_onchain_accept() {
     return
   fi
 
-  insert_proposal "$uuid" "$payload"
-  echo "  Inserted signed proposal for $deployment_ipfs (new allocation via multicall), waiting..."
+  # Compute agreement ID from the params used in encode_signed_rca
+  local agreement_id
+  agreement_id=$(get_agreement_id \
+    "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
+    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
 
+  insert_proposal "$uuid" "$payload"
+  echo "  Inserted signed proposal for $deployment_ipfs (existing allocation), waiting for acceptance..."
+
+  # Phase 1: Acceptance
   check "8.1 Proposal accepted on-chain" \
-    "poll_proposal_status '$uuid' 'accepted' 120" || true
+    "poll_proposal_status '$uuid' 'accepted' 180" || {
+    echo "  Acceptance failed, skipping collection checks"
+    cleanup_proposal "$uuid" "$deployment_ipfs"
+    return
+  }
+
+  # Phase 2: Collection
+  echo "  Agreement accepted. Advancing time for collection..."
+
+  # Record initial lastCollectionAt (should equal acceptedAt)
+  local initial_last_collected
+  initial_last_collected=$(get_last_collection_at "$agreement_id")
+  echo "  Initial lastCollectionAt: $initial_last_collected"
+
+  # Advance time past minSecondsPerCollection (3600s in our terms)
+  advance_time 3700
+  echo "  Advanced time by 3700s. Waiting for agent collection loop..."
+
+  # Wait for the agent to collect
+  check "8.2 Payment collected (lastCollectionAt updated)" \
+    "poll_collection '$agreement_id' '$initial_last_collected' 300" || true
+
+  cleanup_proposal "$uuid" "$deployment_ipfs"
+  echo ""
+}
+
+scenario_10_collection_after_cancel() {
+  echo "=== Scenario 10: Collection after payer cancellation ==="
+
+  # Use an existing indexed deployment (same approach as scenario 8).
+  local deployment_ipfs
+  deployment_ipfs=$(gql "$AGENT_URL" \
+    "{ indexingRules(merged: false) { identifier identifierType decisionBasis } }" \
+    | jq -r '.data.indexingRules[] | select(.identifierType == "deployment" and .decisionBasis == "always") | .identifier' \
+    | head -1)
+
+  if [ -z "$deployment_ipfs" ] || [ "$deployment_ipfs" = "null" ]; then
+    echo "  SKIP  No existing deployment with 'always' rule found"
+    return
+  fi
+
+  if ! check_allocation_exists "$deployment_ipfs"; then
+    echo "  SKIP  No active allocation for $deployment_ipfs"
+    return
+  fi
+
+  local deployment_bytes32
+  deployment_bytes32=$(ipfs_to_bytes32 "$deployment_ipfs")
+
+  local uuid="00000010-0010-0010-0010-000000000010"
+
+  cleanup_proposal "$uuid" "$deployment_ipfs"
+  ensure_payer_escrow
+  ensure_signer_authorized
+
+  local ts
+  ts=$(date +%s)
+  local deadline=$(( ts + 7200 ))
+  local ends_at=$(( ts + 172800 ))
+  local payload
+  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at")
+
+  if [ -z "$payload" ] || [ "$payload" = "" ]; then
+    echo "  SKIP  Failed to encode signed RCA"
+    return
+  fi
+
+  local agreement_id
+  agreement_id=$(get_agreement_id \
+    "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
+    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+
+  insert_proposal "$uuid" "$payload"
+  echo "  Inserted signed proposal for $deployment_ipfs, waiting for acceptance..."
+
+  # Step 1: Wait for acceptance
+  check "10.1 Proposal accepted on-chain" \
+    "poll_proposal_status '$uuid' 'accepted' 180" || {
+    echo "  Acceptance failed, skipping cancellation/collection checks"
+    cleanup_proposal "$uuid" "$deployment_ipfs"
+    return
+  }
+
+  # Step 2: Advance time past minSecondsPerCollection
+  echo "  Agreement accepted. Advancing time before cancellation..."
+  advance_time 3700
+
+  # Step 3: Payer cancels the agreement
+  echo "  Canceling agreement as payer..."
+  cancel_agreement "$agreement_id"
+
+  # Verify cancellation happened
+  local state_after_cancel
+  state_after_cancel=$(get_agreement_state "$agreement_id")
+  check "10.2 Agreement state is CanceledByPayer (3)" \
+    "[ '$state_after_cancel' = '3' ]" || {
+    echo "  Cancellation check failed (state=$state_after_cancel)"
+    cleanup_proposal "$uuid" "$deployment_ipfs"
+    return
+  }
+
+  # Step 4: Record lastCollectionAt before final collection
+  local pre_collect_timestamp
+  pre_collect_timestamp=$(get_last_collection_at "$agreement_id")
+  echo "  Pre-collection lastCollectionAt: $pre_collect_timestamp"
+
+  # Step 5: Advance time again so collection window opens
+  advance_time 3700
+  echo "  Advanced time again. Waiting for agent to collect remaining fees..."
+
+  # Step 6: Wait for the agent to collect from the canceled agreement
+  # The agent queries state_in: [1, 3] so CanceledByPayer agreements are included.
+  check "10.3 Final payment collected after cancellation" \
+    "poll_collection '$agreement_id' '$pre_collect_timestamp' 300" || true
 
   cleanup_proposal "$uuid" "$deployment_ipfs"
   echo ""
@@ -687,7 +921,8 @@ scenario_8_onchain_accept() {
 
 run_rejection_batch
 scenario_6_agent_restart
-scenario_8_onchain_accept
+scenario_8_onchain_accept_and_collect
+scenario_10_collection_after_cancel
 
 # ── Summary ───────────────────────────────────────────────────────────
 
