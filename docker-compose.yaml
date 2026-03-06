@@ -62,7 +62,7 @@ services:
       - ${GRAPH_NODE_STATUS_PORT}:8030
       - ${GRAPH_NODE_METRICS_PORT}:8040
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     healthcheck:
@@ -79,7 +79,7 @@ services:
     depends_on:
       chain: { condition: service_healthy }
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config
     environment:
@@ -96,7 +96,7 @@ services:
       graph-contracts: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     environment:
@@ -121,7 +121,7 @@ services:
     ports: ["${INDEXER_MANAGEMENT_PORT}:7600"]
     stop_signal: SIGKILL
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     healthcheck:
@@ -140,7 +140,7 @@ services:
       graph-contracts: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
 
@@ -151,7 +151,7 @@ services:
       subgraph-deploy: { condition: service_completed_successfully }
       indexer-agent: { condition: service_healthy }
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
 
@@ -195,7 +195,7 @@ services:
     ports: ["${TAP_AGGREGATOR_PORT}:7610"]
     stop_signal: SIGKILL
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     environment:
@@ -214,7 +214,7 @@ services:
       redpanda: { condition: service_healthy }
     stop_signal: SIGKILL
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     environment:
@@ -234,7 +234,7 @@ services:
     ports: ["${GATEWAY_PORT}:7700"]
     stop_signal: SIGKILL
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     environment:
@@ -257,7 +257,7 @@ services:
       - "${INDEXER_SERVICE_PORT}:7601"
     stop_signal: SIGKILL
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     environment:
@@ -278,7 +278,7 @@ services:
       subgraph-deploy: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     environment:
@@ -299,7 +299,7 @@ services:
       redpanda: { condition: service_healthy }
       gateway: { condition: service_healthy }
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     environment:
@@ -366,7 +366,7 @@ services:
       - "${DIPPER_ADMIN_RPC_PORT}:${DIPPER_ADMIN_RPC_PORT}"
       - "${DIPPER_INDEXER_RPC_PORT}:${DIPPER_INDEXER_RPC_PORT}"
     volumes:
-      - ./containers/shared:/opt/shared:ro
+      - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     environment:

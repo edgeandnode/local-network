@@ -1,17 +1,26 @@
 #!/bin/sh
-# Shared shell utilities for local-network services
+# Shared shell utilities for local-network (container services and host scripts)
 
 require_jq() {
-  _val=$(jq -r "$1 // empty" "$2")
+  _val=$(jq -r "$1 // empty" ${2:+"$2"})
   if [ -z "$_val" ]; then
-    echo "Error: $1 not found in $2" >&2
+    echo "Error: $1 not found in ${2:-stdin}" >&2
     exit 1
   fi
   printf '%s' "$_val"
 }
 
+# contract_addr CONTRACT_NAME ADDRESS_BOOK
+# Gets a contract address from a config file
+# Supports both host and container execution contexts.
+# Example: contract_addr L2GraphToken.address horizon
 contract_addr() {
-  require_jq ".\"1337\".$1" "/opt/config/$2.json"
+  if [ -d "/opt/config" ]; then
+    require_jq ".\"1337\".$1" "/opt/config/$2.json"
+  else
+    docker exec graph-node cat "/opt/config/$2.json" \
+      | require_jq ".\"1337\".$1"
+  fi
 }
 
 # wait_for_gql URL QUERY JQ_FILTER [TIMEOUT]

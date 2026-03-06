@@ -1,11 +1,15 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+source "$REPO_ROOT/.env"
+[ -f "$REPO_ROOT/.env.local" ] && source "$REPO_ROOT/.env.local"
+source "$REPO_ROOT/shared/lib.sh"
 
 # Get number of epochs to advance (default to 1 if not provided)
 EPOCHS_TO_ADVANCE=${1:-1}
 
-# Get the EpochManager contract address from horizon.json
-EPOCH_MANAGER_ADDRESS=$(jq -r '."1337".EpochManager.address' horizon.json)
-
+EPOCH_MANAGER_ADDRESS=$(contract_addr EpochManager.address horizon)
 RPC_URL="http://${CHAIN_HOST:-localhost}:${CHAIN_RPC_PORT:-8545}"
 
 # Get current epoch
@@ -33,7 +37,7 @@ echo "Advancing by $EPOCHS_TO_ADVANCE epoch(s)"
 echo "Blocks to mine: $BLOCKS_TO_MINE"
 
 # Mine blocks until next epoch using mine-block.sh
-./scripts/mine-block.sh $BLOCKS_TO_MINE
+"$SCRIPT_DIR/mine-block.sh" $BLOCKS_TO_MINE
 
 # Verify we're in the next epoch
 NEW_EPOCH=$(cast call $EPOCH_MANAGER_ADDRESS "currentEpoch()(uint256)" --rpc-url "$RPC_URL")
