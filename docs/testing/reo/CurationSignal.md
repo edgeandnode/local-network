@@ -25,7 +25,7 @@ Small change (~20-30 lines) in `start-indexing/run.sh`. No new services, no new 
 | L2GraphToken | `horizon.json` | `.["1337"].L2GraphToken.address` |
 | L2GNS | `subgraph-service.json` | `.["1337"].L2GNS.address` |
 
-Addresses resolved via `contract_addr` helper in [containers/shared/lib.sh](../../../containers/shared/lib.sh).
+Addresses resolved via `contract_addr` helper in [shared/lib.sh](../../../shared/lib.sh).
 
 ### Insertion Point
 

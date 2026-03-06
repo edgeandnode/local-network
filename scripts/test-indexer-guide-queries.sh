@@ -18,6 +18,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # shellcheck source=../.env
 . "$REPO_ROOT/.env"
+# shellcheck source=../shared/lib.sh
+. "$REPO_ROOT/shared/lib.sh"
 
 # Ensure cast is on PATH
 export PATH="$HOME/.foundry/bin:$PATH"
@@ -82,8 +84,7 @@ echo "  Indexer:  $INDEXER"
 echo ""
 
 # -- Resolve REO contract address --
-REO_ADDRESS=$(docker exec graph-node cat /opt/config/issuance.json 2>/dev/null \
-  | jq -r '.["1337"].RewardsEligibilityOracle.address // empty' 2>/dev/null || true)
+REO_ADDRESS=$(contract_addr RewardsEligibilityOracle.address issuance 2>/dev/null) || true
 
 if [ -z "$REO_ADDRESS" ]; then
   echo "  WARNING: REO contract not found. Skipping cast tests."
@@ -95,8 +96,7 @@ else
 fi
 
 # -- Resolve RewardsManager address --
-REWARDS_MANAGER=$(docker exec graph-node cat /opt/config/horizon.json 2>/dev/null \
-  | jq -r '.["1337"].RewardsManager.address // empty' 2>/dev/null || true)
+REWARDS_MANAGER=$(contract_addr RewardsManager.address horizon 2>/dev/null) || true
 
 if [ -n "$REWARDS_MANAGER" ]; then
   echo "  RM:       $REWARDS_MANAGER"

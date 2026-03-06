@@ -23,6 +23,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # shellcheck source=../.env
 . "$REPO_ROOT/.env"
+# shellcheck source=../shared/lib.sh
+. "$REPO_ROOT/shared/lib.sh"
 
 SUBGRAPH_URL="http://${GRAPH_NODE_HOST:-localhost}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 AGENT_URL="http://${INDEXER_AGENT_HOST:-localhost}:${INDEXER_MANAGEMENT_PORT}"
@@ -225,8 +227,7 @@ echo ""
 # ============================================================
 # REO (if deployed)
 # ============================================================
-REO_ADDRESS=$(docker exec graph-node cat /opt/config/issuance.json 2>/dev/null \
-  | jq -r '.["1337"].RewardsEligibilityOracle.address // empty' 2>/dev/null || true)
+REO_ADDRESS=$(contract_addr RewardsEligibilityOracle.address issuance 2>/dev/null) || true
 
 if [ -n "$REO_ADDRESS" ]; then
   echo "--- REO Contract ---"
