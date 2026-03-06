@@ -23,6 +23,71 @@ contract_addr() {
   fi
 }
 
+# base58_to_hex INPUT
+# Decodes a base58 string to hex. Uses bc for big number arithmetic.
+# Example: base58_to_hex "QmXyz..." -> "1220abcd..."
+base58_to_hex() {
+  # Disable trace to avoid noisy output
+  { _xtrace_was_set=1; set +x; } 2>/dev/null || _xtrace_was_set=0
+
+  _input="$1"
+  _alphabet="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+  _decimal=0
+
+  # Convert base58 to decimal
+  _i=0
+  while [ "$_i" -lt "${#_input}" ]; do
+    _char=$(echo "$_input" | cut -c$((_i + 1)))
+    # Find index in alphabet
+    _idx=0
+    while [ "$_idx" -lt 58 ]; do
+      _achar=$(echo "$_alphabet" | cut -c$((_idx + 1)))
+      if [ "$_char" = "$_achar" ]; then
+        break
+      fi
+      _idx=$((_idx + 1))
+    done
+    _decimal=$(echo "$_decimal * 58 + $_idx" | bc)
+    _i=$((_i + 1))
+  done
+
+  # Convert decimal to hex
+  _hex=$(echo "obase=16; $_decimal" | bc | tr -d '\\\n')
+
+  # Pad to even length
+  if [ $((${#_hex} % 2)) -eq 1 ]; then
+    _hex="0$_hex"
+  fi
+
+  # Handle leading zeros (each leading '1' in base58 = 0x00 byte)
+  _leading=""
+  _j=0
+  while [ "$_j" -lt "${#_input}" ]; do
+    _char=$(echo "$_input" | cut -c$((_j + 1)))
+    if [ "$_char" != "1" ]; then
+      break
+    fi
+    _leading="${_leading}00"
+    _j=$((_j + 1))
+  done
+
+  _result=$(printf '%s%s' "$_leading" "$_hex" | tr '[:upper:]' '[:lower:]')
+
+  # Restore trace if it was set
+  [ "$_xtrace_was_set" = 1 ] && set -x 2>/dev/null
+  printf '%s' "$_result"
+}
+
+# ipfs_hash_to_hex IPFS_HASH
+# Converts an IPFS CIDv0 hash (Qm...) to the 32-byte hex hash.
+# Strips the multihash prefix (1220 for sha256).
+# Example: ipfs_hash_to_hex "QmXyz..." -> "abcd1234..."
+ipfs_hash_to_hex() {
+  _full=$(base58_to_hex "$1")
+  # Skip first 4 hex chars (2 bytes: 0x1220 multihash prefix)
+  printf '%s' "$_full" | cut -c5-
+}
+
 # wait_for_gql URL QUERY JQ_FILTER [TIMEOUT]
 # Polls a GraphQL endpoint until JQ_FILTER returns a non-empty value.
 # Prints the value on success, exits 1 on timeout.

@@ -22,3 +22,6 @@ tests/target/
 
 # Legacy local config directory (now uses config-local Docker volume)
 config/local/
+
+# js
+node_modules/
