@@ -24,7 +24,7 @@ RUN git clone https://github.com/graphprotocol/graph-network-subgraph && \
   cd graph-network-subgraph && git checkout ${NETWORK_SUBGRAPH_COMMIT} && \
   pnpm install && pnpm add -D ts-node
 
-# 2. TAP subgraph
+# 2. TAP subgraph (patched at deploy time for Horizon event names)
 RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph --recursive && \
   cd timeline-aggregation-protocol-subgraph && git checkout ${TAP_SUBGRAPH_COMMIT} && yarn
 

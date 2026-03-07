@@ -44,13 +44,52 @@ deploy_tap() {
     return
   fi
 
-  escrow=$(contract_addr Escrow tap-contracts)
+  # Horizon moved signer authorization from PaymentsEscrow to GraphTallyCollector
+  escrow=$(contract_addr GraphTallyCollector.address horizon)
 
   cd /opt/timeline-aggregation-protocol-subgraph
   sed -i "s/127.0.0.1:5001/ipfs:${IPFS_RPC_PORT}/g" package.json
   sed -i "s/127.0.0.1:8020/graph-node:${GRAPH_NODE_ADMIN_PORT}/g" package.json
   yq ".dataSources[].source.address=\"${escrow}\"" -i subgraph.yaml
   yq ".dataSources[].network |= \"hardhat\"" -i subgraph.yaml
+
+  # Horizon renamed events: AuthorizeSigner -> SignerAuthorized,
+  # RevokeAuthorizedSigner -> SignerRevoked, and swapped the parameter order
+  # from (signer, sender) to (authorizer, signer). Patch all three layers.
+
+  # 1. subgraph.yaml event signatures
+  sed -i 's/AuthorizeSigner(indexed address,indexed address)/SignerAuthorized(indexed address,indexed address)/g' subgraph.yaml
+  sed -i 's/RevokeAuthorizedSigner(indexed address,indexed address)/SignerRevoked(indexed address,indexed address)/g' subgraph.yaml
+
+  # 2. ABI: rename events and swap parameter order so codegen accessors match
+  #    the mapping code (event.params.signer = actual signer, event.params.sender = authorizer)
+  node -e "
+const fs = require('fs');
+const abi = JSON.parse(fs.readFileSync('abis/Escrow.abi.json'));
+for (const e of abi) {
+  if (e.type !== 'event') continue;
+  if (e.name === 'AuthorizeSigner') {
+    e.name = 'SignerAuthorized';
+    e.inputs = [
+      {indexed: true, internalType: 'address', name: 'sender', type: 'address'},
+      {indexed: true, internalType: 'address', name: 'signer', type: 'address'}
+    ];
+  } else if (e.name === 'RevokeAuthorizedSigner') {
+    e.name = 'SignerRevoked';
+    e.inputs = [
+      {indexed: true, internalType: 'address', name: 'sender', type: 'address'},
+      {indexed: true, internalType: 'address', name: 'authorizedSigner', type: 'address'}
+    ];
+  }
+}
+fs.writeFileSync('abis/Escrow.abi.json', JSON.stringify(abi, null, 2));
+"
+
+  # 3. Mapping imports and type annotations
+  sed -i 's/AuthorizeSigner, RevokeAuthorizedSigner/SignerAuthorized, SignerRevoked/g' src/mappings/escrow.ts
+  sed -i 's/event: AuthorizeSigner/event: SignerAuthorized/g' src/mappings/escrow.ts
+  sed -i 's/event: RevokeAuthorizedSigner/event: SignerRevoked/g' src/mappings/escrow.ts
+
   yarn codegen
   yarn build
   yarn create-local

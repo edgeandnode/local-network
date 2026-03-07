@@ -210,7 +210,7 @@ services:
       args:
         TAP_ESCROW_MANAGER_COMMIT: ${TAP_ESCROW_MANAGER_COMMIT}
     depends_on:
-      subgraph-deploy: { condition: service_completed_successfully }
+      start-indexing: { condition: service_completed_successfully }
       redpanda: { condition: service_healthy }
     stop_signal: SIGKILL
     volumes:
@@ -339,7 +339,7 @@ services:
     environment:
       IISA_HOST: "0.0.0.0"
       IISA_PORT: "8080"
-      IISA_LOG_LEVEL: INFO
+      IISA_LOG_LEVEL: DEBUG
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
     volumes:
       - iisa-scores:/app/scores
