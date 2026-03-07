@@ -157,4 +157,10 @@ do
   sleep 2
 done
 
+# Switch from automine to interval mining now that all deployments are done.
+# Services like block-oracle and graph-node need regular blocks to function.
+block_time="${BLOCK_TIME:-1}"
+elapsed "Enabling interval mining (${block_time}s blocks)..."
+cast rpc --rpc-url="http://chain:${CHAIN_RPC_PORT}" evm_setIntervalMining "${block_time}" > /dev/null
+
 elapsed "Allocations active, done"

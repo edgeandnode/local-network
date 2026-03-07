@@ -10,13 +10,10 @@ indexer_stake="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
   "${staking_address}" 'getStake(address) (uint256)' "${RECEIVER_ADDRESS}")"
 echo "indexer_stake=${indexer_stake}"
 if [ "${indexer_stake}" = "0" ]; then
-  # transfer ETH to receiver
   cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--mnemonic=${MNEMONIC}" \
     --value=1ether "${RECEIVER_ADDRESS}"
-  # transfer 100,000 GRT to receiver
   cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--mnemonic=${MNEMONIC}" \
     "${token_address}" 'transfer(address,uint256)' "${RECEIVER_ADDRESS}" '100000000000000000000000'
-  # stake required GRT for indexer registration
   cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--private-key=${RECEIVER_SECRET}" \
     "${token_address}" 'approve(address,uint256)' "${staking_address}" '100000000000000000000000'
   cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--private-key=${RECEIVER_SECRET}" \
@@ -51,7 +48,36 @@ export INDEXER_AGENT_MAX_PROVISION_INITIAL_SIZE=200000
 export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
 export INDEXER_AGENT_LOG_LEVEL=trace
 
+# DIPs configuration
+export INDEXER_AGENT_ENABLE_DIPS=true
+export INDEXER_AGENT_DIPS_EPOCHS_MARGIN=1
+export INDEXER_AGENT_DIPPER_ENDPOINT="http://dipper:${DIPPER_INDEXER_RPC_PORT}"
+export INDEXER_AGENT_DIPS_ALLOCATION_AMOUNT=1
+
 cd /opt/indexer-agent-source-root
+yarn install --frozen-lockfile
+mkdir -p ./config/
+cat >./config/config.yaml <<-EOF
+networkIdentifier: "hardhat"
+indexerOptions:
+  geoCoordinates: [48.4682, -123.524]
+  defaultAllocationAmount: 10000
+  allocationManagementMode: "auto"
+  restakeRewards: true
+  poiDisputeMonitoring: false
+  voucherRedemptionThreshold: 0.00001
+  voucherRedemptionBatchThreshold: 10
+  rebateClaimThreshold: 0.00001
+  rebateClaimBatchThreshold: 10
+subgraphs:
+  maxBlockDistance: 5000
+  freshnessSleepMilliseconds: 1000
+enableDips: true
+dipperEndpoint: "http://dipper:${DIPPER_INDEXER_RPC_PORT}"
+dipsAllocationAmount: 1
+dipsEpochsMargin: 1
+EOF
+cat config/config.yaml
 
 nodemon --watch . \
 --ext ts \
@@ -61,4 +87,3 @@ nodemon --watch . \
 --exec "
 NODE_OPTIONS=\"--inspect=0.0.0.0:9230\"
 tsx packages/indexer-agent/src/index.ts start"
-
