@@ -98,6 +98,16 @@ Each override requires a binary path env var. Source repos own their own build;
 local-network just wraps the published image with `run.sh` and utilities.
 See [compose/dev/README.md](compose/dev/README.md) for details.
 
+## Devcontainer usage
+
+When running inside a devcontainer, service names (gateway, redpanda, etc.) won't resolve by default because the devcontainer is on a different Docker network. Connect it to the compose network once per session:
+
+```bash
+scripts/connect-network.sh
+```
+
+The script auto-detects the compose project network. You can also pass a network name explicitly: `scripts/connect-network.sh my-network_default`.
+
 ## Common issues
 
 ### `too far behind`
