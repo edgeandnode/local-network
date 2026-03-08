@@ -116,3 +116,17 @@ if [ "$failed" -ne 0 ]; then
 fi
 
 elapsed "==== All subgraphs deployed ===="
+
+# ============================================================
+# Wait for network subgraph to sync graphNetwork entity
+# (indexer-service needs this at startup to initialize the dispute manager)
+# ============================================================
+elapsed "Waiting for network subgraph to sync graphNetwork entity..."
+until curl -sf "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network" \
+  -H 'content-type: application/json' \
+  -d '{"query": "{ graphNetwork(id: \"1\") { disputeManager } }"}' \
+  | grep -q '"disputeManager"'
+do
+  sleep 2
+done
+elapsed "==== Network subgraph ready ===="
