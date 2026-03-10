@@ -4,6 +4,16 @@ set -eu
 
 . /opt/shared/lib.sh
 
+# Allow env var overrides for multi-indexer support
+INDEXER_ADDRESS="${INDEXER_ADDRESS:-$RECEIVER_ADDRESS}"
+INDEXER_OPERATOR_MNEMONIC="${INDEXER_OPERATOR_MNEMONIC:-$INDEXER_MNEMONIC}"
+INDEXER_DB_NAME="${INDEXER_DB_NAME:-indexer_components_1}"
+GRAPH_NODE_HOST="${GRAPH_NODE_HOST:-graph-node}"
+PROTOCOL_GRAPH_NODE_HOST="${PROTOCOL_GRAPH_NODE_HOST:-graph-node}"
+POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
+
+wait_for_rpc
+
 cd /opt
 tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
@@ -15,23 +25,23 @@ EOF
 
 cat >config.toml <<-EOF
 [indexer]
-indexer_address = "${RECEIVER_ADDRESS}"
-operator_mnemonic = "${INDEXER_MNEMONIC}"
+indexer_address = "${INDEXER_ADDRESS}"
+operator_mnemonic = "${INDEXER_OPERATOR_MNEMONIC}"
 
 [database]
-postgres_url = "postgresql://postgres@postgres:${POSTGRES_PORT}/indexer_components_1"
+postgres_url = "postgresql://postgres@${POSTGRES_HOST}:${POSTGRES_PORT}/${INDEXER_DB_NAME}"
 
 [graph_node]
-query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}"
-status_url = "http://graph-node:${GRAPH_NODE_STATUS_PORT}/graphql"
+query_url = "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}"
+status_url = "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_STATUS_PORT}/graphql"
 
 [subgraphs.network]
-query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
+query_url = "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 recently_closed_allocation_buffer_secs = 60
 syncing_interval_secs = 30
 
 [subgraphs.escrow]
-query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/semiotic/tap"
+query_url = "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/semiotic/tap"
 syncing_interval_secs = 30
 
 [blockchain]

@@ -21,5 +21,8 @@ Thumbs.db
 # Rust build artifacts
 tests/target/
 
+# Generated compose overrides
+compose/extra-indexers.yaml
+
 # Legacy local config directory (now uses config-local Docker volume)
 config/local/

@@ -19,7 +19,7 @@ TAP subgraph correctly points at Horizon PaymentsEscrow, signer authorization ev
 
 ### 3. Indexer-service rejection paths
 
-Five of the eight rejection paths have been tested end-to-end.
+Five of the eight rejection paths have been tested end-to-end:
 
 **PriceTooLow**: Temporarily set `min_grt_per_30_days["hardhat"] = "999999"` in indexer-service config. Dipper's pricing (`174000000000000` wei/s, ~450 GRT/30d) fell below the inflated minimum. Indexer-service rejected with `PRICE_TOO_LOW`, dipper recorded it correctly. The indexer enters a 1-day lookback exclusion for that deployment.
 
@@ -88,6 +88,7 @@ Dipper was killed (`docker kill`) after processing a request and restarted. All 
 The pipeline completes so fast (<6ms from request registration to indexer acceptance) that simulating a crash between request registration and IISA candidate selection is impractical in local-network. If dipper crashes mid-pipeline, the request sits in `OPEN` with no agreements. There is no explicit recovery for in-flight jobs -- the request would need manual reassessment or a new request.
 
 Untested scenarios that depend on indexer-agent changes:
+
 - Indexer-agent restarts mid-reconciliation while processing pending proposals (blocked on PR #1174)
 - Indexer-service accepts a proposal but crashes before writing to `pending_rca_proposals` (out-of-sync risk between dipper and indexer)
 

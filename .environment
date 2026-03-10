@@ -28,7 +28,9 @@ COMPOSE_PROFILES=block-oracle,explorer,indexing-payments
 # All components built from local checkouts - no stubs or GHCR images
 # contracts repo must be on escrow-management branch with `pnpm install && pnpm build` done
 
-COMPOSE_FILE=docker-compose.yaml:compose/dev/dips.yaml
+# Extra indexers: python3 scripts/gen-extra-indexers.py N
+# Then add :compose/extra-indexers.yaml to COMPOSE_FILE below
+COMPOSE_FILE=docker-compose.yaml:compose/dev/dips.yaml:compose/extra-indexers.yaml
 
 # Local source directories (mounted into containers, built from source)
 CONTRACTS_SOURCE_ROOT=/Users/samuel/Documents/github/contracts
