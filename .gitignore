@@ -1,6 +1,7 @@
 # IDEs
 .vscode
-.claude
+.claude/*
+!.claude/skills/
 .idea
 
 # Environment overrides

@@ -67,6 +67,11 @@ fi
 if [ "$phase1_skip" = "false" ]; then
   echo "Deploying new version of the protocol"
   cd /opt/contracts/packages/subgraph-service
+
+  # Clear stale Ignition deployment state (may be baked into the image)
+  rm -rf ./ignition/deployments/chain-1337
+  rm -rf /opt/contracts/packages/horizon/ignition/deployments/chain-1337
+
   npx hardhat deploy:protocol --network localNetwork --subgraph-service-config localNetwork
 
   # Add legacy contract stubs (gateway needs these)

@@ -1,4 +1,4 @@
-#!/bin/env sh
+#!/usr/bin/env sh
 set -eu
 . /opt/config/.env
 
@@ -13,13 +13,14 @@ network_subgraph_deployment=$(wait_for_gql \
 
 tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
+recurring_collector=$(contract_addr RecurringCollector.address horizon)
 
 ## Config
 cat >config.json <<-EOF
 {
   "dips": {
     "data_service": "${subgraph_service}",
-    "recurring_collector": "0x0000000000000000000000000000000000000000",
+    "recurring_collector": "${recurring_collector}",
     "max_initial_tokens": "1000000000000000000",
     "max_ongoing_tokens_per_second": "1000000000000000",
     "max_seconds_per_collection": 86400,
@@ -28,8 +29,8 @@ cat >config.json <<-EOF
     "deadline_seconds": 300,
     "pricing_table": {
       "${CHAIN_ID}": {
-        "tokens_per_second": "101",
-        "tokens_per_entity_per_second": "1001"
+        "tokens_per_second": "174000000000000",
+        "tokens_per_entity_per_second": "78000"
       }
     }
   },
@@ -59,11 +60,11 @@ cat >config.json <<-EOF
   },
   "signer": {
     "secret_key": "${ACCOUNT0_SECRET}",
-    "chain_id": 1337
+    "chain_id": ${CHAIN_ID}
   },
   "tap_signer": {
     "secret_key": "${ACCOUNT0_SECRET}",
-    "chain_id": 1337,
+    "chain_id": ${CHAIN_ID},
     "verifier": "${tap_verifier}"
   },
   "iisa": {
@@ -71,6 +72,14 @@ cat >config.json <<-EOF
     "request_timeout": 30,
     "connect_timeout": 10,
     "max_retries": 3
+  },
+  "expiration": {
+    "enabled": true,
+    "interval": 10,
+    "batch_size": 100
+  },
+  "additional_networks": {
+    "${CHAIN_ID}": "${CHAIN_NAME}"
   }
 }
 EOF
@@ -79,4 +88,11 @@ echo "=== Generated config.json ===" >&2
 cat config.json >&2
 echo "===========================" >&2
 
-dipper-service ./config.json
+# Build from source if mounted, otherwise use pre-built binary
+if [ -d /opt/source ] && [ -f /opt/source/Cargo.toml ]; then
+  cd /opt/source
+  cargo build --bin dipper-service --release
+  exec ./target/release/dipper-service "$OLDPWD/config.json"
+else
+  exec dipper-service ./config.json
+fi

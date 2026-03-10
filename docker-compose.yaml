@@ -210,7 +210,7 @@ services:
       args:
         TAP_ESCROW_MANAGER_COMMIT: ${TAP_ESCROW_MANAGER_COMMIT}
     depends_on:
-      subgraph-deploy: { condition: service_completed_successfully }
+      start-indexing: { condition: service_completed_successfully }
       redpanda: { condition: service_healthy }
     stop_signal: SIGKILL
     volumes:
@@ -307,25 +307,31 @@ services:
       BLOCKCHAIN_PRIVATE_KEY: ${ACCOUNT0_SECRET}
     restart: unless-stopped
 
-  iisa-scoring:
-    container_name: iisa-scoring
+  iisa-cronjob:
+    container_name: iisa-cronjob
     profiles: [indexing-payments]
     build:
       context: containers/indexing-payments/iisa
-      dockerfile: Dockerfile.scoring
+      args:
+        IISA_COMMIT: ${IISA_COMMIT:-main}
+        MAXMIND_LICENSE_KEY: "skip"
     depends_on:
       redpanda: { condition: service_healthy }
     environment:
       REDPANDA_BOOTSTRAP_SERVERS: "redpanda:${REDPANDA_KAFKA_PORT}"
       REDPANDA_TOPIC: gateway_queries
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
-      IISA_SCORING_INTERVAL: "600"
+      GRAPH_NETWORK_SUBGRAPH_URL: "http://graph-node:8000/subgraphs/name/graph-network"
+      SCORING_INTERVAL: "600"
+      SCORING_HTTP_PORT: "9090"
+      DEGRADED_ALERT_THRESHOLD: "999"
     volumes:
       - iisa-scores:/app/scores
     healthcheck:
-      test: ["CMD", "test", "-f", "/app/scores/indexer_scores.json"]
-      interval: 5s
-      retries: 10
+      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
+      interval: 10s
+      retries: 60
+      start_period: 30s
     restart: unless-stopped
 
   iisa:
@@ -334,12 +340,12 @@ services:
     image: ghcr.io/edgeandnode/subgraph-dips-indexer-selection:${IISA_VERSION}
     pull_policy: if_not_present
     depends_on:
-      iisa-scoring: { condition: service_healthy }
+      iisa-cronjob: { condition: service_healthy }
     ports: ["8080:8080"]
     environment:
       IISA_HOST: "0.0.0.0"
       IISA_PORT: "8080"
-      IISA_LOG_LEVEL: INFO
+      IISA_LOG_LEVEL: DEBUG
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
     volumes:
       - iisa-scores:/app/scores
