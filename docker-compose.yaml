@@ -130,7 +130,7 @@ services:
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     healthcheck:
-      { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
+      { interval: 2s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
     dns_opt:
       - timeout:2
       - attempts:5
@@ -157,7 +157,6 @@ services:
     build: { context: containers/indexer/start-indexing }
     depends_on:
       subgraph-deploy: { condition: service_completed_successfully }
-      indexer-agent: { condition: service_healthy }
     volumes:
       - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
