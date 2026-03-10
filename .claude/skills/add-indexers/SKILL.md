@@ -51,17 +51,29 @@ This regenerates the full compose file for ALL extras (existing + new). It's ide
 
 ### 4. Bring up new containers
 
-Only start the NEW containers plus the shared init. For each new suffix N, combine all into a single `up -d` command:
+Two-step process to avoid bouncing shared services.
+
+First, run `start-indexing-extra` to register new indexers on-chain:
 
 ```bash
 DOCKER_DEFAULT_PLATFORM= docker compose \
   -f docker-compose.yaml \
   -f compose/dev/dips.yaml \
   -f compose/extra-indexers.yaml \
-  up -d postgres-N graph-node-N indexer-agent-N indexer-service-N tap-agent-N start-indexing-extra
+  run --rm start-indexing-extra
 ```
 
-Do NOT use `--force-recreate` -- it bounces shared services (chain, postgres) causing DNS failures in already-running containers.
+Then start the actual containers with `--no-deps --no-recreate`. For each new suffix N:
+
+```bash
+DOCKER_DEFAULT_PLATFORM= docker compose \
+  -f docker-compose.yaml \
+  -f compose/dev/dips.yaml \
+  -f compose/extra-indexers.yaml \
+  up -d --no-deps --no-recreate postgres-N graph-node-N indexer-agent-N indexer-service-N tap-agent-N
+```
+
+`--no-deps` prevents compose from walking the dependency tree and bouncing shared services. `--no-recreate` prevents touching already-running containers.
 
 ### 5. Verify health
 
@@ -88,5 +100,6 @@ Show a summary of all running indexers (primary + extras) with their container n
 - Never use `--force-recreate` when adding indexers to a running stack
 - The generator script is at `scripts/gen-extra-indexers.py`
 - The `start-indexing-extra` container handles on-chain GRT staking and operator authorization
+- Agents poll for on-chain staking automatically (up to 450s), so `start-indexing-extra` can run in parallel with container startup
 - Agents retry automatically (30 attempts, 10s delay) -- don't manually restart unless the error is persistent and non-transient
 - If COMPOSE_FILE in .environment doesn't include `compose/extra-indexers.yaml`, warn the user to add it

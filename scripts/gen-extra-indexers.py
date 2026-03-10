@@ -55,7 +55,7 @@ def postgres_service(n: int) -> str:
   postgres-{n}:
     container_name: postgres-{n}
     image: postgres:17-alpine
-    command: postgres -c 'max_connections=1000' -c 'shared_preload_libraries=pg_stat_statements'
+    command: postgres -c 'max_connections=200' -c 'shared_buffers=64MB'
     volumes:
       - postgres-{n}-data:/var/lib/postgresql/data
       - ./containers/core/postgres/setup.sql:/docker-entrypoint-initdb.d/setup.sql:ro
@@ -67,6 +67,7 @@ def postgres_service(n: int) -> str:
       interval: 1s
       retries: 20
       test: pg_isready -U postgres
+    mem_limit: 256m
     restart: unless-stopped
 """
 
@@ -98,6 +99,10 @@ def graph_node_service(n: int) -> str:
       retries: 60
       start_period: 10s
       test: curl -f http://127.0.0.1:8030
+    dns_opt:
+      - timeout:2
+      - attempts:5
+    mem_limit: 256m
     restart: unless-stopped
 """
 
@@ -120,8 +125,6 @@ def agent_service(n: int, address: str, secret: str) -> str:
         RUN npm install -g tsx nodemon
     entrypoint: ["bash", "/opt/run-dips.sh"]
     depends_on:
-      start-indexing-extra:
-        condition: service_completed_successfully
       graph-node-{n}:
         condition: service_healthy
     ports:
@@ -148,6 +151,10 @@ def agent_service(n: int, address: str, secret: str) -> str:
       retries: 600
       start_period: 30s
       test: curl -f http://127.0.0.1:7600/
+    dns_opt:
+      - timeout:2
+      - attempts:5
+    mem_limit: 512m
     restart: unless-stopped
 """
 
@@ -197,6 +204,10 @@ def service_service(n: int, address: str, secret: str) -> str:
       interval: 10s
       retries: 600
       test: curl -f http://127.0.0.1:7601/
+    dns_opt:
+      - timeout:2
+      - attempts:5
+    mem_limit: 192m
     restart: unless-stopped
 """
 
@@ -227,6 +238,10 @@ def tap_service(n: int, address: str, secret: str) -> str:
       POSTGRES_HOST: "postgres-{n}"
       RUST_LOG: info,indexer_tap_agent=trace
       RUST_BACKTRACE: "1"
+    dns_opt:
+      - timeout:2
+      - attempts:5
+    mem_limit: 128m
     restart: unless-stopped
 """
 

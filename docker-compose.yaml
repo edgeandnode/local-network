@@ -7,9 +7,11 @@ services:
       - chain-data:/data
     healthcheck: { interval: 1s, retries: 10, test: cast block }
     stop_grace_period: 30s
+    mem_limit: 512m
     restart: on-failure:3
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
+      - NODE_OPTIONS=--max-old-space-size=384
 
   block-explorer:
     container_name: block-explorer
@@ -67,6 +69,9 @@ services:
       - config-local:/opt/config:ro
     healthcheck:
       { interval: 1s, retries: 20, test: curl -f http://127.0.0.1:8030 }
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
 
   graph-contracts:
@@ -126,6 +131,9 @@ services:
       - config-local:/opt/config:ro
     healthcheck:
       { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
 
   subgraph-deploy:
@@ -240,6 +248,9 @@ services:
     environment:
       RUST_LOG: info,graph_gateway=trace
       RUST_BACKTRACE: 1
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
     healthcheck:
       { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7700/ }
@@ -265,6 +276,9 @@ services:
       RUST_BACKTRACE: 1
     healthcheck:
       { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
 
   tap-agent:
@@ -284,6 +298,9 @@ services:
     environment:
       RUST_LOG: info,indexer_tap_agent=trace
       RUST_BACKTRACE: 1
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
 
   # --- Profiled components (activated via COMPOSE_PROFILES in .env) ---

@@ -16,13 +16,25 @@ POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
 
 wait_for_rpc
 
-# Verify this indexer is staked (registration handled by start-indexing or start-indexing-extra)
+# Wait for this indexer to be staked on-chain
 staking_address=$(contract_addr HorizonStaking.address horizon)
-indexer_stake="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
-  "${staking_address}" 'getStake(address) (uint256)' "${INDEXER_ADDRESS}")"
-echo "indexer_stake=${indexer_stake}"
+echo "Waiting for indexer ${INDEXER_ADDRESS} to be staked..."
+_stake_attempt=0
+while [ "$_stake_attempt" -lt 90 ]; do
+  _stake_attempt=$((_stake_attempt + 1))
+  indexer_stake="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
+    "${staking_address}" 'getStake(address) (uint256)' "${INDEXER_ADDRESS}" 2>/dev/null || echo "0")"
+  if [ "${indexer_stake}" != "0" ]; then
+    echo "Indexer staked: ${indexer_stake}"
+    break
+  fi
+  if [ $((_stake_attempt % 12)) -eq 0 ]; then
+    echo "  still waiting for staking (attempt ${_stake_attempt}/90)..."
+  fi
+  sleep 5
+done
 if [ "${indexer_stake}" = "0" ]; then
-  echo "ERROR: Indexer ${INDEXER_ADDRESS} has no stake. Run start-indexing-extra first."
+  echo "ERROR: Indexer ${INDEXER_ADDRESS} not staked after 450s"
   exit 1
 fi
 
