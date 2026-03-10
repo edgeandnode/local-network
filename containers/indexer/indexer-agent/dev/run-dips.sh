@@ -16,26 +16,49 @@ POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
 
 wait_for_rpc
 
-# Wait for this indexer to be staked on-chain
+token_address=$(contract_addr L2GraphToken.address horizon)
 staking_address=$(contract_addr HorizonStaking.address horizon)
-echo "Waiting for indexer ${INDEXER_ADDRESS} to be staked..."
-_stake_attempt=0
-while [ "$_stake_attempt" -lt 90 ]; do
-  _stake_attempt=$((_stake_attempt + 1))
+
+if [ "${INDEXER_ADDRESS}" = "${RECEIVER_ADDRESS}" ]; then
+  # Primary indexer: self-stake using RECEIVER's own key (no nonce collision
+  # with ACCOUNT0). Idempotent -- skips if already staked.
   indexer_stake="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
-    "${staking_address}" 'getStake(address) (uint256)' "${INDEXER_ADDRESS}" 2>/dev/null || echo "0")"
-  if [ "${indexer_stake}" != "0" ]; then
-    echo "Indexer staked: ${indexer_stake}"
-    break
+    "${staking_address}" 'getStake(address) (uint256)' "${INDEXER_ADDRESS}")"
+  if [ "${indexer_stake}" = "0" ]; then
+    echo "Staking primary indexer ${INDEXER_ADDRESS}..."
+    cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--mnemonic=${MNEMONIC}" \
+      --value=1ether "${INDEXER_ADDRESS}"
+    cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--mnemonic=${MNEMONIC}" \
+      "${token_address}" 'transfer(address,uint256)' "${INDEXER_ADDRESS}" '100000000000000000000000'
+    cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--private-key=${INDEXER_SECRET}" \
+      "${token_address}" 'approve(address,uint256)' "${staking_address}" '100000000000000000000000'
+    cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--private-key=${INDEXER_SECRET}" \
+      "${staking_address}" 'stake(uint256)' '100000000000000000000000'
+    echo "Primary indexer staked"
+  else
+    echo "Primary indexer already staked: ${indexer_stake}"
   fi
-  if [ $((_stake_attempt % 12)) -eq 0 ]; then
-    echo "  still waiting for staking (attempt ${_stake_attempt}/90)..."
+else
+  # Extra indexers: wait for start-indexing-extra to stake them on-chain.
+  echo "Waiting for indexer ${INDEXER_ADDRESS} to be staked..."
+  _stake_attempt=0
+  while [ "$_stake_attempt" -lt 90 ]; do
+    _stake_attempt=$((_stake_attempt + 1))
+    indexer_stake="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
+      "${staking_address}" 'getStake(address) (uint256)' "${INDEXER_ADDRESS}" 2>/dev/null || echo "0")"
+    if [ "${indexer_stake}" != "0" ]; then
+      echo "Indexer staked: ${indexer_stake}"
+      break
+    fi
+    if [ $((_stake_attempt % 12)) -eq 0 ]; then
+      echo "  still waiting for staking (attempt ${_stake_attempt}/90)..."
+    fi
+    sleep 5
+  done
+  if [ "${indexer_stake}" = "0" ]; then
+    echo "ERROR: Indexer ${INDEXER_ADDRESS} not staked after 450s"
+    exit 1
   fi
-  sleep 5
-done
-if [ "${indexer_stake}" = "0" ]; then
-  echo "ERROR: Indexer ${INDEXER_ADDRESS} not staked after 450s"
-  exit 1
 fi
 
 export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/config/horizon.json
