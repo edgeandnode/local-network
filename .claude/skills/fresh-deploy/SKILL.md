@@ -9,25 +9,25 @@ Reset the local-network Docker Compose environment to a clean state and bring al
 
 ## Prerequisites
 
-The contracts repo at `$CONTRACTS_SOURCE_ROOT` (typically `/Users/samuel/Documents/github/contracts`) must be on `indexing-payments-management-audit` (PR #1301) with three local commits applied on top:
+The contracts repo at `$CONTRACTS_SOURCE_ROOT` (typically `/Users/samuel/Documents/github/contracts`) must be on `fix/horizon-staking-ignition-dependency` (or `mde/dips-ignition-deployment` + BUG-007 fix). This branch has `IndexingAgreementManager`, RecurringCollector in toolshed/ignition natively, and the HorizonStaking deployment ordering fix.
 
-1. Cherry-pick `02b6996e` from `escrow-management` -- adds RecurringCollector Ignition module, wires it into SubgraphService deployment, and links external libraries
-2. Cherry-pick `d2a0d30e` from `escrow-management` -- adds `RecurringCollector` to `GraphHorizonContractNameList` in toolshed so it gets written to horizon.json
-3. Local fix for BUG-007 -- adds `{ after: [GraphPeripheryModule, HorizonProxiesModule] }` to the `deployImplementation` call in `packages/horizon/ignition/modules/core/HorizonStaking.ts`
+After checking out the branch, the toolshed package must be compiled: `cd packages/toolshed && pnpm build:self`.
 
-After applying these, the toolshed package must be compiled: `cd packages/toolshed && pnpm build:self`.
-
-To verify the local commits are present, check: `cd $CONTRACTS_SOURCE_ROOT && git log --oneline -5`. The top 3 commits should be the fix and two cherry-picks.
+To verify: `cd $CONTRACTS_SOURCE_ROOT && git log --oneline -3` should show the HorizonStaking fix on top of the mde branch.
 
 ## Steps
 
 ### 1. Tear down everything including volumes
 
+Build the compose file list dynamically to include extra-indexers if present. This is critical -- omitting `compose/extra-indexers.yaml` leaves extra indexer containers and their postgres volumes alive, causing stale state on the next deploy (agents think they're registered on the old chain).
+
 ```bash
-DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml down -v
+COMPOSE_FILES="-f docker-compose.yaml -f compose/dev/dips.yaml"
+[ -f compose/extra-indexers.yaml ] && COMPOSE_FILES="$COMPOSE_FILES -f compose/extra-indexers.yaml"
+DOCKER_DEFAULT_PLATFORM= docker compose $COMPOSE_FILES down -v
 ```
 
-This destroys all data: chain state, postgres, subgraph deployments, config volume with contract addresses.
+This destroys all data: chain state, postgres (including extra indexer postgres volumes), subgraph deployments, config volume with contract addresses.
 
 ### 2. Clear stale Ignition journals
 
@@ -40,6 +40,8 @@ rm -rf $CONTRACTS_SOURCE_ROOT/packages/subgraph-service/ignition/deployments/cha
 This is safe after a `down -v` since the chain state it references no longer exists.
 
 ### 3. Bring everything up
+
+Use only the base compose files for the initial deploy. Extra indexers are added separately via the `/add-indexers` skill after the core stack is healthy.
 
 ```bash
 DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml up -d --build
@@ -58,7 +60,7 @@ DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/di
   jq '.["1337"].RecurringCollector' /opt/config/horizon.json
 ```
 
-If this returns null, the contracts toolshed wasn't rebuilt after cherry-picking the whitelist fix. Run `cd $CONTRACTS_SOURCE_ROOT/packages/toolshed && pnpm build:self` and repeat from step 1.
+If this returns null, the contracts toolshed wasn't rebuilt. Run `cd $CONTRACTS_SOURCE_ROOT/packages/toolshed && pnpm build:self` and repeat from step 1.
 
 ### 5. Fix nonce race failures
 
@@ -136,6 +138,7 @@ The authorization chain that makes gateway queries work:
 - **ACCOUNT0 nonce race**: `start-indexing` and `tap-escrow-manager` both use ACCOUNT0 concurrently after `graph-contracts` finishes. Either can fail with "nonce too low". If `start-indexing` fails, `dipper` and `ready` never start (cascade). The fix is to restart the failed container and run `up -d` again.
 - **Stale Ignition journals**: After a failed `graph-contracts` deployment, the journal at `packages/subgraph-service/ignition/deployments/chain-1337/` contains partial state. A fresh `down -v` destroys the chain but not the journal (it's in the mounted source). Always delete it before retrying (step 2).
 - The contracts toolshed must be compiled (JS, not just TS) for the RecurringCollector whitelist to take effect. Use `pnpm build:self` in `packages/toolshed` (not `pnpm build` which fails on the `interfaces` package).
+- **Extra indexer stale state**: If `compose/extra-indexers.yaml` is not included in the `down -v` command, extra indexer containers and their postgres volumes survive the teardown. On the next deploy, agents have stale state from the old chain -- they believe they're already registered and never re-register URLs on the new chain. The network subgraph then shows `url: null` for these indexers and IISA can't select them.
 
 ## Key contract addresses (change each deploy)
 
