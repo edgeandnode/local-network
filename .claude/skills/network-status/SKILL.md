@@ -5,4 +5,4 @@ description: Show the current state of the local Graph protocol network. Use whe
 
 Run `python3 scripts/network-status.py` from the local-network repo root to fetch the current network state.
 
-Output the result directly as text in a code block so it renders inline without the user needing to expand tool results.
+Output the FULL result directly as text in a code block so it renders inline without the user needing to expand tool results. Do NOT truncate, summarize, or abbreviate any part of the output -- show every line including all deployment hashes.

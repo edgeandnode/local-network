@@ -198,6 +198,18 @@ def main():
         if not is_last_network:
             print()
 
+    # Idle indexers (registered on-chain but no active allocations)
+    active_indexer_ids = {idx["id"] for idx in indexers if idx["allocations"]}
+    idle_indexers = [idx for idx in indexers if not idx["allocations"]]
+    if idle_indexers:
+        print(f"\nidle indexers ({len(idle_indexers)} registered, no allocations)")
+        idle_indexers.sort(key=lambda x: x["id"])
+        for i, idx in enumerate(idle_indexers):
+            is_last = i == len(idle_indexers) - 1
+            branch = "\u2514\u2500" if is_last else "\u251c\u2500"
+            staked = format_tokens(idx["stakedTokens"])
+            print(f"  {branch} {idx['id']}  staked {staked}")
+
     # Unallocated subgraphs (indexed by graph-node but no active allocation)
     allocated_deps = {dep for net in tree.values() for dep in net}
     unallocated = [dep for dep in statuses if dep not in allocated_deps]

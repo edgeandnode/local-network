@@ -128,7 +128,7 @@ def agent_service(n: int, address: str, secret: str) -> str:
       graph-node-{n}:
         condition: service_healthy
     ports:
-      - "{7600 + n * 10}:7600"
+      - "{17600 + n * 10}:7600"
     stop_signal: SIGKILL
     volumes:
       - ${{INDEXER_AGENT_SOURCE_ROOT:?Set INDEXER_AGENT_SOURCE_ROOT}}:/opt/indexer-agent-source-root
@@ -180,8 +180,8 @@ def service_service(n: int, address: str, secret: str) -> str:
       indexer-agent-{n}:
         condition: service_healthy
     ports:
-      - "{7601 + n * 10}:7601"
-      - "{7602 + n * 10}:7602"
+      - "{17601 + n * 10}:7601"
+      - "{17602 + n * 10}:7602"
     stop_signal: SIGKILL
     volumes:
       - ${{INDEXER_SERVICE_SOURCE_ROOT:?Set INDEXER_SERVICE_SOURCE_ROOT}}:/opt/source
