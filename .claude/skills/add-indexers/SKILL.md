@@ -18,6 +18,8 @@ The argument is the number of NEW indexers to add (defaults to 1).
 
 Extra indexers use hardhat "junk" mnemonic accounts starting at index 2. Maximum 18 extra (indices 2-19).
 
+Each indexer gets a unique operator derived from a mnemonic of the form `test test test ... test {bip39_word}` (11 "test" + 1 valid checksum word). The generator handles mnemonic validation, operator address derivation, ETH funding, and on-chain `setOperator` authorization for both SubgraphService and HorizonStaking.
+
 | Suffix | Mnemonic Index | Address |
 |--------|---------------|---------|
 | 2 | 2 | 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC |

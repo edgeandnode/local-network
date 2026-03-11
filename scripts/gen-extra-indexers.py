@@ -10,8 +10,13 @@ is handled by a shared init container.
 Shared across all indexers: chain (hardhat), ipfs, gateway, dipper, iisa,
 redpanda, contract addresses, protocol subgraphs (on primary graph-node).
 
-Accounts come from the "junk" mnemonic starting at index 2 (indices 0-1 are
-ACCOUNT0/ACCOUNT1). Hardhat pre-funds these with 10,000 ETH.
+Indexer accounts come from the "junk" mnemonic starting at index 2
+(indices 0-1 are ACCOUNT0/ACCOUNT1). Hardhat pre-funds these with 10k ETH.
+
+Each extra indexer gets a unique operator derived from a mnemonic of the
+form "test test test test test test test test test test test {word}" where
+{word} is a BIP39 word that passes the 12-word checksum. This gives each
+indexer an independent operator, matching production topology.
 
 Usage:
     python3 scripts/gen-extra-indexers.py 3    # generate 3 extra indexers
@@ -20,6 +25,11 @@ Usage:
 
 import sys
 from pathlib import Path
+
+from eth_account import Account
+from mnemonic import Mnemonic
+
+Account.enable_unaudited_hdwallet_features()
 
 # Hardhat "junk" mnemonic accounts starting at index 2.
 # Deterministic and pre-funded with 10,000 ETH by Hardhat.
@@ -46,6 +56,19 @@ JUNK_ACCOUNTS = [
 
 MAX_EXTRA = len(JUNK_ACCOUNTS)  # 18
 JUNK_MNEMONIC = "test test test test test test test test test test test junk"
+
+# Operator mnemonics: "test*11 {word}" for each BIP39 word that passes
+# the 12-word checksum. Skip "junk" (ACCOUNT0) and "zero" (RECEIVER).
+_bip39 = Mnemonic("english")
+_prefix = "test " * 11
+OPERATOR_MNEMONICS: list[tuple[str, str]] = []  # (mnemonic, address)
+for _word in _bip39.wordlist:
+    if _word in ("junk", "zero"):
+        continue
+    _candidate = _prefix + _word
+    if _bip39.check(_candidate):
+        _addr = Account.from_mnemonic(_candidate).address
+        OPERATOR_MNEMONICS.append((_candidate, _addr))
 
 OUTPUT_FILE = Path(__file__).resolve().parent.parent / "compose" / "extra-indexers.yaml"
 
@@ -107,7 +130,7 @@ def graph_node_service(n: int) -> str:
 """
 
 
-def agent_service(n: int, address: str, secret: str) -> str:
+def agent_service(n: int, address: str, secret: str, operator_mnemonic: str) -> str:
     return f"""\
   indexer-agent-{n}:
     container_name: indexer-agent-{n}
@@ -139,7 +162,7 @@ def agent_service(n: int, address: str, secret: str) -> str:
     environment:
       INDEXER_ADDRESS: "{address}"
       INDEXER_SECRET: "{secret}"
-      INDEXER_OPERATOR_MNEMONIC: "{JUNK_MNEMONIC}"
+      INDEXER_OPERATOR_MNEMONIC: "{operator_mnemonic}"
       INDEXER_DB_NAME: "indexer_components_1"
       INDEXER_SVC_HOST: "indexer-service-{n}"
       GRAPH_NODE_HOST: "graph-node-{n}"
@@ -159,7 +182,7 @@ def agent_service(n: int, address: str, secret: str) -> str:
 """
 
 
-def service_service(n: int, address: str, secret: str) -> str:
+def service_service(n: int, address: str, secret: str, operator_mnemonic: str) -> str:
     return f"""\
   indexer-service-{n}:
     container_name: indexer-service-{n}
@@ -192,7 +215,7 @@ def service_service(n: int, address: str, secret: str) -> str:
     environment:
       INDEXER_ADDRESS: "{address}"
       INDEXER_SECRET: "{secret}"
-      INDEXER_OPERATOR_MNEMONIC: "{JUNK_MNEMONIC}"
+      INDEXER_OPERATOR_MNEMONIC: "{operator_mnemonic}"
       INDEXER_DB_NAME: "indexer_components_1"
       GRAPH_NODE_HOST: "graph-node-{n}"
       PROTOCOL_GRAPH_NODE_HOST: "graph-node"
@@ -212,7 +235,7 @@ def service_service(n: int, address: str, secret: str) -> str:
 """
 
 
-def tap_service(n: int, address: str, secret: str) -> str:
+def tap_service(n: int, address: str, secret: str, operator_mnemonic: str) -> str:
     return f"""\
   tap-agent-{n}:
     container_name: tap-agent-{n}
@@ -231,7 +254,7 @@ def tap_service(n: int, address: str, secret: str) -> str:
     environment:
       INDEXER_ADDRESS: "{address}"
       INDEXER_SECRET: "{secret}"
-      INDEXER_OPERATOR_MNEMONIC: "{JUNK_MNEMONIC}"
+      INDEXER_OPERATOR_MNEMONIC: "{operator_mnemonic}"
       INDEXER_DB_NAME: "indexer_components_1"
       GRAPH_NODE_HOST: "graph-node-{n}"
       PROTOCOL_GRAPH_NODE_HOST: "graph-node"
@@ -246,35 +269,44 @@ def tap_service(n: int, address: str, secret: str) -> str:
 """
 
 
-def registration_block(n: int, address: str, secret: str) -> str:
+def registration_block(n: int, address: str, secret: str, operator_mnemonic: str) -> str:
     return f"""\
         # --- Extra indexer {n}: {address} ---
         ADDR="{address}"
         KEY="{secret}"
+        OP_MNEMONIC="{operator_mnemonic}"
+
+        # Derive this indexer's unique operator address from its mnemonic
+        OPERATOR=$$(cast wallet address --mnemonic="$$OP_MNEMONIC")
+        echo "Extra indexer {n}: $$ADDR  operator: $$OPERATOR"
+
+        # Staking (idempotent -- skip if already staked)
         STAKE=$$(cast call --rpc-url="$$RPC" "$$STAKING" 'getStake(address)(uint256)' "$$ADDR")
         if [ "$$STAKE" != "0" ]; then
-          echo "Extra indexer {n} ($$ADDR) already staked ($$STAKE) -- skipping"
+          echo "  already staked ($$STAKE)"
         else
-        echo "Registering extra indexer {n}: {address}"
-
-        # Transfer ETH + GRT from deployer
-        retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --mnemonic="$$MNEMONIC" \\
-          --value=1ether "$$ADDR"
-        retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --mnemonic="$$MNEMONIC" \\
-          "$$TOKEN" 'transfer(address,uint256)' "$$ADDR" '100000000000000000000000'
-
-        # Stake GRT
-        retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --private-key="$$KEY" \\
-          "$$TOKEN" 'approve(address,uint256)' "$$STAKING" '100000000000000000000000'
-        retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --private-key="$$KEY" \\
-          "$$STAKING" 'stake(uint256)' '100000000000000000000000'
-
-        # Authorize as own operator for SubgraphService
-        retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --private-key="$$KEY" \\
-          "$$STAKING" 'setOperator(address,address,bool)' "$$ADDR" "$$SSA" "true"
-
-        echo "Extra indexer {n} registered"
+          # Fund indexer with ETH + GRT, then stake
+          retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --mnemonic="$$MNEMONIC" \\
+            --value=1ether "$$ADDR"
+          retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --mnemonic="$$MNEMONIC" \\
+            "$$TOKEN" 'transfer(address,uint256)' "$$ADDR" '100000000000000000000000'
+          retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --private-key="$$KEY" \\
+            "$$TOKEN" 'approve(address,uint256)' "$$STAKING" '100000000000000000000000'
+          retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --private-key="$$KEY" \\
+            "$$STAKING" 'stake(uint256)' '100000000000000000000000'
+          echo "  staked"
         fi
+
+        # Operator auth (always run -- idempotent on-chain, ensures auth
+        # even if a previous run staked but failed on the auth step).
+        # setOperator(verifier, operator, allowed) -- verifier first!
+        retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --mnemonic="$$MNEMONIC" \\
+          --value=1ether "$$OPERATOR"
+        retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --private-key="$$KEY" \\
+          "$$STAKING" 'setOperator(address,address,bool)' "$$SSA" "$$OPERATOR" "true"
+        retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --private-key="$$KEY" \\
+          "$$STAKING" 'setOperator(address,address,bool)' "$$STAKING" "$$OPERATOR" "true"
+        echo "  operator authorized"
 """
 
 
@@ -313,6 +345,14 @@ def init_indexers_service(registrations: str) -> str:
 
 
 def generate(count: int) -> str:
+    if count > len(OPERATOR_MNEMONICS):
+        print(
+            f"Only {len(OPERATOR_MNEMONICS)} valid operator mnemonics available, "
+            f"requested {count}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     parts = []
     reg_blocks = []
     volume_names = []
@@ -320,14 +360,15 @@ def generate(count: int) -> str:
     for i in range(count):
         n = i + 2  # service suffix: postgres-2, graph-node-2, etc.
         address, secret = JUNK_ACCOUNTS[i]
+        op_mnemonic, op_address = OPERATOR_MNEMONICS[i]
         volume_names.append(f"postgres-{n}-data")
 
         parts.append(postgres_service(n))
         parts.append(graph_node_service(n))
-        parts.append(agent_service(n, address, secret))
-        parts.append(service_service(n, address, secret))
-        parts.append(tap_service(n, address, secret))
-        reg_blocks.append(registration_block(n, address, secret))
+        parts.append(agent_service(n, address, secret, op_mnemonic))
+        parts.append(service_service(n, address, secret, op_mnemonic))
+        parts.append(tap_service(n, address, secret, op_mnemonic))
+        reg_blocks.append(registration_block(n, address, secret, op_mnemonic))
 
     parts.append(init_indexers_service("\n".join(reg_blocks)))
 
