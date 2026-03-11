@@ -194,12 +194,7 @@ encode_signed_rca() {
   local deployment_bytes32="$1"
   local deadline="${2:-$(( $(date +%s) + 7200 ))}"
   local ends_at="${3:-$(( $(date +%s) + 172800 ))}"
-  local nonce
-  nonce=$(date +%s%N)  # nanosecond timestamp as nonce
-
-  # Export nonce so caller can compute agreementId
-  LAST_RCA_NONCE="$nonce"
-  LAST_RCA_DEADLINE="$deadline"
+  local nonce="${4:-$(date +%s%N)}"  # caller can pass nonce, or auto-generate
 
   # 1. ABI-encode metadata (same pattern as encode_rca)
   local terms
@@ -384,6 +379,96 @@ ensure_signer_authorized() {
   echo "  OK    Signer authorized on RecurringCollector"
 }
 
+# ── Subgraph deny/undeny helpers (PLAN_03A scenarios) ─────────────────
+
+REWARDS_MANAGER_ADDRESS="${REWARDS_MANAGER_ADDRESS:-0x0a17FabeA4633ce714F1Fa4a2dcA62C3bAc4758d}"
+
+# Ensure ORACLE_ADDRESS is registered as the subgraphAvailabilityOracle.
+# Called once; idempotent — skips if already set.
+ensure_subgraph_availability_oracle() {
+  local current_oracle
+  current_oracle=$(cast call --rpc-url "$HARDHAT_RPC" \
+    "$REWARDS_MANAGER_ADDRESS" "subgraphAvailabilityOracle()(address)")
+  current_oracle=$(echo "$current_oracle" | tr '[:upper:]' '[:lower:]')
+  local target
+  target=$(echo "$ORACLE_ADDRESS" | tr '[:upper:]' '[:lower:]')
+
+  if [ "$current_oracle" = "$target" ]; then
+    echo "  OK    Subgraph availability oracle already set to $ORACLE_ADDRESS"
+    return
+  fi
+
+  echo "  Setting subgraph availability oracle to $ORACLE_ADDRESS..."
+  cast send --rpc-url "$HARDHAT_RPC" \
+    --private-key "$ACCOUNT1_SECRET" \
+    "$REWARDS_MANAGER_ADDRESS" \
+    "setSubgraphAvailabilityOracle(address)" "$ORACLE_ADDRESS" \
+    --confirmations 1 > /dev/null 2>&1
+
+  echo "  OK    Subgraph availability oracle set"
+}
+
+# Deny a subgraph deployment.
+# Args: $1 = deployment bytes32
+deny_subgraph() {
+  local deployment_bytes32="$1"
+  echo "  Denying subgraph $deployment_bytes32..."
+  cast send --rpc-url "$HARDHAT_RPC" \
+    --private-key "$ORACLE_SECRET" \
+    "$REWARDS_MANAGER_ADDRESS" \
+    "setDenied(bytes32,bool)" "$deployment_bytes32" true \
+    --confirmations 1 > /dev/null 2>&1
+}
+
+# Undeny a subgraph deployment.
+# Args: $1 = deployment bytes32
+undeny_subgraph() {
+  local deployment_bytes32="$1"
+  echo "  Undenying subgraph $deployment_bytes32..."
+  cast send --rpc-url "$HARDHAT_RPC" \
+    --private-key "$ORACLE_SECRET" \
+    "$REWARDS_MANAGER_ADDRESS" \
+    "setDenied(bytes32,bool)" "$deployment_bytes32" false \
+    --confirmations 1 > /dev/null 2>&1
+}
+
+# Check if a subgraph is denied.
+# Args: $1 = deployment bytes32
+# Returns: 0 if denied, 1 if not
+is_subgraph_denied() {
+  local deployment_bytes32="$1"
+  local result
+  result=$(cast call --rpc-url "$HARDHAT_RPC" \
+    "$REWARDS_MANAGER_ADDRESS" "isDenied(bytes32)(bool)" "$deployment_bytes32")
+  [ "$result" = "true" ]
+}
+
+# Get the allocated tokens for an allocation from SubgraphService.
+# Args: $1 = allocation ID (address)
+# Returns: token amount (uint256) on stdout
+get_allocation_tokens() {
+  local allocation_id="$1"
+  # getAllocation returns a struct; tokens is at index 3
+  # Struct: (address indexer, bytes32 subgraphDeploymentID, uint256 createdAt, uint256 tokens, ...)
+  local result
+  result=$(cast call --rpc-url "$HARDHAT_RPC" \
+    "$SUBGRAPH_SERVICE_ADDRESS" "getAllocation(address)((address,bytes32,uint256,uint256,uint256,uint256,uint256,uint256))" "$allocation_id")
+  # Parse the tokens field from the tuple
+  echo "$result" | sed 's/[()]//g' | cut -d',' -f4 | tr -d ' '
+}
+
+# Find the most recent active allocation ID for a deployment via the network subgraph.
+# Args: $1 = deployment IPFS hash
+# Returns: allocation ID on stdout, or empty if not found
+find_allocation_for_deployment() {
+  local deployment_hash="$1"
+  local result
+  result=$(curl -s --max-time 10 "$NETWORK_SUBGRAPH_URL" \
+    -H 'content-type: application/json' \
+    -d "{\"query\": \"{ allocations(where: { subgraphDeployment_: { ipfsHash: \\\"$deployment_hash\\\" }, status: Active }, orderBy: createdAt, orderDirection: desc, first: 1) { id } }\"}")
+  echo "$result" | jq -r '.data.allocations[0].id // empty'
+}
+
 # ── Collection helpers (PLAN_04 scenarios) ─────────────────────────
 
 # Advance hardhat time by N seconds and mine a block.
@@ -458,6 +543,123 @@ cancel_agreement() {
     --confirmations 1 > /dev/null 2>&1
 }
 
+# Ensure the allocation for a deployment is clean (no existing agreement).
+# If the allocation already has an agreement, close it and wait for a new one.
+# Args: $1 = deployment IPFS hash
+ensure_clean_allocation() {
+  local deployment_ipfs="$1"
+
+  # Get current allocation ID from the network subgraph
+  local alloc_result
+  alloc_result=$(curl -s --max-time 10 "$NETWORK_SUBGRAPH_URL" \
+    -H 'content-type: application/json' \
+    -d "{\"query\": \"{ allocations(where: { subgraphDeployment_: { ipfsHash: \\\"$deployment_ipfs\\\" }, status: Active }) { id } }\"}")
+
+  local alloc_id
+  alloc_id=$(echo "$alloc_result" | jq -r '.data.allocations[0].id // empty')
+
+  if [ -z "$alloc_id" ]; then
+    echo "  ...   No active allocation, waiting for agent to create one..."
+    local elapsed=0
+    while [ "$elapsed" -lt 180 ]; do
+      sleep 10
+      elapsed=$((elapsed + 10))
+      alloc_result=$(curl -s --max-time 10 "$NETWORK_SUBGRAPH_URL" \
+        -H 'content-type: application/json' \
+        -d "{\"query\": \"{ allocations(where: { subgraphDeployment_: { ipfsHash: \\\"$deployment_ipfs\\\" }, status: Active }) { id } }\"}")
+      alloc_id=$(echo "$alloc_result" | jq -r '.data.allocations[0].id // empty')
+      if [ -n "$alloc_id" ]; then
+        echo "  OK    New allocation created: $alloc_id"
+        return 0
+      fi
+    done
+    echo "  WARN  Timed out waiting for allocation"
+    return 1
+  fi
+
+  # Check if any non-canceled agreement exists for this allocation
+  local agreement_result
+  agreement_result=$(curl -s --max-time 10 "$NETWORK_SUBGRAPH_URL" \
+    -H 'content-type: application/json' \
+    -d "{\"query\": \"{ indexingAgreements(where: { allocationId: \\\"$alloc_id\\\", state_in: [1, 3] }) { id } }\"}")
+
+  local has_agreement
+  has_agreement=$(echo "$agreement_result" | jq -r '.data.indexingAgreements[0].id // empty')
+
+  if [ -n "$has_agreement" ]; then
+    echo "  ...   Allocation $alloc_id has existing agreement $has_agreement, closing..."
+    cast send --rpc-url "$HARDHAT_RPC" --private-key "$RECEIVER_SECRET" \
+      "$SUBGRAPH_SERVICE_ADDRESS" "stopService(address,bytes)" \
+      "$RECEIVER_ADDRESS" "$(cast abi-encode 'f(address)' "$alloc_id")" \
+      --confirmations 1 > /dev/null 2>&1
+
+    # Wait for agent to create a new allocation
+    local elapsed=0
+    while [ "$elapsed" -lt 180 ]; do
+      sleep 10
+      elapsed=$((elapsed + 10))
+      alloc_result=$(curl -s --max-time 10 "$NETWORK_SUBGRAPH_URL" \
+        -H 'content-type: application/json' \
+        -d "{\"query\": \"{ allocations(where: { subgraphDeployment_: { ipfsHash: \\\"$deployment_ipfs\\\" }, status: Active }) { id } }\"}")
+      local new_alloc_id
+      new_alloc_id=$(echo "$alloc_result" | jq -r '.data.allocations[0].id // empty')
+      if [ -n "$new_alloc_id" ] && [ "$new_alloc_id" != "$alloc_id" ]; then
+        echo "  OK    Fresh allocation created: $new_alloc_id"
+        return 0
+      fi
+    done
+    echo "  WARN  Timed out waiting for fresh allocation"
+    return 1
+  fi
+
+  echo "  OK    Allocation $alloc_id is clean (no agreement)"
+  return 0
+}
+
+# Ensure the network subgraph is running (resume if paused).
+# The agent may pause the subgraph during restart (scenario 6).
+ensure_network_subgraph_running() {
+  local network_subgraph_id
+  network_subgraph_id=$(curl -s http://${GRAPH_NODE_HOST:-localhost}:${GRAPH_NODE_GRAPHQL_PORT:-8000}/subgraphs/name/graph-network \
+    -H 'content-type: application/json' \
+    -d '{"query":"{ _meta { deployment } }"}' | jq -r '.data._meta.deployment')
+
+  if [ -z "$network_subgraph_id" ] || [ "$network_subgraph_id" = "null" ]; then
+    echo "  WARN  Could not determine network subgraph deployment ID"
+    return
+  fi
+
+  # Resume via graph-node JSON-RPC
+  docker exec graph-node curl -sf -X POST http://localhost:8020 \
+    -H "Content-Type: application/json" \
+    -d "{\"jsonrpc\":\"2.0\",\"method\":\"subgraph_resume\",\"params\":{\"deployment\":\"$network_subgraph_id\"},\"id\":1}" \
+    > /dev/null 2>&1 || true
+}
+
+# Wait for the network subgraph to sync to chain head.
+# Args: $1 = timeout (optional, default 60)
+wait_subgraph_sync() {
+  local timeout="${1:-60}"
+  local elapsed=0
+  local interval=5
+
+  while [ "$elapsed" -lt "$timeout" ]; do
+    local status
+    status=$(curl -s "http://${GRAPH_NODE_HOST:-localhost}:${GRAPH_NODE_STATUS_PORT:-8030}/graphql" \
+      -H 'content-type: application/json' \
+      -d '{"query":"{ indexingStatuses(subgraphs:[\"'"$(curl -s http://${GRAPH_NODE_HOST:-localhost}:${GRAPH_NODE_GRAPHQL_PORT:-8000}/subgraphs/name/graph-network -H \"content-type: application/json\" -d '{\"query\":\"{_meta{deployment}}\"}' | jq -r '.data._meta.deployment')"'\"]) { chains { latestBlock { number } chainHeadBlock { number } } } }"}')
+    local latest chain_head
+    latest=$(echo "$status" | jq -r '.data.indexingStatuses[0].chains[0].latestBlock.number // "0"')
+    chain_head=$(echo "$status" | jq -r '.data.indexingStatuses[0].chains[0].chainHeadBlock.number // "0"')
+    if [ "$latest" = "$chain_head" ] && [ "$latest" != "0" ]; then
+      return 0
+    fi
+    sleep "$interval"
+    elapsed=$((elapsed + interval))
+  done
+  return 1
+}
+
 # Poll until lastCollectionAt changes from an initial value.
 # Args: $1 = agreement ID, $2 = initial lastCollectionAt, $3 = timeout (optional)
 # Returns: 0 if changed, 1 if timeout
@@ -508,6 +710,13 @@ check "agent healthy" \
 check "pending_rca_proposals table exists" \
   "$PGCMD -c \"SELECT 1 FROM pending_rca_proposals LIMIT 0;\"" \
   || { echo "FATAL: Table pending_rca_proposals does not exist. Run migration 23."; exit 1; }
+
+# Oracle setup for deny/undeny scenarios
+if [ -n "$ORACLE_ADDRESS" ] && [ -n "$ORACLE_SECRET" ]; then
+  ensure_subgraph_availability_oracle
+else
+  echo "  SKIP  ORACLE_ADDRESS/ORACLE_SECRET not set (deny/undeny scenarios will be skipped)"
+fi
 
 echo ""
 
@@ -760,27 +969,34 @@ scenario_8_onchain_accept_and_collect() {
     return
   fi
 
-  # Verify an active allocation exists for this deployment
-  if ! check_allocation_exists "$deployment_ipfs"; then
-    echo "  SKIP  No active allocation for $deployment_ipfs"
-    return
-  fi
-
   local deployment_bytes32
   deployment_bytes32=$(ipfs_to_bytes32 "$deployment_ipfs")
 
   local uuid="00000008-0008-0008-0008-000000000008"
 
-  cleanup_proposal "$uuid" "$deployment_ipfs"
+  # Only clean up the proposal row; do NOT pass deployment_ipfs to avoid
+  # deleting the "always" indexing rule that keeps the allocation open.
+  cleanup_proposal "$uuid"
   ensure_payer_escrow
   ensure_signer_authorized
+
+  # Ensure the network subgraph is running (may be paused after scenario 6 restart)
+  ensure_network_subgraph_running
+
+  # Ensure the allocation has no existing agreement (idempotent re-runs)
+  ensure_clean_allocation "$deployment_ipfs" || {
+    echo "  SKIP  Could not get clean allocation for $deployment_ipfs"
+    return
+  }
 
   local ts
   ts=$(date +%s)
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
+  local nonce
+  nonce=$(date +%s%N)
   local payload
-  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at")
+  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at" "$nonce")
 
   if [ -z "$payload" ] || [ "$payload" = "" ]; then
     echo "  SKIP  Failed to encode signed RCA"
@@ -791,7 +1007,7 @@ scenario_8_onchain_accept_and_collect() {
   local agreement_id
   agreement_id=$(get_agreement_id \
     "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
-    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+    "$deadline" "$nonce")
 
   insert_proposal "$uuid" "$payload"
   echo "  Inserted signed proposal for $deployment_ipfs (existing allocation), waiting for acceptance..."
@@ -800,7 +1016,7 @@ scenario_8_onchain_accept_and_collect() {
   check "8.1 Proposal accepted on-chain" \
     "poll_proposal_status '$uuid' 'accepted' 180" || {
     echo "  Acceptance failed, skipping collection checks"
-    cleanup_proposal "$uuid" "$deployment_ipfs"
+    cleanup_proposal "$uuid"
     return
   }
 
@@ -814,13 +1030,17 @@ scenario_8_onchain_accept_and_collect() {
 
   # Advance time past minSecondsPerCollection (3600s in our terms)
   advance_time 3700
-  echo "  Advanced time by 3700s. Waiting for agent collection loop..."
+  echo "  Advanced time by 3700s. Waiting for subgraph sync and agent collection loop..."
+
+  # Mine extra blocks and wait for the network subgraph to catch up
+  ~/.foundry/bin/cast rpc --rpc-url="$HARDHAT_RPC" evm_mine > /dev/null
+  wait_subgraph_sync 60 || echo "  WARN  Subgraph sync timed out"
 
   # Wait for the agent to collect
   check "8.2 Payment collected (lastCollectionAt updated)" \
     "poll_collection '$agreement_id' '$initial_last_collected' 300" || true
 
-  cleanup_proposal "$uuid" "$deployment_ipfs"
+  cleanup_proposal "$uuid"
   echo ""
 }
 
@@ -839,26 +1059,32 @@ scenario_10_collection_after_cancel() {
     return
   fi
 
-  if ! check_allocation_exists "$deployment_ipfs"; then
-    echo "  SKIP  No active allocation for $deployment_ipfs"
-    return
-  fi
-
   local deployment_bytes32
   deployment_bytes32=$(ipfs_to_bytes32 "$deployment_ipfs")
 
   local uuid="00000010-0010-0010-0010-000000000010"
 
-  cleanup_proposal "$uuid" "$deployment_ipfs"
+  # Only clean up the proposal row; preserve the "always" indexing rule.
+  cleanup_proposal "$uuid"
   ensure_payer_escrow
   ensure_signer_authorized
+
+  ensure_network_subgraph_running
+
+  # Ensure the allocation has no existing agreement (idempotent re-runs)
+  ensure_clean_allocation "$deployment_ipfs" || {
+    echo "  SKIP  Could not get clean allocation for $deployment_ipfs"
+    return
+  }
 
   local ts
   ts=$(date +%s)
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
+  local nonce
+  nonce=$(date +%s%N)
   local payload
-  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at")
+  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at" "$nonce")
 
   if [ -z "$payload" ] || [ "$payload" = "" ]; then
     echo "  SKIP  Failed to encode signed RCA"
@@ -868,7 +1094,7 @@ scenario_10_collection_after_cancel() {
   local agreement_id
   agreement_id=$(get_agreement_id \
     "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
-    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+    "$deadline" "$nonce")
 
   insert_proposal "$uuid" "$payload"
   echo "  Inserted signed proposal for $deployment_ipfs, waiting for acceptance..."
@@ -877,7 +1103,7 @@ scenario_10_collection_after_cancel() {
   check "10.1 Proposal accepted on-chain" \
     "poll_proposal_status '$uuid' 'accepted' 180" || {
     echo "  Acceptance failed, skipping cancellation/collection checks"
-    cleanup_proposal "$uuid" "$deployment_ipfs"
+    cleanup_proposal "$uuid"
     return
   }
 
@@ -895,7 +1121,7 @@ scenario_10_collection_after_cancel() {
   check "10.2 Agreement state is CanceledByPayer (3)" \
     "[ '$state_after_cancel' = '3' ]" || {
     echo "  Cancellation check failed (state=$state_after_cancel)"
-    cleanup_proposal "$uuid" "$deployment_ipfs"
+    cleanup_proposal "$uuid"
     return
   }
 
@@ -906,14 +1132,160 @@ scenario_10_collection_after_cancel() {
 
   # Step 5: Advance time again so collection window opens
   advance_time 3700
-  echo "  Advanced time again. Waiting for agent to collect remaining fees..."
+  echo "  Advanced time again. Waiting for subgraph sync and agent collection..."
+
+  # Mine extra blocks and wait for subgraph to catch up
+  ~/.foundry/bin/cast rpc --rpc-url="$HARDHAT_RPC" evm_mine > /dev/null
+  wait_subgraph_sync 60 || echo "  WARN  Subgraph sync timed out"
 
   # Step 6: Wait for the agent to collect from the canceled agreement
   # The agent queries state_in: [1, 3] so CanceledByPayer agreements are included.
   check "10.3 Final payment collected after cancellation" \
     "poll_collection '$agreement_id' '$pre_collect_timestamp' 300" || true
 
-  cleanup_proposal "$uuid" "$deployment_ipfs"
+  cleanup_proposal "$uuid"
+  echo ""
+}
+
+# ── Multicall accept + token amount scenarios (PLAN_03A) ─────────────
+
+scenario_11_rewarded_new_allocation() {
+  echo "=== Scenario 11: Rewarded subgraph — new allocation via multicall ==="
+
+  local uuid="0000000b-000b-000b-000b-00000000000b"
+  local deployment="0x0800000000000000000000000000000000000000000000000000000000000011"
+  local ipfs
+  ipfs=$(bytes32_to_ipfs "$deployment")
+
+  # Clean slate — no existing allocation for this deployment
+  cleanup_proposal "$uuid" "$ipfs"
+
+  # Ensure deployment is NOT denied (fresh deployment shouldn't be, but be safe)
+  if is_subgraph_denied "$deployment"; then
+    undeny_subgraph "$deployment"
+  fi
+
+  ensure_payer_escrow
+  ensure_signer_authorized
+  ensure_network_subgraph_running
+
+  # Create properly signed RCA
+  local ts
+  ts=$(date +%s)
+  local deadline=$(( ts + 7200 ))
+  local ends_at=$(( ts + 172800 ))
+  local nonce
+  nonce=$(date +%s%N)
+  local payload
+  payload=$(encode_signed_rca "$deployment" "$deadline" "$ends_at" "$nonce" 2>/dev/null)
+
+  if [ -z "$payload" ]; then
+    echo "  SKIP  Failed to encode signed RCA"
+    return
+  fi
+
+  insert_proposal "$uuid" "$payload"
+  echo "  Inserted signed proposal for rewarded deployment (no existing allocation), waiting..."
+
+  # Agent processes: getDipsAllocationAmount sees isDenied=false → defaultAllocationAmount
+  # No existing allocation → multicall(startService + acceptIndexingAgreement)
+  check "11.1 Proposal accepted on-chain (multicall path)" \
+    "poll_proposal_status '$uuid' 'accepted' 300" || {
+    echo "  Acceptance failed, skipping token amount check"
+    cleanup_proposal "$uuid" "$ipfs"
+    return
+  }
+
+  # Verify allocation was created with non-zero tokens (defaultAllocationAmount)
+  wait_subgraph_sync 60
+  local alloc_id
+  alloc_id=$(find_allocation_for_deployment "$ipfs")
+  if [ -n "$alloc_id" ]; then
+    local tokens
+    tokens=$(get_allocation_tokens "$alloc_id")
+    check "11.2 Allocation has non-zero tokens (defaultAllocationAmount)" \
+      "[ '$tokens' != '0' ]" || true
+    echo "  Allocation $alloc_id tokens: $tokens"
+  else
+    echo "  WARN  Could not find allocation for $ipfs to verify token amount"
+  fi
+
+  # Cleanup
+  cleanup_proposal "$uuid" "$ipfs"
+  echo ""
+}
+
+scenario_12_denied_dips_amount() {
+  echo "=== Scenario 12: Denied subgraph — allocation with dipsAllocationAmount via multicall ==="
+  if [ -z "$ORACLE_ADDRESS" ] || [ -z "$ORACLE_SECRET" ]; then
+    echo "  SKIP  Oracle account not configured"
+    return
+  fi
+
+  local uuid="0000000c-000c-000c-000c-00000000000c"
+  local deployment="0x0900000000000000000000000000000000000000000000000000000000000012"
+  local ipfs
+  ipfs=$(bytes32_to_ipfs "$deployment")
+
+  # Clean slate — no existing allocation for this deployment
+  cleanup_proposal "$uuid" "$ipfs"
+
+  ensure_payer_escrow
+  ensure_signer_authorized
+  ensure_network_subgraph_running
+
+  # Deny the subgraph BEFORE inserting the proposal
+  deny_subgraph "$deployment"
+  check "12.0 Subgraph is denied" \
+    "is_subgraph_denied '$deployment'" || { undeny_subgraph "$deployment"; return; }
+
+  # Create properly signed RCA
+  local ts
+  ts=$(date +%s)
+  local deadline=$(( ts + 7200 ))
+  local ends_at=$(( ts + 172800 ))
+  local nonce
+  nonce=$(date +%s%N)
+  local payload
+  payload=$(encode_signed_rca "$deployment" "$deadline" "$ends_at" "$nonce" 2>/dev/null)
+
+  if [ -z "$payload" ]; then
+    echo "  SKIP  Failed to encode signed RCA"
+    undeny_subgraph "$deployment"
+    return
+  fi
+
+  insert_proposal "$uuid" "$payload"
+  echo "  Inserted signed proposal for denied deployment (no existing allocation), waiting..."
+
+  # Agent processes: getDipsAllocationAmount sees isDenied=true → dipsAllocationAmount
+  # No existing allocation → multicall(startService + acceptIndexingAgreement)
+  check "12.1 Proposal accepted on-chain (multicall path, dipsAllocationAmount)" \
+    "poll_proposal_status '$uuid' 'accepted' 300" || {
+    echo "  Acceptance failed, skipping token amount check"
+    undeny_subgraph "$deployment"
+    cleanup_proposal "$uuid" "$ipfs"
+    return
+  }
+
+  # Verify allocation was created with dipsAllocationAmount (default 0 = altruistic)
+  wait_subgraph_sync 60
+  local alloc_id
+  alloc_id=$(find_allocation_for_deployment "$ipfs")
+  if [ -n "$alloc_id" ]; then
+    local tokens
+    tokens=$(get_allocation_tokens "$alloc_id")
+    # With default dipsAllocationAmount=0, this should be altruistic
+    check "12.2 Allocation uses dipsAllocationAmount (expect 0 with default config)" \
+      "[ '$tokens' = '0' ]" || true
+    echo "  Allocation $alloc_id tokens: $tokens"
+  else
+    echo "  WARN  Could not find allocation for $ipfs to verify token amount"
+  fi
+
+  # Cleanup
+  undeny_subgraph "$deployment"
+  cleanup_proposal "$uuid" "$ipfs"
   echo ""
 }
 
@@ -923,6 +1295,10 @@ run_rejection_batch
 scenario_6_agent_restart
 scenario_8_onchain_accept_and_collect
 scenario_10_collection_after_cancel
+
+# PLAN_03A scenarios (multicall path + token amount)
+scenario_11_rewarded_new_allocation
+scenario_12_denied_dips_amount
 
 # ── Summary ───────────────────────────────────────────────────────────
 
