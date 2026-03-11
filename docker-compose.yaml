@@ -331,14 +331,11 @@ services:
       args:
         IISA_COMMIT: ${IISA_COMMIT:-main}
         MAXMIND_LICENSE_KEY: "skip"
-    depends_on:
-      redpanda: { condition: service_healthy }
     environment:
       REDPANDA_BOOTSTRAP_SERVERS: "redpanda:${REDPANDA_KAFKA_PORT}"
       REDPANDA_TOPIC: gateway_queries
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
       GRAPH_NETWORK_SUBGRAPH_URL: "http://graph-node:8000/subgraphs/name/graph-network"
-      SCORING_INTERVAL: "600"
       SCORING_HTTP_PORT: "9090"
       DEGRADED_ALERT_THRESHOLD: "999"
     volumes:
@@ -383,7 +380,6 @@ services:
       block-oracle: { condition: service_healthy }
       postgres: { condition: service_healthy }
       gateway: { condition: service_healthy }
-      iisa: { condition: service_healthy }
     ports:
       - "${DIPPER_ADMIN_RPC_PORT}:${DIPPER_ADMIN_RPC_PORT}"
       - "${DIPPER_INDEXER_RPC_PORT}:${DIPPER_INDEXER_RPC_PORT}"
