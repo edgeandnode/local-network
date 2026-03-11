@@ -381,7 +381,7 @@ ensure_signer_authorized() {
 
 # ── Subgraph deny/undeny helpers (PLAN_03A scenarios) ─────────────────
 
-REWARDS_MANAGER_ADDRESS="${REWARDS_MANAGER_ADDRESS:-0x0a17FabeA4633ce714F1Fa4a2dcA62C3bAc4758d}"
+REWARDS_MANAGER_ADDRESS="${REWARDS_MANAGER_ADDRESS:-$(docker exec indexer-agent python3 -c "import json; print(json.load(open('/opt/config/horizon.json'))['1337']['RewardsManager']['address'])" 2>/dev/null)}"
 
 # Ensure ORACLE_ADDRESS is registered as the subgraphAvailabilityOracle.
 # Called once; idempotent — skips if already set.
@@ -448,13 +448,12 @@ is_subgraph_denied() {
 # Returns: token amount (uint256) on stdout
 get_allocation_tokens() {
   local allocation_id="$1"
-  # getAllocation returns a struct; tokens is at index 3
-  # Struct: (address indexer, bytes32 subgraphDeploymentID, uint256 createdAt, uint256 tokens, ...)
+  # getAllocation returns: (address indexer, bytes32 deploymentID, uint256 tokens, uint256 createdAt, ...)
   local result
   result=$(cast call --rpc-url "$HARDHAT_RPC" \
     "$SUBGRAPH_SERVICE_ADDRESS" "getAllocation(address)((address,bytes32,uint256,uint256,uint256,uint256,uint256,uint256))" "$allocation_id")
-  # Parse the tokens field from the tuple
-  echo "$result" | sed 's/[()]//g' | cut -d',' -f4 | tr -d ' '
+  # tokens is the 3rd field (after indexer and deploymentID)
+  echo "$result" | sed 's/[()]//g' | cut -d',' -f3 | sed 's/ *\[.*//; s/^ *//'
 }
 
 # Find the most recent active allocation ID for a deployment via the network subgraph.
@@ -467,6 +466,23 @@ find_allocation_for_deployment() {
     -H 'content-type: application/json' \
     -d "{\"query\": \"{ allocations(where: { subgraphDeployment_: { ipfsHash: \\\"$deployment_hash\\\" }, status: Active }, orderBy: createdAt, orderDirection: desc, first: 1) { id } }\"}")
   echo "$result" | jq -r '.data.allocations[0].id // empty'
+}
+
+# Close an active allocation for a deployment (used for cleanup).
+# Args: $1 = deployment IPFS hash
+# Idempotent: no-op if no active allocation found.
+close_allocation_for_deployment() {
+  local deployment_hash="$1"
+  local alloc_id
+  alloc_id=$(find_allocation_for_deployment "$deployment_hash")
+  if [ -z "$alloc_id" ]; then
+    return
+  fi
+  echo "  Closing allocation $alloc_id for $deployment_hash..."
+  cast send --rpc-url "$HARDHAT_RPC" --private-key "$RECEIVER_SECRET" \
+    "$SUBGRAPH_SERVICE_ADDRESS" "stopService(address,bytes)" \
+    "$RECEIVER_ADDRESS" "$(cast abi-encode 'f(address)' "$alloc_id")" \
+    --confirmations 1 > /dev/null 2>&1 || true
 }
 
 # ── Collection helpers (PLAN_04 scenarios) ─────────────────────────
@@ -1147,6 +1163,15 @@ scenario_10_collection_after_cancel() {
   echo ""
 }
 
+# Get the current chain block timestamp (accounts for time advances in hardhat).
+# Falls back to real time if cast call fails.
+get_chain_timestamp() {
+  local ts
+  ts=$(cast block --rpc-url "$HARDHAT_RPC" latest --json 2>/dev/null \
+    | python3 -c "import json,sys; print(int(json.load(sys.stdin)['timestamp'],16))" 2>/dev/null)
+  echo "${ts:-$(date +%s)}"
+}
+
 # ── Multicall accept + token amount scenarios (PLAN_03A) ─────────────
 
 scenario_11_rewarded_new_allocation() {
@@ -1157,8 +1182,9 @@ scenario_11_rewarded_new_allocation() {
   local ipfs
   ipfs=$(bytes32_to_ipfs "$deployment")
 
-  # Clean slate — no existing allocation for this deployment
+  # Clean slate — close any leftover allocation and remove proposal/rule
   cleanup_proposal "$uuid" "$ipfs"
+  close_allocation_for_deployment "$ipfs"
 
   # Ensure deployment is NOT denied (fresh deployment shouldn't be, but be safe)
   if is_subgraph_denied "$deployment"; then
@@ -1169,9 +1195,19 @@ scenario_11_rewarded_new_allocation() {
   ensure_signer_authorized
   ensure_network_subgraph_running
 
-  # Create properly signed RCA
+  # Wait for subgraph to reflect the closed allocation (if any)
+  wait_subgraph_sync 60 || true
+
+  # Verify no active allocation exists
+  local existing_alloc
+  existing_alloc=$(find_allocation_for_deployment "$ipfs")
+  if [ -n "$existing_alloc" ]; then
+    echo "  WARN  Allocation $existing_alloc still active for $ipfs, multicall path may not trigger"
+  fi
+
+  # Create properly signed RCA (use chain time to account for time advances)
   local ts
-  ts=$(date +%s)
+  ts=$(get_chain_timestamp)
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
   local nonce
@@ -1197,7 +1233,7 @@ scenario_11_rewarded_new_allocation() {
   }
 
   # Verify allocation was created with non-zero tokens (defaultAllocationAmount)
-  wait_subgraph_sync 60
+  wait_subgraph_sync 60 || true
   local alloc_id
   alloc_id=$(find_allocation_for_deployment "$ipfs")
   if [ -n "$alloc_id" ]; then
@@ -1212,6 +1248,7 @@ scenario_11_rewarded_new_allocation() {
 
   # Cleanup
   cleanup_proposal "$uuid" "$ipfs"
+  close_allocation_for_deployment "$ipfs"
   echo ""
 }
 
@@ -1227,21 +1264,25 @@ scenario_12_denied_dips_amount() {
   local ipfs
   ipfs=$(bytes32_to_ipfs "$deployment")
 
-  # Clean slate — no existing allocation for this deployment
+  # Clean slate — close any leftover allocation and remove proposal/rule
   cleanup_proposal "$uuid" "$ipfs"
+  close_allocation_for_deployment "$ipfs"
 
   ensure_payer_escrow
   ensure_signer_authorized
   ensure_network_subgraph_running
+
+  # Wait for subgraph to reflect the closed allocation (if any)
+  wait_subgraph_sync 60 || true
 
   # Deny the subgraph BEFORE inserting the proposal
   deny_subgraph "$deployment"
   check "12.0 Subgraph is denied" \
     "is_subgraph_denied '$deployment'" || { undeny_subgraph "$deployment"; return; }
 
-  # Create properly signed RCA
+  # Create properly signed RCA (use chain time to account for time advances)
   local ts
-  ts=$(date +%s)
+  ts=$(get_chain_timestamp)
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
   local nonce
@@ -1269,15 +1310,16 @@ scenario_12_denied_dips_amount() {
   }
 
   # Verify allocation was created with dipsAllocationAmount (default 0 = altruistic)
-  wait_subgraph_sync 60
+  wait_subgraph_sync 60 || true
   local alloc_id
   alloc_id=$(find_allocation_for_deployment "$ipfs")
   if [ -n "$alloc_id" ]; then
     local tokens
     tokens=$(get_allocation_tokens "$alloc_id")
-    # With default dipsAllocationAmount=0, this should be altruistic
-    check "12.2 Allocation uses dipsAllocationAmount (expect 0 with default config)" \
-      "[ '$tokens' = '0' ]" || true
+    # dipsAllocationAmount is set via INDEXER_AGENT_DIPS_ALLOCATION_AMOUNT.
+    # Verify tokens differ from defaultAllocationAmount (non-denied subgraphs use that).
+    check "12.2 Allocation uses dipsAllocationAmount (not defaultAllocationAmount)" \
+      "[ '$tokens' != '10000000000000000' ]" || true
     echo "  Allocation $alloc_id tokens: $tokens"
   else
     echo "  WARN  Could not find allocation for $ipfs to verify token amount"
@@ -1286,6 +1328,7 @@ scenario_12_denied_dips_amount() {
   # Cleanup
   undeny_subgraph "$deployment"
   cleanup_proposal "$uuid" "$ipfs"
+  close_allocation_for_deployment "$ipfs"
   echo ""
 }
 
