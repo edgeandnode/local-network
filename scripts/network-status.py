@@ -7,7 +7,12 @@ from urllib.request import Request, urlopen
 
 GRAPH_NODE_STATUS = "http://localhost:8030/graphql"
 GRAPH_NODE_QUERY = "http://localhost:8000"
+HARDHAT_RPC = "http://localhost:8545"
 NAMED_SUBGRAPHS = ["graph-network", "semiotic/tap", "block-oracle"]
+
+# Solidity function selectors (first 4 bytes of keccak256 of the signature)
+# Source: contracts build-info methodIdentifiers
+SELECTOR_SUBGRAPH_SERVICE = "26058249"  # subgraphService()
 
 
 def gql(url: str, query: str) -> dict:
@@ -17,6 +22,72 @@ def gql(url: str, query: str) -> dict:
     if "errors" in data:
         raise RuntimeError(f"GraphQL error from {url}: {data['errors']}")
     return data["data"]
+
+
+def eth_call(to: str, data: str) -> str:
+    """Make a raw eth_call to the Hardhat RPC. Returns the hex result."""
+    payload = json.dumps({
+        "jsonrpc": "2.0",
+        "method": "eth_call",
+        "params": [{"to": to, "data": "0x" + data}, "latest"],
+        "id": 1,
+    })
+    req = Request(HARDHAT_RPC, payload.encode(), {"Content-Type": "application/json"})
+    with urlopen(req, timeout=5) as resp:
+        result = json.loads(resp.read())
+    if "error" in result:
+        raise RuntimeError(f"eth_call error: {result['error']}")
+    return result["result"]
+
+
+def decode_address(hex_result: str) -> str:
+    """Decode a 32-byte ABI-encoded address from an eth_call result."""
+    raw = hex_result.replace("0x", "")
+    if len(raw) < 40:
+        return "0x" + "0" * 40
+    # Address is the last 40 hex chars of the 64-char word
+    return "0x" + raw[-40:]
+
+
+ZERO_ADDRESS = "0x" + "0" * 40
+
+
+def fetch_contract_health(ns_id: str) -> list[dict]:
+    """Check contract configuration health. Returns a list of check results."""
+    checks = []
+
+    # Get RewardsManager address from the network subgraph
+    try:
+        data = gql(f"{GRAPH_NODE_QUERY}/subgraphs/id/{ns_id}", """
+            { graphNetwork(id: "1") { rewardsManager } }
+        """)
+        rewards_manager = data["graphNetwork"]["rewardsManager"]
+    except Exception as e:
+        checks.append({
+            "name": "RewardsManager address",
+            "ok": False,
+            "detail": f"could not query network subgraph: {e}",
+        })
+        return checks
+
+    # Call subgraphService() on the RewardsManager
+    try:
+        result = eth_call(rewards_manager, SELECTOR_SUBGRAPH_SERVICE)
+        registered_addr = decode_address(result)
+        is_registered = registered_addr.lower() != ZERO_ADDRESS.lower()
+        checks.append({
+            "name": "RewardsManager \u2192 SubgraphService rewards issuer",
+            "ok": is_registered,
+            "detail": registered_addr if is_registered else "not set (zero address)",
+        })
+    except Exception as e:
+        checks.append({
+            "name": "RewardsManager \u2192 SubgraphService rewards issuer",
+            "ok": False,
+            "detail": f"eth_call failed: {e}",
+        })
+
+    return checks
 
 
 def fetch_indexing_statuses() -> dict:
@@ -235,6 +306,19 @@ def main():
             is_last = i == len(gns_only) - 1
             branch = "\u2514\u2500" if is_last else "\u251c\u2500"
             print(f"  {branch} {dep}")
+
+    # Contract health checks
+    health_checks = fetch_contract_health(ns_id)
+    if health_checks:
+        print(f"\ncontract health")
+        for i, check in enumerate(health_checks):
+            is_last = i == len(health_checks) - 1
+            branch = "\u2514\u2500" if is_last else "\u251c\u2500"
+            if check["ok"]:
+                status_str = f"YES  {check['detail']}"
+            else:
+                status_str = f"NO  \u26a0 {check['detail']}"
+            print(f"  {branch} {check['name']}: {status_str}")
 
     return 0
 

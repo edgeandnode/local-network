@@ -338,6 +338,7 @@ services:
       GRAPH_NETWORK_SUBGRAPH_URL: "http://graph-node:8000/subgraphs/name/graph-network"
       SCORING_HTTP_PORT: "9090"
       DEGRADED_ALERT_THRESHOLD: "999"
+      IISA_API_URL: "http://iisa:8080"
     volumes:
       - iisa-scores:/app/scores
     healthcheck:
@@ -359,6 +360,7 @@ services:
       IISA_HOST: "0.0.0.0"
       IISA_PORT: "8080"
       IISA_LOG_LEVEL: DEBUG
+      IISA_SCORES_RELOAD_INTERVAL: "120"
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
     volumes:
       - iisa-scores:/app/scores

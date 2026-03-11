@@ -69,3 +69,23 @@
 **Repo**: `contracts`
 **Fix**: Add `{ after: [GraphPeripheryModule, HorizonProxiesModule] }` to the `deployImplementation` call in `HorizonStaking.ts`. Applied locally on `indexing-payments-management-audit`.
 **PR**: not submitted
+
+## BUG-008: SubgraphService not registered as rewards issuer in RewardsManager
+
+**Symptom**: indexer-agent fails all allocation operations (reallocate, new allocations for DIPs) with `execution reverted: "Not a rewards issuer"`. The agent enters a perpetual retry loop, blocking both protocol subgraph reallocations and DIPs agreement acceptance.
+
+**Root cause**: The `AllocationManager.stakeUsageSummary()` calls `RewardsManager.getRewards(SubgraphService, allocationId)` before executing allocation transactions. The RewardsManager checks whether the caller (SubgraphService at `0x09635F...`) is a registered rewards issuer. On a fresh local-network deploy, SubgraphService is never whitelisted in the RewardsManager, so all `getRewards` calls revert.
+
+**Repo**: `local-network` (deploy scripts)
+**Fix**: The deploy scripts need to call `RewardsManager.setRewardsIssuer(SubgraphService, true)` after contract deployment. Needs investigation into which deploy script should handle this and what the RewardsManager ABI looks like.
+**PR**: not submitted
+
+## BUG-009: IISA API does not reload scores after cronjob updates them
+
+**Symptom**: IISA selection endpoint returns stale data (e.g. 1 indexer when 10 exist). The cronjob correctly computes and writes updated scores to the shared volume, but the API serves its startup cache indefinitely. This caused dipper to only select 1 of 10 available indexers for a DIPs agreement.
+
+**Root cause**: The IISA HTTP API (`iisa` service) loads scores into an in-memory DataFrame at startup and never reloads them. The `POST /refresh` endpoint exists but nothing calls it. The cronjob writes to `/app/scores/indexer_scores.json` on a shared volume, but the API reads from memory, not disk, on each request.
+
+**Repo**: `subgraph-dips-indexer-selection`
+**Fix**: Two-layer approach applied locally: (1) The cronjob now calls `POST /refresh` on the IISA API after writing scores (`IISA_API_URL` env var, warns at startup if unset). (2) The API now runs a background task that checks the scores file mtime every `IISA_SCORES_RELOAD_INTERVAL` seconds (default 120) and reloads when it changes. The cronjob provides immediate freshness; the periodic reload is a fallback if the refresh call fails.
+**PR**: not submitted

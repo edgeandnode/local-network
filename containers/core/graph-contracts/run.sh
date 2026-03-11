@@ -100,6 +100,22 @@ if [ -n "$rewards_manager" ]; then
   fi
 fi
 
+# -- Ensure SubgraphService is registered as rewards issuer on RewardsManager --
+subgraph_service=$(jq -r '.["1337"].SubgraphService.address // empty' /opt/config/subgraph-service.json)
+if [ -n "$rewards_manager" ] && [ -n "$subgraph_service" ]; then
+  current_service=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+    "${rewards_manager}" "subgraphService()(address)" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+  expected_lower=$(echo "$subgraph_service" | tr '[:upper:]' '[:lower:]')
+  if [ "$current_service" = "$expected_lower" ]; then
+    echo "  SubgraphService already set on RewardsManager: ${subgraph_service}"
+  else
+    echo "  Setting SubgraphService on RewardsManager to ${subgraph_service} (was ${current_service})"
+    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
+      --private-key="${ACCOUNT1_SECRET}" \
+      "${rewards_manager}" "setSubgraphService(address)" "${subgraph_service}"
+  fi
+fi
+
 echo "==== Phase 1 complete ===="
 
 # ============================================================
