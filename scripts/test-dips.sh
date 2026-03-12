@@ -578,8 +578,8 @@ ensure_clean_allocation() {
     echo "  ...   No active allocation, waiting for agent to create one..."
     local elapsed=0
     while [ "$elapsed" -lt 180 ]; do
-      sleep 10
-      elapsed=$((elapsed + 10))
+      sleep 5
+      elapsed=$((elapsed + 5))
       alloc_result=$(curl -s --max-time 10 "$NETWORK_SUBGRAPH_URL" \
         -H 'content-type: application/json' \
         -d "{\"query\": \"{ allocations(where: { subgraphDeployment_: { ipfsHash: \\\"$deployment_ipfs\\\" }, status: Active }) { id } }\"}")
@@ -612,8 +612,8 @@ ensure_clean_allocation() {
     # Wait for agent to create a new allocation
     local elapsed=0
     while [ "$elapsed" -lt 180 ]; do
-      sleep 10
-      elapsed=$((elapsed + 10))
+      sleep 5
+      elapsed=$((elapsed + 5))
       alloc_result=$(curl -s --max-time 10 "$NETWORK_SUBGRAPH_URL" \
         -H 'content-type: application/json' \
         -d "{\"query\": \"{ allocations(where: { subgraphDeployment_: { ipfsHash: \\\"$deployment_ipfs\\\" }, status: Active }) { id } }\"}")
@@ -684,7 +684,7 @@ poll_collection() {
   local initial_value="$2"
   local timeout="${3:-300}"
   local elapsed=0
-  local interval=10
+  local interval=5
 
   while [ "$elapsed" -lt "$timeout" ]; do
     local current
@@ -1184,7 +1184,11 @@ scenario_11_rewarded_new_allocation() {
 
   # Clean slate — close any leftover allocation and remove proposal/rule
   cleanup_proposal "$uuid" "$ipfs"
-  close_allocation_for_deployment "$ipfs"
+  local had_alloc=""
+  if find_allocation_for_deployment "$ipfs" | grep -q .; then
+    had_alloc=1
+    close_allocation_for_deployment "$ipfs"
+  fi
 
   # Ensure deployment is NOT denied (fresh deployment shouldn't be, but be safe)
   if is_subgraph_denied "$deployment"; then
@@ -1195,8 +1199,10 @@ scenario_11_rewarded_new_allocation() {
   ensure_signer_authorized
   ensure_network_subgraph_running
 
-  # Wait for subgraph to reflect the closed allocation (if any)
-  wait_subgraph_sync 60 || true
+  # Wait for subgraph to reflect the closed allocation (only if we closed one)
+  if [ -n "$had_alloc" ]; then
+    wait_subgraph_sync 60 || true
+  fi
 
   # Verify no active allocation exists
   local existing_alloc
@@ -1266,14 +1272,20 @@ scenario_12_denied_dips_amount() {
 
   # Clean slate — close any leftover allocation and remove proposal/rule
   cleanup_proposal "$uuid" "$ipfs"
-  close_allocation_for_deployment "$ipfs"
+  local had_alloc=""
+  if find_allocation_for_deployment "$ipfs" | grep -q .; then
+    had_alloc=1
+    close_allocation_for_deployment "$ipfs"
+  fi
 
   ensure_payer_escrow
   ensure_signer_authorized
   ensure_network_subgraph_running
 
-  # Wait for subgraph to reflect the closed allocation (if any)
-  wait_subgraph_sync 60 || true
+  # Wait for subgraph to reflect the closed allocation (only if we closed one)
+  if [ -n "$had_alloc" ]; then
+    wait_subgraph_sync 60 || true
+  fi
 
   # Deny the subgraph BEFORE inserting the proposal
   deny_subgraph "$deployment"
@@ -1339,9 +1351,33 @@ scenario_6_agent_restart
 scenario_8_onchain_accept_and_collect
 scenario_10_collection_after_cancel
 
-# PLAN_03A scenarios (multicall path + token amount)
-scenario_11_rewarded_new_allocation
-scenario_12_denied_dips_amount
+# PLAN_03A scenarios (multicall path + token amount) — run in parallel
+s11_results=$(mktemp /tmp/dips-s11-XXXXXX)
+s12_results=$(mktemp /tmp/dips-s12-XXXXXX)
+
+(
+  pass=0; fail=0; total=0
+  scenario_11_rewarded_new_allocation
+  echo "$pass $fail $total" > "$s11_results"
+) &
+pid_s11=$!
+
+(
+  pass=0; fail=0; total=0
+  scenario_12_denied_dips_amount
+  echo "$pass $fail $total" > "$s12_results"
+) &
+pid_s12=$!
+
+wait $pid_s11
+wait $pid_s12
+
+# Merge parallel results into main counters
+read s11_p s11_f s11_t < "$s11_results"
+pass=$((pass + s11_p)); fail=$((fail + s11_f)); total=$((total + s11_t))
+read s12_p s12_f s12_t < "$s12_results"
+pass=$((pass + s12_p)); fail=$((fail + s12_f)); total=$((total + s12_t))
+rm -f "$s11_results" "$s12_results"
 
 # ── Summary ───────────────────────────────────────────────────────────
 
