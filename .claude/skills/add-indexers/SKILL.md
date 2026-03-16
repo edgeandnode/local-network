@@ -102,7 +102,54 @@ curl -s -X POST -H "Content-Type: application/json" \
 
 This should return `TOTAL_EXPECTED` (1 primary + N extras). If it's lower, the subgraph is still catching up -- wait 10 seconds and recheck. Typically takes 30-90 seconds after agents register.
 
-### 7. Trigger IISA score refresh
+### 7. Set indexing rules on extra agents
+
+Extra agents start with only the global rule and no subgraph-specific allocations. Without allocations, the gateway won't route queries to them, so they'll never build query history in Redpanda, and the IISA cronjob will exclude them from scoring (chicken-and-egg).
+
+Set an `always` rule for the network subgraph on each extra agent so they allocate and start serving queries:
+
+```bash
+for port in 17620 17630 17640 17650; do
+  curl -s http://localhost:$port/ -H 'content-type: application/json' -d '{
+    "query": "mutation setIndexingRule($rule: IndexingRuleInput!) { setIndexingRule(identifier: \"QmPdbQaRCMhgouSZSW3sHZxU3M8KwcngWASvreAexzmmrh\", rule: $rule) { identifier decisionBasis } }",
+    "variables": {
+      "rule": {
+        "identifier": "QmPdbQaRCMhgouSZSW3sHZxU3M8KwcngWASvreAexzmmrh",
+        "identifierType": "deployment",
+        "allocationAmount": "1000000000000000000",
+        "decisionBasis": "always",
+        "protocolNetwork": "eip155:1337"
+      }
+    }
+  }'
+done
+```
+
+The port mapping is `17600 + (suffix * 10)` — suffix 2 = 17620, suffix 3 = 17630, etc. Only hit ports for the actual extras that exist. The network subgraph deployment ID (`QmPdbQaR...`) is stable across deploys since it's derived from the schema + mappings, but verify with `curl -s http://localhost:8000/subgraphs/name/graph-network -H 'content-type: application/json' -d '{"query":"{ _meta { deployment } }"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])"` if unsure.
+
+After setting rules, agents will allocate within their next reconciliation cycle (~60-120s). The gateway will then route queries to all indexers, building Redpanda history for IISA scoring.
+
+### 8. Wait for allocations and send gateway queries
+
+Wait ~60 seconds for agents to create allocations from the indexing rules set in step 7. Then send several queries through the gateway to build Redpanda history for all indexers:
+
+The gateway requires the API key in the URL path and uses deployment IDs, not subgraph names:
+
+```bash
+NETWORK_DEPLOYMENT=$(curl -s http://localhost:8000/subgraphs/name/graph-network \
+  -H 'content-type: application/json' \
+  -d '{"query":"{ _meta { deployment } }"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])")
+
+for i in $(seq 1 20); do
+  curl -s "http://localhost:7700/api/deadbeefdeadbeefdeadbeefdeadbeef/deployments/id/${NETWORK_DEPLOYMENT}" \
+    -H 'content-type: application/json' \
+    -d '{"query":"{ _meta { block { number } } }"}' > /dev/null
+done
+```
+
+This ensures all indexers with allocations have query history in Redpanda before IISA scoring runs.
+
+### 9. Trigger IISA score refresh
 
 The IISA cronjob exposes `POST /run` on port 9090 for manual scoring runs. Without triggering it, IISA won't see the new indexers until the next scheduled cycle (default 120s).
 
@@ -124,7 +171,7 @@ DOCKER_DEFAULT_PLATFORM= docker compose \
   logs iisa-cronjob --since 30s 2>&1 | grep -E "Wrote|indexers"
 ```
 
-### 8. Report
+### 10. Report
 
 Show a summary including:
 - All running indexers (primary + extras) with container names, addresses, and health status

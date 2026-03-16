@@ -2,6 +2,7 @@ FROM node:23.11-bookworm-slim
 ARG NETWORK_SUBGRAPH_COMMIT
 ARG TAP_SUBGRAPH_COMMIT
 ARG BLOCK_ORACLE_COMMIT
+ARG INDEXING_PAYMENTS_SUBGRAPH_COMMIT
 
 RUN apt-get update \
   && apt-get install -y curl git jq \
@@ -32,6 +33,11 @@ RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgr
 RUN git clone https://github.com/graphprotocol/block-oracle && \
   cd block-oracle && git checkout ${BLOCK_ORACLE_COMMIT} && \
   cd packages/subgraph && yarn
+
+# 4. Indexing payments subgraph (DIPs agreement lifecycle)
+RUN git clone https://github.com/graphprotocol/indexing-payments-subgraph && \
+  cd indexing-payments-subgraph && git checkout ${INDEXING_PAYMENTS_SUBGRAPH_COMMIT} && \
+  npm install
 
 COPY --chmod=755 ./run.sh /opt/run.sh
 ENTRYPOINT ["bash", "/opt/run.sh"]

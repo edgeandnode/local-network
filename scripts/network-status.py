@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 GRAPH_NODE_STATUS = "http://localhost:8030/graphql"
 GRAPH_NODE_QUERY = "http://localhost:8000"
 HARDHAT_RPC = "http://localhost:8545"
-NAMED_SUBGRAPHS = ["graph-network", "semiotic/tap", "block-oracle"]
+NAMED_SUBGRAPHS = ["graph-network", "semiotic/tap", "block-oracle", "indexing-payments"]
 
 # Solidity function selectors (first 4 bytes of keccak256 of the signature)
 # Source: contracts build-info methodIdentifiers

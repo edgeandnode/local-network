@@ -11,6 +11,7 @@ INDEXER_DB_NAME="${INDEXER_DB_NAME:-indexer_components_1}"
 GRAPH_NODE_HOST="${GRAPH_NODE_HOST:-graph-node}"
 PROTOCOL_GRAPH_NODE_HOST="${PROTOCOL_GRAPH_NODE_HOST:-graph-node}"
 POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
+DIPS_MIN_GRT_PER_30_DAYS="${DIPS_MIN_GRT_PER_30_DAYS:-450}"
 
 wait_for_rpc
 
@@ -85,7 +86,7 @@ recurring_collector = "${recurring_collector}"
 supported_networks = ["hardhat"]
 
 [dips.min_grt_per_30_days]
-"hardhat" = "450"
+"hardhat" = "${DIPS_MIN_GRT_PER_30_DAYS}"
 
 [dips.additional_networks]
 "hardhat" = "eip155:1337"

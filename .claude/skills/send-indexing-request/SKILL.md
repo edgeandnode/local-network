@@ -23,7 +23,43 @@ DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/di
 
 Should show `Up ... (healthy)`. If not, use the `fresh-deploy` skill first.
 
-### 3. Send the indexing request
+### 3. Ensure all indexers have Redpanda query history
+
+The IISA cronjob only scores indexers that have query history in Redpanda. Without this, `compute_all_scores()` succeeds with a subset (only indexers the gateway has routed to), and the degraded fallback (which includes all indexers) never runs.
+
+Send queries through the gateway to populate Redpanda for all indexers with allocations:
+
+The gateway requires the API key in the URL path and uses deployment IDs, not subgraph names:
+
+```bash
+NETWORK_DEPLOYMENT=$(curl -s http://localhost:8000/subgraphs/name/graph-network \
+  -H 'content-type: application/json' \
+  -d '{"query":"{ _meta { deployment } }"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])")
+
+for i in $(seq 1 20); do
+  curl -s "http://localhost:7700/api/deadbeefdeadbeefdeadbeefdeadbeef/deployments/id/${NETWORK_DEPLOYMENT}" \
+    -H 'content-type: application/json' \
+    -d '{"query":"{ _meta { block { number } } }"}' > /dev/null
+done
+```
+
+Then trigger an IISA scoring run and verify all indexers are scored:
+
+```bash
+DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml -f compose/extra-indexers.yaml \
+  exec iisa-cronjob curl -s -X POST http://localhost:9090/run
+```
+
+Wait 10 seconds, then check the scoring log:
+
+```bash
+DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml -f compose/extra-indexers.yaml \
+  logs iisa-cronjob --since 15s 2>&1 | grep "Score computation complete"
+```
+
+The indexer count should match the total number of indexers with allocations. If it shows fewer, the gateway hasn't routed to all indexers yet -- send more queries and retry.
+
+### 4. Send the indexing request
 
 ```bash
 cd /Users/samuel/Documents/github/dipper && ./target/release/dipper-cli indexings register \
@@ -46,7 +82,7 @@ DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/di
   http://localhost:8030/graphql
 ```
 
-### 4. Monitor the pipeline
+### 5. Monitor the pipeline
 
 Check logs from all three services involved in the flow:
 
@@ -61,7 +97,7 @@ The expected sequence:
 3. **dipper** constructs an RCA, signs it via EIP-712, sends a proposal to indexer-service
 4. **indexer-service** validates the RCA and accepts or rejects
 
-### 5. Check request status
+### 6. Check request status
 
 ```bash
 cd /Users/samuel/Documents/github/dipper && ./target/release/dipper-cli indexings status \

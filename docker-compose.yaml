@@ -144,6 +144,7 @@ services:
         NETWORK_SUBGRAPH_COMMIT: ${NETWORK_SUBGRAPH_COMMIT}
         TAP_SUBGRAPH_COMMIT: ${TAP_SUBGRAPH_COMMIT}
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
+        INDEXING_PAYMENTS_SUBGRAPH_COMMIT: ${INDEXING_PAYMENTS_SUBGRAPH_COMMIT}
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
