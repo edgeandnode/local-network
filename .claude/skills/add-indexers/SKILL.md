@@ -135,11 +135,13 @@ done
 
 The port mapping is `17600 + (suffix * 10)` — suffix 2 = 17620, suffix 3 = 17630, etc. Only hit ports for the actual extras that exist. The network subgraph deployment ID (`QmPdbQaR...`) is stable across deploys since it's derived from the schema + mappings, but verify with `curl -s http://localhost:8000/subgraphs/name/graph-network -H 'content-type: application/json' -d '{"query":"{ _meta { deployment } }"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])"` if unsure.
 
-After setting rules, agents will allocate within their next reconciliation cycle (~60-120s). The gateway will then route queries to all indexers, building Redpanda history for IISA scoring.
+After setting rules, agents will allocate within their next reconciliation cycle (~15s with the local dev polling interval). The gateway will then route queries to all indexers, building Redpanda history for IISA scoring.
 
 ### 8. Poll for allocations, then send gateway queries
 
-Poll the network subgraph for allocations every 5 seconds until extras have allocated (do NOT use a fixed sleep):
+Poll the network subgraph for allocations every 5 seconds until extras have allocated (do NOT use a fixed sleep).
+
+**Important:** The `subgraphDeployment` field is a relationship, not a string. Use `subgraphDeployment_: { ipfsHash: "..." }` for filtering, not `subgraphDeployment: "..."`.
 
 ```bash
 NETWORK_DEPLOYMENT=$(curl -s http://localhost:8000/subgraphs/name/graph-network \
@@ -149,9 +151,9 @@ NETWORK_DEPLOYMENT=$(curl -s http://localhost:8000/subgraphs/name/graph-network 
 TOTAL_EXPECTED=$((1 + N))  # primary + extras
 while true; do
   ALLOC_COUNT=$(curl -s -X POST -H "Content-Type: application/json" \
-    -d "{\"query\":\"{ allocations(where: { subgraphDeployment: \\\"${NETWORK_DEPLOYMENT}\\\", status: Active }) { id } }\"}" \
+    -d '{"query":"{ allocations(where: { status: Active }) { subgraphDeployment { ipfsHash } } }"}' \
     http://localhost:8000/subgraphs/name/graph-network \
-    | python3 -c "import json,sys; print(len(json.load(sys.stdin)['data']['allocations']))")
+    | python3 -c "import json,sys; print(sum(1 for a in json.load(sys.stdin)['data']['allocations'] if a['subgraphDeployment']['ipfsHash'] == '${NETWORK_DEPLOYMENT}'))")
   echo "$ALLOC_COUNT / $TOTAL_EXPECTED allocations"
   [ "$ALLOC_COUNT" -ge "$TOTAL_EXPECTED" ] && break
   sleep 5
