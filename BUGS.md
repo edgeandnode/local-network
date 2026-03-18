@@ -119,3 +119,13 @@
 **Repo**: `dipper` (config), `graphprotocol/indexing-payments-subgraph` (data source)
 **Fix**: Created `graphprotocol/indexing-payments-subgraph` which indexes all IndexingAgreement events from the SubgraphService contract. The subgraph auto-deploys in local-network when DIPs contracts are present. Remaining work: configure dipper's `chain_listener` section in `containers/indexing-payments/dipper/run.sh` to point at this subgraph.
 **PR**: subgraph repo created and merged (graphprotocol/indexing-payments-subgraph). Dipper config not yet updated.
+
+## BUG-013: RCA metadata ABI encoding mismatch causes on-chain acceptance to revert
+
+**Symptom**: Every DIPs on-chain acceptance reverts with `IndexingAgreementDecoderInvalidData("decodeRCAMetadata", data)`. The indexer-agent picks up the accepted proposal, attempts `SubgraphService.acceptIndexingAgreement()`, and the contract can't decode the metadata bytes.
+
+**Root cause**: Alloy's `SolValue::abi_encode()` on a struct with dynamic fields (`bytes`) wraps the encoding with a 32-byte outer tuple offset (`0x20` prefix, 224 bytes total). Solidity's `abi.encode()` for the same struct does not include this prefix (192 bytes). The SubgraphService contract calls `abi.decode(rca.metadata, (AcceptIndexingAgreementMetadata))` which expects Solidity's format. The extra `0x20` prefix causes the decoder to misalign and revert.
+
+**Repo**: `dipper`
+**Fix**: Switch from `.abi_encode()` to `.abi_encode_params()` in `into_sol_rca()` (`bin/dipper-service/src/indexer_rpc_client.rs`). The `_params` variant produces the inner encoding without the outer offset, matching Solidity's format.
+**PR**: https://github.com/edgeandnode/dipper/pull/582

@@ -81,26 +81,34 @@ DOCKER_DEFAULT_PLATFORM= docker compose \
 
 Indexer-services share a `flock`-serialized cargo build, so they come up sequentially. The first service to start builds the binary (~2-3 minutes if not cached); subsequent services acquire the lock, find the binary already built, and start immediately.
 
-Wait 30 seconds after `up -d` completes, then check status:
+Poll every 5 seconds until all agents and services are healthy (do NOT use a fixed sleep):
 
 ```bash
-docker ps --format '{{.Names}}\t{{.Status}}' | grep -E '(indexer-agent|indexer-service)-[0-9]' | sort
+EXPECTED=N  # number of extras
+while true; do
+  HEALTHY=$(docker ps --format '{{.Names}} {{.Status}}' | grep -E '(indexer-agent|indexer-service)-[0-9]' | grep -c healthy || true)
+  echo "$HEALTHY / $((EXPECTED * 2)) healthy"
+  [ "$HEALTHY" -ge "$((EXPECTED * 2))" ] && break
+  sleep 5
+done
 ```
-
-All agents and services should show `(healthy)`. If a service is still `(health: starting)`, it may be waiting for the cargo build lock -- wait another 60 seconds and recheck.
 
 ### 6. Wait for network subgraph to index URL registrations
 
-After agents start, they call `subgraphService.register(url, geo)` on-chain. The network subgraph must index these events before IISA or dipper can see the new indexers. Poll until all indexers have URLs:
+After agents start, they call `subgraphService.register(url, geo)` on-chain. The network subgraph must index these events before IISA or dipper can see the new indexers. Poll every 5 seconds until all indexers have URLs (do NOT use a fixed sleep):
 
 ```bash
-curl -s -X POST -H "Content-Type: application/json" \
-  -d '{"query":"{ indexers(where: { url_not: \"\" }) { id } }"}' \
-  http://localhost:8000/subgraphs/name/graph-network \
-  | python3 -c "import json,sys; print(len(json.load(sys.stdin)['data']['indexers']))"
+TOTAL_EXPECTED=$((1 + N))  # primary + extras
+while true; do
+  COUNT=$(curl -s -X POST -H "Content-Type: application/json" \
+    -d '{"query":"{ indexers(where: { url_not: \"\" }) { id } }"}' \
+    http://localhost:8000/subgraphs/name/graph-network \
+    | python3 -c "import json,sys; print(len(json.load(sys.stdin)['data']['indexers']))")
+  echo "$COUNT / $TOTAL_EXPECTED indexers with URLs"
+  [ "$COUNT" -ge "$TOTAL_EXPECTED" ] && break
+  sleep 5
+done
 ```
-
-This should return `TOTAL_EXPECTED` (1 primary + N extras). If it's lower, the subgraph is still catching up -- wait 10 seconds and recheck. Typically takes 30-90 seconds after agents register.
 
 ### 7. Set indexing rules on extra agents
 
@@ -129,29 +137,40 @@ The port mapping is `17600 + (suffix * 10)` — suffix 2 = 17620, suffix 3 = 176
 
 After setting rules, agents will allocate within their next reconciliation cycle (~60-120s). The gateway will then route queries to all indexers, building Redpanda history for IISA scoring.
 
-### 8. Wait for allocations and send gateway queries
+### 8. Poll for allocations, then send gateway queries
 
-Wait ~60 seconds for agents to create allocations from the indexing rules set in step 7. Then send several queries through the gateway to build Redpanda history for all indexers:
-
-The gateway requires the API key in the URL path and uses deployment IDs, not subgraph names:
+Poll the network subgraph for allocations every 5 seconds until extras have allocated (do NOT use a fixed sleep):
 
 ```bash
 NETWORK_DEPLOYMENT=$(curl -s http://localhost:8000/subgraphs/name/graph-network \
   -H 'content-type: application/json' \
   -d '{"query":"{ _meta { deployment } }"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])")
 
-for i in $(seq 1 20); do
+TOTAL_EXPECTED=$((1 + N))  # primary + extras
+while true; do
+  ALLOC_COUNT=$(curl -s -X POST -H "Content-Type: application/json" \
+    -d "{\"query\":\"{ allocations(where: { subgraphDeployment: \\\"${NETWORK_DEPLOYMENT}\\\", status: Active }) { id } }\"}" \
+    http://localhost:8000/subgraphs/name/graph-network \
+    | python3 -c "import json,sys; print(len(json.load(sys.stdin)['data']['allocations']))")
+  echo "$ALLOC_COUNT / $TOTAL_EXPECTED allocations"
+  [ "$ALLOC_COUNT" -ge "$TOTAL_EXPECTED" ] && break
+  sleep 5
+done
+```
+
+Once allocations exist, send queries through the gateway to build Redpanda history. The gateway requires the API key in the URL path and uses deployment IDs:
+
+```bash
+for i in $(seq 1 30); do
   curl -s "http://localhost:7700/api/deadbeefdeadbeefdeadbeefdeadbeef/deployments/id/${NETWORK_DEPLOYMENT}" \
     -H 'content-type: application/json' \
     -d '{"query":"{ _meta { block { number } } }"}' > /dev/null
 done
 ```
 
-This ensures all indexers with allocations have query history in Redpanda before IISA scoring runs.
-
 ### 9. Trigger IISA score refresh
 
-The IISA cronjob exposes `POST /run` on port 9090 for manual scoring runs. Without triggering it, IISA won't see the new indexers until the next scheduled cycle (default 120s).
+The IISA cronjob exposes `POST /run` on port 9090 for manual scoring runs. Trigger it and poll the logs for completion (do NOT use a fixed sleep):
 
 ```bash
 DOCKER_DEFAULT_PLATFORM= docker compose \
@@ -161,14 +180,19 @@ DOCKER_DEFAULT_PLATFORM= docker compose \
   exec iisa-cronjob curl -s -X POST http://localhost:9090/run
 ```
 
-Then verify scores were written for the expected number of indexers:
+Poll for scoring completion:
 
 ```bash
-DOCKER_DEFAULT_PLATFORM= docker compose \
-  -f docker-compose.yaml \
-  -f compose/dev/dips.yaml \
-  -f compose/extra-indexers.yaml \
-  logs iisa-cronjob --since 30s 2>&1 | grep -E "Wrote|indexers"
+while true; do
+  RESULT=$(DOCKER_DEFAULT_PLATFORM= docker compose \
+    -f docker-compose.yaml -f compose/dev/dips.yaml -f compose/extra-indexers.yaml \
+    logs iisa-cronjob --since 10s 2>&1 | grep "Scoring complete" | tail -1)
+  if [ -n "$RESULT" ]; then
+    echo "$RESULT"
+    break
+  fi
+  sleep 5
+done
 ```
 
 ### 10. Report
