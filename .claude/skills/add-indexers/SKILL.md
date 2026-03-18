@@ -160,14 +160,32 @@ while true; do
 done
 ```
 
-Once allocations exist, send queries through the gateway to build Redpanda history. The gateway requires the API key in the URL path and uses deployment IDs:
+Once allocations exist, build Redpanda history for ALL indexers. The gateway's candidate-selection algorithm heavily favors the primary indexer (highest stake), so extras never get queries naturally. Temporarily pause the primary to force the gateway to route to extras:
 
 ```bash
-for i in $(seq 1 30); do
-  curl -s "http://localhost:7700/api/deadbeefdeadbeefdeadbeefdeadbeef/deployments/id/${NETWORK_DEPLOYMENT}" \
+# Pause primary so gateway routes to extras
+docker pause indexer-service
+
+# Send queries -- these will be served by extra indexers
+for i in $(seq 1 200); do
+  curl -s --max-time 5 "http://localhost:7700/api/deadbeefdeadbeefdeadbeefdeadbeef/deployments/id/${NETWORK_DEPLOYMENT}" \
     -H 'content-type: application/json' \
-    -d '{"query":"{ _meta { block { number } } }"}' > /dev/null
+    -d '{"query":"{ _meta { block { number } } }"}' > /dev/null 2>&1
 done
+
+# Unpause primary
+docker unpause indexer-service
+
+# Resume any subgraphs that the agent may have paused while the
+# primary indexer-service was down (especially indexing-payments)
+for dep in $(curl -s -X POST http://localhost:8030/graphql \
+  -H 'content-type: application/json' \
+  -d '{"query":"{ indexingStatuses { subgraph } }"}' \
+  | python3 -c "import json,sys; [print(s['subgraph']) for s in json.load(sys.stdin)['data']['indexingStatuses']]"); do
+  curl -s -X POST "http://localhost:8020/" -H 'content-type: application/json' \
+    -d "{\"jsonrpc\": \"2.0\", \"method\": \"subgraph_resume\", \"params\": {\"deployment\": \"${dep}\"}, \"id\": 1}" > /dev/null
+done
+echo "All subgraphs resumed"
 ```
 
 ### 9. Trigger IISA score refresh
