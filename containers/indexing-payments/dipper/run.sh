@@ -4,12 +4,28 @@ set -eu
 
 . /opt/shared/lib.sh
 
-## Parameters
+# --- Start cargo build immediately (no deps needed) ---
+WORK_DIR="$(pwd)"
+if [ -d /opt/source ] && [ -f /opt/source/Cargo.toml ]; then
+  cd /opt/source
+  cargo build --bin dipper-service --release &
+  BUILD_PID=$!
+  BUILD_FROM_SOURCE=true
+  cd "$WORK_DIR"
+else
+  BUILD_FROM_SOURCE=false
+fi
+
+# --- Wait for dependencies in parallel with build ---
+wait_for_config
+
+# Wait for network subgraph to be deployed and queryable
 echo "Waiting for network subgraph..." >&2
 network_subgraph_deployment=$(wait_for_gql \
   "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network" \
   "{ _meta { deployment } }" \
-  ".data._meta.deployment")
+  ".data._meta.deployment" \
+  600)
 
 tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
@@ -88,11 +104,17 @@ echo "=== Generated config.json ===" >&2
 cat config.json >&2
 echo "===========================" >&2
 
-# Build from source if mounted, otherwise use pre-built binary
-if [ -d /opt/source ] && [ -f /opt/source/Cargo.toml ]; then
-  cd /opt/source
-  cargo build --bin dipper-service --release
-  exec ./target/release/dipper-service "$OLDPWD/config.json"
+# --- Wait for build to finish ---
+if [ "$BUILD_FROM_SOURCE" = "true" ]; then
+  echo "Waiting for cargo build to complete..."
+  wait $BUILD_PID
+  echo "Build complete"
+
+  # Wait for runtime deps (gateway, iisa must be reachable before dipper starts)
+  wait_for_url "http://gateway:${GATEWAY_PORT}" 600
+  wait_for_url "http://iisa:8080/health" 600
+
+  exec /opt/source/target/release/dipper-service "${WORK_DIR}/config.json"
 else
-  exec dipper-service ./config.json
+  exec dipper-service "${WORK_DIR}/config.json"
 fi

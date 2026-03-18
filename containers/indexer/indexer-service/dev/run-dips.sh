@@ -13,6 +13,18 @@ PROTOCOL_GRAPH_NODE_HOST="${PROTOCOL_GRAPH_NODE_HOST:-graph-node}"
 POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
 DIPS_MIN_GRT_PER_30_DAYS="${DIPS_MIN_GRT_PER_30_DAYS:-450}"
 
+# --- Start cargo build immediately (no deps needed) ---
+(
+  cd /opt/source
+  flock -x 200
+  if [ ! -f ./target/debug/indexer-service-rs ]; then
+    cargo build --bin indexer-service-rs
+  fi
+) 200>/opt/source/.cargo-build.lock &
+BUILD_PID=$!
+
+# --- Wait for dependencies in parallel with build ---
+wait_for_config
 wait_for_rpc
 
 tap_verifier=$(contract_addr TAPVerifier tap-contracts)
@@ -94,11 +106,12 @@ EOF
 fi
 cat /opt/config.toml
 
-cd /opt/source
-(
-  flock -x 200
-  if [ ! -f ./target/debug/indexer-service-rs ]; then
-    cargo build --bin indexer-service-rs
-  fi
-) 200>/opt/source/.cargo-build.lock
-exec ./target/debug/indexer-service-rs --config=/opt/config.toml
+# --- Wait for build to finish ---
+echo "Waiting for cargo build to complete..."
+wait $BUILD_PID
+echo "Build complete"
+
+# --- Wait for runtime deps (indexer-agent must be healthy before we serve) ---
+wait_for_url "http://indexer-agent:${INDEXER_MANAGEMENT_PORT}" 600
+
+exec /opt/source/target/debug/indexer-service-rs --config=/opt/config.toml

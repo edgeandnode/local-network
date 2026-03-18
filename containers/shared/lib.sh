@@ -51,6 +51,42 @@ wait_for_rpc() {
   echo "Chain RPC available"
 }
 
+# wait_for_url URL [TIMEOUT]
+# Polls a URL until it returns a successful response.
+wait_for_url() {
+  _wfu_url="$1" _wfu_timeout="${2:-300}" _wfu_elapsed=0
+  echo "Waiting for ${_wfu_url}..." >&2
+  while [ "$_wfu_elapsed" -lt "$_wfu_timeout" ]; do
+    if curl -sf "$_wfu_url" > /dev/null 2>&1; then
+      echo "${_wfu_url} is ready" >&2
+      return 0
+    fi
+    sleep 2
+    _wfu_elapsed=$((_wfu_elapsed + 2))
+  done
+  echo "Error: timed out waiting for ${_wfu_url} after ${_wfu_timeout}s" >&2
+  return 1
+}
+
+# wait_for_config [TIMEOUT]
+# Polls until the config volume has all contract address files populated by graph-contracts.
+wait_for_config() {
+  _wfc_timeout="${1:-300}" _wfc_elapsed=0
+  echo "Waiting for contract config..." >&2
+  while [ "$_wfc_elapsed" -lt "$_wfc_timeout" ]; do
+    if [ -f /opt/config/horizon.json ] && jq -e '.["1337"]' /opt/config/horizon.json > /dev/null 2>&1 \
+       && [ -f /opt/config/tap-contracts.json ] \
+       && [ -f /opt/config/subgraph-service.json ]; then
+      echo "Contract config available" >&2
+      return 0
+    fi
+    sleep 2
+    _wfc_elapsed=$((_wfc_elapsed + 2))
+  done
+  echo "Error: timed out waiting for contract config after ${_wfc_timeout}s" >&2
+  return 1
+}
+
 retry_cmd() {
   _rc_max="${1}"; shift
   _rc_delay="${1}"; shift

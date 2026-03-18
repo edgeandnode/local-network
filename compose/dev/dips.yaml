@@ -30,14 +30,24 @@ services:
     volumes:
       - ./containers/core/chain/run.sh:/opt/run.sh:ro
 
-  graph-contracts:
-    volumes:
-      - ${CONTRACTS_SOURCE_ROOT:?Set CONTRACTS_SOURCE_ROOT to local contracts repo}:/opt/contracts
+  # graph-contracts: volume mount temporarily disabled — image builds from
+  # CONTRACTS_COMMIT (fix/horizon-staking-ignition-dependency) which includes
+  # acceptIndexingAgreement. The local mount's build artifacts had a different
+  # directory layout that caused Ignition to deploy without the function.
+  # TODO: re-enable once local build artifacts are aligned with the image.
+  # graph-contracts:
+  #   volumes:
+  #     - ${CONTRACTS_SOURCE_ROOT:?Set CONTRACTS_SOURCE_ROOT to local contracts repo}:/opt/contracts
 
   indexer-service:
     cap_add:
       - NET_ADMIN
     platform: linux/arm64
+    # Reset base deps (indexer-agent, subgraph-deploy) so cargo build starts immediately.
+    # Script waits for config volume and indexer-agent internally.
+    depends_on: !override
+      chain: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     build:
       target: "wrapper"
       dockerfile_inline: |
@@ -68,6 +78,11 @@ services:
 
   indexer-agent:
     platform: linux/arm64
+    # Reset base deps (graph-contracts) so yarn install starts immediately.
+    # Script waits for config volume and staking internally.
+    depends_on: !override
+      chain: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     build:
       target: "wrapper"
       dockerfile_inline: |
@@ -102,11 +117,11 @@ services:
             && rm -rf /var/lib/apt/lists/*
         ENV CC=clang CXX=clang++ RUSTFLAGS="-C link-arg=-fuse-ld=lld"
     entrypoint: ["bash", "/opt/run.sh"]
-    depends_on:
-      block-oracle: { condition: service_healthy }
+    # Reset base deps (block-oracle, gateway) so cargo build starts immediately.
+    # Script waits for config volume, gateway, and iisa internally.
+    depends_on: !override
+      chain: { condition: service_healthy }
       postgres: { condition: service_healthy }
-      gateway: { condition: service_healthy }
-      iisa: { condition: service_healthy }
     volumes:
       - ${DIPPER_SOURCE_ROOT:?Set DIPPER_SOURCE_ROOT to local dipper checkout}:/opt/source
       - ${INDEXER_SERVICE_SOURCE_ROOT:?Set INDEXER_SERVICE_SOURCE_ROOT to local indexer-rs checkout}:/opt/source-indexer-rs:ro
@@ -133,7 +148,7 @@ services:
       - iisa-scores:/app/scores
     environment:
       PYTHONUNBUFFERED: "1"
-      SCORING_INTERVAL: "120"
+      SCORING_INTERVAL: "30"
 
   # Real IISA from source - replaces GHCR image
   iisa:
@@ -153,6 +168,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       gateway: { condition: service_healthy }
+      iisa-cronjob: { condition: service_healthy }
     ports:
       - "8080:8080"
     volumes:

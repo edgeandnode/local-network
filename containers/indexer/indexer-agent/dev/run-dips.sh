@@ -14,6 +14,19 @@ GRAPH_NODE_HOST="${GRAPH_NODE_HOST:-graph-node}"
 PROTOCOL_GRAPH_NODE_HOST="${PROTOCOL_GRAPH_NODE_HOST:-graph-node}"
 POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
 
+# --- Start yarn install immediately (no deps needed) ---
+(
+  cd /opt/indexer-agent-source-root
+  flock -x 200
+  if [ ! -f node_modules/.yarn-install-stamp ] || [ yarn.lock -nt node_modules/.yarn-install-stamp ]; then
+    yarn install --frozen-lockfile
+    touch node_modules/.yarn-install-stamp
+  fi
+) 200>/opt/indexer-agent-source-root/.yarn-install.lock &
+INSTALL_PID=$!
+
+# --- Wait for dependencies in parallel with install ---
+wait_for_config
 wait_for_rpc
 
 token_address=$(contract_addr L2GraphToken.address horizon)
@@ -95,14 +108,12 @@ export INDEXER_AGENT_DIPS_EPOCHS_MARGIN=1
 export INDEXER_AGENT_DIPPER_ENDPOINT="http://dipper:${DIPPER_INDEXER_RPC_PORT}"
 export INDEXER_AGENT_DIPS_ALLOCATION_AMOUNT=1
 
+# --- Wait for yarn install to finish ---
+echo "Waiting for yarn install to complete..."
+wait $INSTALL_PID
+echo "Install complete"
+
 cd /opt/indexer-agent-source-root
-(
-  flock -x 200
-  if [ ! -f node_modules/.yarn-install-stamp ] || [ yarn.lock -nt node_modules/.yarn-install-stamp ]; then
-    yarn install --frozen-lockfile
-    touch node_modules/.yarn-install-stamp
-  fi
-) 200>/opt/indexer-agent-source-root/.yarn-install.lock
 mkdir -p ./config/
 cat >./config/config.yaml <<-EOF
 networkIdentifier: "hardhat"
