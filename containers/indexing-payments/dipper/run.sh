@@ -94,6 +94,12 @@ cat >config.json <<-EOF
     "interval": 10,
     "batch_size": 100
   },
+  "chain_listener": {
+    "enabled": true,
+    "subgraph_endpoint": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments",
+    "poll_interval": 5,
+    "chain_id": ${CHAIN_ID}
+  },
   "additional_networks": {
     "${CHAIN_ID}": "${CHAIN_NAME}"
   }
@@ -107,7 +113,7 @@ echo "===========================" >&2
 # --- Wait for build to finish ---
 if [ "$BUILD_FROM_SOURCE" = "true" ]; then
   echo "Waiting for cargo build to complete..."
-  wait $BUILD_PID
+  wait "$BUILD_PID"
   echo "Build complete"
 
   # Wait for runtime deps (gateway, iisa must be reachable before dipper starts)

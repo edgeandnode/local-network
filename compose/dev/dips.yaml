@@ -149,6 +149,7 @@ services:
     environment:
       PYTHONUNBUFFERED: "1"
       SCORING_INTERVAL: "30"
+      REDPANDA_GATEWAY_IDS: "local"
 
   # Real IISA from source - replaces GHCR image
   iisa:
