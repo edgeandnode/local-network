@@ -111,7 +111,13 @@ echo "Waiting for cargo build to complete..."
 wait $BUILD_PID
 echo "Build complete"
 
-# --- Wait for runtime deps (indexer-agent must be healthy before we serve) ---
+# --- Wait for runtime deps before launching ---
 wait_for_url "http://indexer-agent:${INDEXER_MANAGEMENT_PORT}" 600
+echo "Waiting for network subgraph..." >&2
+wait_for_gql \
+  "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network" \
+  "{ _meta { deployment } }" \
+  ".data._meta.deployment" \
+  600
 
 exec /opt/source/target/debug/indexer-service-rs --config=/opt/config.toml

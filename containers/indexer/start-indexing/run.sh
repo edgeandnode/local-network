@@ -175,17 +175,10 @@ if [ -n "$recurring_collector" ]; then
     # Message: keccak256(abi.encodePacked(chainId, contractAddr, "authorizeSignerProof", deadline, authorizer))
     proof_deadline=$(($(date +%s) + 86400))
     msg_hash=$(cast keccak "$(cast abi-encode --packed 'f(uint256,address,string,uint256,address)' \
-      "${CHAIN_ID}" "${recurring_collector}" 'authorizeSignerProof' "${proof_deadline}" "${ACCOUNT0_ADDRESS}")" \
-      --rpc-url="http://chain:${CHAIN_RPC_PORT}" 2>/dev/null) || \
-    msg_hash=$(cast keccak "$(cast concat-hex \
-      "$(cast to-bytes32 "${CHAIN_ID}")" \
-      "$(cast to-bytes32 "${recurring_collector}")" \
-      "$(cast from-utf8 authorizeSignerProof)" \
-      "$(cast to-bytes32 "${proof_deadline}")" \
-      "$(cast to-bytes32 "${ACCOUNT0_ADDRESS}")")" 2>/dev/null)
+      "${CHAIN_ID}" "${recurring_collector}" 'authorizeSignerProof' "${proof_deadline}" "${ACCOUNT0_ADDRESS}")")
 
     # Sign with EIP-191 (personal_sign adds the "\x19Ethereum Signed Message:\n32" prefix)
-    proof=$(cast wallet sign --private-key="${ACCOUNT0_SECRET}" "${msg_hash}" 2>/dev/null)
+    proof=$(cast wallet sign --private-key="${ACCOUNT0_SECRET}" "${msg_hash}")
 
     if cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --private-key="${ACCOUNT0_SECRET}" \
       "${recurring_collector}" 'authorizeSigner(address,uint256,bytes)' \

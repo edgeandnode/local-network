@@ -71,6 +71,7 @@ services:
       RUST_LOG: info,indexer_service_rs=info,indexer_service_rs::middleware::tap_receipt=error,indexer_monitor=warn,indexer_dips=debug
       RUST_BACKTRACE: 1
       SQLX_OFFLINE: "true"
+    restart: on-failure:15
     healthcheck:
       interval: 2s
       retries: 600

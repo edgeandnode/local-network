@@ -43,15 +43,21 @@ This is safe after a `down -v` since the chain state it references no longer exi
 
 Use only the base compose files for the initial deploy. Extra indexers are added separately via the `/add-indexers` skill after the core stack is healthy.
 
+Use `--no-build` by default — run.sh scripts are volume-mounted, so changes are picked up without rebuilding images. Only use `--build` when Dockerfiles, build args, or base images have changed.
+
+```bash
+DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml up -d --no-build
+```
+
+If images don't exist yet (first deploy ever) or Dockerfiles changed, use `--build` instead:
+
 ```bash
 DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml up -d --build
 ```
 
-The `--build` flag ensures any changes to `run.sh` scripts or Dockerfiles are picked up (e.g. chain's `--block-time` flag, config changes baked into images). Without it, Docker reuses cached images and local changes are silently ignored.
+All services start in parallel with minimal dependencies (chain + postgres only for dev containers). Services wait internally for their runtime dependencies (network subgraph, gateway, iisa) rather than blocking at the compose level. A single `up -d` is sufficient — no need to run it multiple times.
 
 Wait for containers to stabilize. The `graph-contracts` container runs first (deploys all Solidity contracts and writes addresses to the config volume), then `subgraph-deploy` deploys three subgraphs (network, TAP, block-oracle). Other services start as their health check dependencies are met.
-
-**Note:** The initial `up -d` may exit with an error if `start-indexing` fails. This is expected -- see step 5. If `graph-contracts` itself fails, check its logs -- the most likely cause is a missing prerequisite commit (see Prerequisites) or a stale Ignition journal (see step 2).
 
 ### 4. Verify RecurringCollector was written to horizon.json
 
@@ -62,39 +68,7 @@ DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/di
 
 If this returns null, the contracts toolshed wasn't rebuilt. Run `cd $CONTRACTS_SOURCE_ROOT/packages/toolshed && pnpm build:self` and repeat from step 1.
 
-### 5. Fix nonce race failures
-
-Multiple containers use ACCOUNT0 concurrently after `graph-contracts` finishes (`start-indexing`, `tap-escrow-manager`). This causes "nonce too low" errors that can fail either container. The cascade is the real problem: if `start-indexing` fails, `dipper` and `ready` never start because they depend on it.
-
-Check whether `start-indexing` exited successfully:
-
-```bash
-DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml ps -a start-indexing --format '{{.Status}}'
-```
-
-If it shows `Exited (1)`, restart it:
-
-```bash
-DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml start start-indexing
-```
-
-Always restart `tap-escrow-manager` regardless of whether `start-indexing` succeeded. Even when authorization succeeds, the deposit step can hit "nonce too low" from competing with `start-indexing`. The `AlreadyAuthorized` error on restart is harmless -- it re-runs the deposit with a fresh nonce.
-
-```bash
-DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml restart tap-escrow-manager
-```
-
-### 6. Bring up any cascade-failed containers
-
-If `start-indexing` failed on the initial `up -d`, containers that depend on it (`dipper`, `ready`) will be stuck in `Created` state. Run `up -d` again to catch them:
-
-```bash
-DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml up -d --build
-```
-
-This is idempotent -- already-running containers are left alone.
-
-### 7. Verify signer authorization
+### 5. Verify signer authorization
 
 ```bash
 DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml logs tap-escrow-manager --since 60s 2>&1 | grep -i "authorized"
@@ -102,7 +76,7 @@ DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/di
 
 Expected: either `authorized signer=0x70997970C51812dc3A010C7d01b50e0d17dc79C8` (fresh auth) or `AuthorizableSignerAlreadyAuthorized` (already done on first run). Both are fine.
 
-### 8. Wait for TAP subgraph indexing, then verify dipper
+### 6. Wait for TAP subgraph indexing, then verify dipper
 
 The TAP subgraph needs to index the `SignerAuthorized` event before the indexer-service will accept paid queries. Dipper may restart once or twice with "bad indexers: BadResponse(402)" during this window -- this is normal and self-resolves.
 
@@ -114,7 +88,7 @@ DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/di
 
 Should show `dipper Up ... (healthy)`. If still restarting after 60 seconds, check gateway logs for persistent 402s.
 
-### 9. Full status check
+### 7. Full status check
 
 ```bash
 DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml ps --format '{{.Name}} {{.Status}}' | sort
@@ -135,10 +109,10 @@ The authorization chain that makes gateway queries work:
 
 ## Known issues
 
-- **ACCOUNT0 nonce race**: `start-indexing` and `tap-escrow-manager` both use ACCOUNT0 concurrently after `graph-contracts` finishes. Either can fail with "nonce too low". If `start-indexing` fails, `dipper` and `ready` never start (cascade). The fix is to restart the failed container and run `up -d` again.
 - **Stale Ignition journals**: After a failed `graph-contracts` deployment, the journal at `packages/subgraph-service/ignition/deployments/chain-1337/` contains partial state. A fresh `down -v` destroys the chain but not the journal (it's in the mounted source). Always delete it before retrying (step 2).
 - The contracts toolshed must be compiled (JS, not just TS) for the RecurringCollector whitelist to take effect. Use `pnpm build:self` in `packages/toolshed` (not `pnpm build` which fails on the `interfaces` package).
 - **Extra indexer stale state**: If `compose/extra-indexers.yaml` is not included in the `down -v` command, extra indexer containers and their postgres volumes survive the teardown. On the next deploy, agents have stale state from the old chain -- they believe they're already registered and never re-register URLs on the new chain. The network subgraph then shows `url: null` for these indexers and IISA can't select them.
+- **Use `--no-build` for speed**: Run.sh scripts are volume-mounted, so changes are picked up without image rebuilds. Only use `--build` when Dockerfiles or build args have changed. Using `--no-build` saves ~10 minutes on cached deploys.
 
 ## Key contract addresses (change each deploy)
 

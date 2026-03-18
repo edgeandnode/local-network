@@ -195,7 +195,9 @@ if [ "$phase3_skip" = "false" ]; then
   cd /opt/contracts-data-edge/packages/data-edge
   export MNEMONIC="${MNEMONIC}"
   sed -i "s/myth like bonus scare over problem client lizard pioneer submit female collect/${MNEMONIC}/g" hardhat.config.ts
-  npx hardhat data-edge:deploy --contract EventfulDataEdge --deploy-name EBO --network ganache | tee deploy.txt
+  # Tenderly verification may fail (external API, irrelevant locally) but
+  # the contract deploys fine. Allow non-zero exit from the hardhat command.
+  npx hardhat data-edge:deploy --contract EventfulDataEdge --deploy-name EBO --network ganache | tee deploy.txt || true
   data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
 
   echo "=== Data edge deployed at: $data_edge ==="
@@ -276,7 +278,7 @@ if [ "$phase4_deploy_skip" = "false" ]; then
       break
     fi
     # Check for pending governance TXs and execute them
-    if ls /opt/contracts/packages/deployment/txs/localNetwork/*.json 2>/dev/null | grep -qv executed; then
+    if find /opt/contracts/packages/deployment/txs/localNetwork/ -name '*.json' ! -name '*executed*' -print -quit 2>/dev/null | grep -q .; then
       echo "  Executing pending governance TXs..."
       npx hardhat deploy:execute-governance --network localNetwork || true
     else
