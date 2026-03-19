@@ -16,7 +16,9 @@ SELECTOR_SUBGRAPH_SERVICE = "26058249"  # subgraphService()
 
 
 def gql(url: str, query: str) -> dict:
-    req = Request(url, json.dumps({"query": query}).encode(), {"Content-Type": "application/json"})
+    req = Request(
+        url, json.dumps({"query": query}).encode(), {"Content-Type": "application/json"}
+    )
     with urlopen(req, timeout=5) as resp:
         data = json.loads(resp.read())
     if "errors" in data:
@@ -26,12 +28,14 @@ def gql(url: str, query: str) -> dict:
 
 def eth_call(to: str, data: str) -> str:
     """Make a raw eth_call to the Hardhat RPC. Returns the hex result."""
-    payload = json.dumps({
-        "jsonrpc": "2.0",
-        "method": "eth_call",
-        "params": [{"to": to, "data": "0x" + data}, "latest"],
-        "id": 1,
-    })
+    payload = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "method": "eth_call",
+            "params": [{"to": to, "data": "0x" + data}, "latest"],
+            "id": 1,
+        }
+    )
     req = Request(HARDHAT_RPC, payload.encode(), {"Content-Type": "application/json"})
     with urlopen(req, timeout=5) as resp:
         result = json.loads(resp.read())
@@ -58,16 +62,21 @@ def fetch_contract_health(ns_id: str) -> list[dict]:
 
     # Get RewardsManager address from the network subgraph
     try:
-        data = gql(f"{GRAPH_NODE_QUERY}/subgraphs/id/{ns_id}", """
+        data = gql(
+            f"{GRAPH_NODE_QUERY}/subgraphs/id/{ns_id}",
+            """
             { graphNetwork(id: "1") { rewardsManager } }
-        """)
+        """,
+        )
         rewards_manager = data["graphNetwork"]["rewardsManager"]
     except Exception as e:
-        checks.append({
-            "name": "RewardsManager address",
-            "ok": False,
-            "detail": f"could not query network subgraph: {e}",
-        })
+        checks.append(
+            {
+                "name": "RewardsManager address",
+                "ok": False,
+                "detail": f"could not query network subgraph: {e}",
+            }
+        )
         return checks
 
     # Call subgraphService() on the RewardsManager
@@ -75,31 +84,40 @@ def fetch_contract_health(ns_id: str) -> list[dict]:
         result = eth_call(rewards_manager, SELECTOR_SUBGRAPH_SERVICE)
         registered_addr = decode_address(result)
         is_registered = registered_addr.lower() != ZERO_ADDRESS.lower()
-        checks.append({
-            "name": "RewardsManager \u2192 SubgraphService rewards issuer",
-            "ok": is_registered,
-            "detail": registered_addr if is_registered else "not set (zero address)",
-        })
+        checks.append(
+            {
+                "name": "RewardsManager \u2192 SubgraphService rewards issuer",
+                "ok": is_registered,
+                "detail": registered_addr
+                if is_registered
+                else "not set (zero address)",
+            }
+        )
     except Exception as e:
-        checks.append({
-            "name": "RewardsManager \u2192 SubgraphService rewards issuer",
-            "ok": False,
-            "detail": f"eth_call failed: {e}",
-        })
+        checks.append(
+            {
+                "name": "RewardsManager \u2192 SubgraphService rewards issuer",
+                "ok": False,
+                "detail": f"eth_call failed: {e}",
+            }
+        )
 
     return checks
 
 
 def fetch_indexing_statuses() -> dict:
     """deployment_id -> {network, health, latest_block, chain_head}"""
-    data = gql(GRAPH_NODE_STATUS, """{
+    data = gql(
+        GRAPH_NODE_STATUS,
+        """{
         indexingStatuses {
             subgraph
             health
             fatalError { message }
             chains { network latestBlock { number } chainHeadBlock { number } }
         }
-    }""")
+    }""",
+    )
     out = {}
     for s in data["indexingStatuses"]:
         chain = s["chains"][0] if s["chains"] else {}
@@ -118,7 +136,9 @@ def fetch_subgraph_names() -> dict:
     names = {}
     for name in NAMED_SUBGRAPHS:
         try:
-            data = gql(f"{GRAPH_NODE_QUERY}/subgraphs/name/{name}", "{ _meta { deployment } }")
+            data = gql(
+                f"{GRAPH_NODE_QUERY}/subgraphs/name/{name}", "{ _meta { deployment } }"
+            )
             dep = data["_meta"]["deployment"]
             names[dep] = name
         except Exception:
@@ -135,7 +155,9 @@ def fetch_network_subgraph_id(names: dict) -> str | None:
 
 def fetch_allocations(ns_id: str) -> list[dict]:
     """Fetch indexers and their active allocations from the network subgraph."""
-    data = gql(f"{GRAPH_NODE_QUERY}/subgraphs/id/{ns_id}", """{
+    data = gql(
+        f"{GRAPH_NODE_QUERY}/subgraphs/id/{ns_id}",
+        """{
         indexers(first: 100) {
             id
             url
@@ -145,7 +167,8 @@ def fetch_allocations(ns_id: str) -> list[dict]:
                 allocatedTokens
             }
         }
-    }""")
+    }""",
+    )
     return data["indexers"]
 
 
@@ -154,14 +177,17 @@ def fetch_gns_subgraphs(ns_id: str) -> list[dict]:
     all_subgraphs = []
     skip = 0
     while True:
-        data = gql(f"{GRAPH_NODE_QUERY}/subgraphs/id/{ns_id}", f"""{{
+        data = gql(
+            f"{GRAPH_NODE_QUERY}/subgraphs/id/{ns_id}",
+            f"""{{
             subgraphs(first: 100, skip: {skip}, orderBy: createdAt) {{
                 id
                 currentVersion {{
                     subgraphDeployment {{ ipfsHash }}
                 }}
             }}
-        }}""")
+        }}""",
+        )
         batch = data["subgraphs"]
         all_subgraphs.extend(batch)
         if len(batch) < 100:
@@ -182,14 +208,15 @@ def format_tokens(raw: str) -> str:
 
 
 def health_indicator(status: dict) -> str:
-    if status["fatal_error"]:
+    if status.get("fatal_error"):
         return " FATAL"
-    if status["health"] == "healthy":
-        lag = status["chain_head"] - status["latest_block"]
+    health = status.get("health", "unknown")
+    if health == "healthy":
+        lag = status.get("chain_head", 0) - status.get("latest_block", 0)
         if lag <= 1:
             return " synced"
         return f" {lag} blocks behind"
-    return f" {status['health']}"
+    return f" {health}"
 
 
 def main():
@@ -223,19 +250,23 @@ def main():
                 tree[network] = {}
             if dep not in tree[network]:
                 tree[network][dep] = []
-            tree[network][dep].append({
-                "id": idx["id"],
-                "url": idx.get("url", ""),
-                "staked": idx["stakedTokens"],
-                "allocated": alloc["allocatedTokens"],
-            })
+            tree[network][dep].append(
+                {
+                    "id": idx["id"],
+                    "url": idx.get("url", ""),
+                    "staked": idx["stakedTokens"],
+                    "allocated": alloc["allocatedTokens"],
+                }
+            )
 
     # Print summary
     total_indexers = len(indexers)
     total_on_gns = len(gns_subgraphs)
     total_indexed = len(statuses)
     total_networks = len(tree)
-    print(f"{total_indexers} indexer(s), {total_on_gns} subgraph(s) on GNS, {total_indexed} indexed by graph-node, {total_networks} network(s)\n")
+    print(
+        f"{total_indexers} indexer(s), {total_on_gns} subgraph(s) on GNS, {total_indexed} indexed by graph-node, {total_networks} network(s)\n"
+    )
 
     # Print tree
     networks = sorted(tree.keys())
@@ -270,7 +301,6 @@ def main():
             print()
 
     # Idle indexers (registered on-chain but no active allocations)
-    active_indexer_ids = {idx["id"] for idx in indexers if idx["allocations"]}
     idle_indexers = [idx for idx in indexers if not idx["allocations"]]
     if idle_indexers:
         print(f"\nidle indexers ({len(idle_indexers)} registered, no allocations)")
@@ -285,7 +315,7 @@ def main():
     allocated_deps = {dep for net in tree.values() for dep in net}
     unallocated = [dep for dep in statuses if dep not in allocated_deps]
     if unallocated:
-        print(f"\nunallocated (indexed but no active allocation)")
+        print("\nunallocated (indexed but no active allocation)")
         for i, dep in enumerate(unallocated):
             is_last = i == len(unallocated) - 1
             branch = "\u2514\u2500" if is_last else "\u251c\u2500"
@@ -310,7 +340,7 @@ def main():
     # Contract health checks
     health_checks = fetch_contract_health(ns_id)
     if health_checks:
-        print(f"\ncontract health")
+        print("\ncontract health")
         for i, check in enumerate(health_checks):
             is_last = i == len(health_checks) - 1
             branch = "\u2514\u2500" if is_last else "\u251c\u2500"
