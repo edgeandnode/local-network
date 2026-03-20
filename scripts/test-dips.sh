@@ -279,7 +279,7 @@ EOFJSON
   # 5. ABI-encode the full SignedRCA tuple
   cast abi-encode \
     "f(((uint64,uint64,address,address,address,uint256,uint256,uint32,uint32,uint256,bytes),bytes))" \
-    "(($deadline,$ends_at,${ACCOUNT0_ADDRESS},${SUBGRAPH_SERVICE_ADDRESS},${RECEIVER_ADDRESS},10000,100,3600,86400,$nonce,$metadata),$signature)"
+    "(($deadline,$ends_at,${ACCOUNT0_ADDRESS},${SUBGRAPH_SERVICE_ADDRESS},${RECEIVER_ADDRESS},10000,100,3600,7200,$nonce,$metadata),$signature)"
 }
 
 # Poll for a proposal's status to change.
