@@ -1006,7 +1006,7 @@ scenario_8_onchain_accept_and_collect() {
   }
 
   local ts
-  ts=$(date +%s)
+  ts=$(get_chain_timestamp)
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
   local nonce
@@ -1094,7 +1094,7 @@ scenario_10_collection_after_cancel() {
   }
 
   local ts
-  ts=$(date +%s)
+  ts=$(get_chain_timestamp)
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
   local nonce
