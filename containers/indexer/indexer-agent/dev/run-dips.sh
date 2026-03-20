@@ -49,11 +49,17 @@ export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
 export INDEXER_AGENT_LOG_LEVEL=trace
 export INDEXER_AGENT_POLLING_INTERVAL=5000
 
+# RAV collection configuration for testing
+export INDEXER_AGENT_RAV_COLLECTION_INTERVAL=60
+export INDEXER_AGENT_RAV_CHECK_INTERVAL=30
+
 # DIPs configuration
 export INDEXER_AGENT_ENABLE_DIPS=true
 export INDEXER_AGENT_DIPS_EPOCHS_MARGIN=1
 export INDEXER_AGENT_DIPPER_ENDPOINT="http://dipper:${DIPPER_INDEXER_RPC_PORT}"
 export INDEXER_AGENT_DIPS_ALLOCATION_AMOUNT=1
+export INDEXER_AGENT_DIPS_COLLECTION_TARGET=1
+export INDEXER_AGENT_DIPS_COLLECTION_SLIPPAGE=50
 
 cd /opt/indexer-agent-source-root
 mkdir -p ./config/
@@ -76,6 +82,8 @@ enableDips: true
 dipperEndpoint: "http://dipper:${DIPPER_INDEXER_RPC_PORT}"
 dipsAllocationAmount: 1
 dipsEpochsMargin: 1
+ravCollectionInterval: 60
+ravCheckInterval: 30
 EOF
 cat config/config.yaml
 
