@@ -1348,9 +1348,8 @@ scenario_12_denied_dips_amount() {
 
 run_rejection_batch
 scenario_6_agent_restart
-# TODO: enable once on-chain collect is implemented (Task 4)
-# scenario_8_onchain_accept_and_collect
-# scenario_10_collection_after_cancel
+scenario_8_onchain_accept_and_collect
+scenario_10_collection_after_cancel
 
 # PLAN_03A scenarios (multicall path + token amount) — run in parallel
 s11_results=$(mktemp /tmp/dips-s11-XXXXXX)
