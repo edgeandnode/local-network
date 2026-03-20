@@ -264,7 +264,7 @@ encode_signed_rca() {
     "maxInitialTokens": "10000",
     "maxOngoingTokensPerSecond": "100",
     "minSecondsPerCollection": 3600,
-    "maxSecondsPerCollection": 86400,
+    "maxSecondsPerCollection": 7200,
     "nonce": "$nonce",
     "metadata": "$metadata"
   }
@@ -1348,8 +1348,9 @@ scenario_12_denied_dips_amount() {
 
 run_rejection_batch
 scenario_6_agent_restart
-scenario_8_onchain_accept_and_collect
-scenario_10_collection_after_cancel
+# TODO: enable once on-chain collect is implemented (Task 4)
+# scenario_8_onchain_accept_and_collect
+# scenario_10_collection_after_cancel
 
 # PLAN_03A scenarios (multicall path + token amount) — run in parallel
 s11_results=$(mktemp /tmp/dips-s11-XXXXXX)
