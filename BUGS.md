@@ -7,8 +7,8 @@
 **Root cause**: Migration `20260205000000_add_num_candidates_to_indexing_requests.sql` lives in `dipper-pgregistry/migrations/` but `dipper-service` only embeds migrations from `bin/dipper-service/migrations/`. The embedded migrator never sees it.
 
 **Repo**: `dipper`
-**Fix**: Either move the migration into `bin/dipper-service/migrations/` or change the embedded migrator to include `dipper-pgregistry/migrations/`.
-**PR**: fixed locally on `fix/delegate-migrations-to-subcrates` branch
+**Fix**: Delegated DB migrations to sub-crate migrators.
+**PR**: https://github.com/edgeandnode/dipper/pull/571 (merged)
 
 ## BUG-002: dipper run.sh hardcodes RecurringCollector as zero address
 
@@ -17,8 +17,8 @@
 **Root cause**: `containers/indexing-payments/dipper/run.sh` has `"recurring_collector": "0x0000000000000000000000000000000000000000"` instead of reading the deployed address from the config volume.
 
 **Repo**: `local-network`
-**Fix**: Read address from horizon.json via `contract_addr RecurringCollector.address horizon`. Already applied locally.
-**PR**: not submitted
+**Fix**: Read address from horizon.json via `contract_addr RecurringCollector.address horizon`. Applied in local-network.
+**PR**: local-network fix applied, not submitted as standalone PR
 
 ## BUG-003: indexer-service run-dips.sh uses stale config field names
 
@@ -27,8 +27,8 @@
 **Root cause**: `containers/indexer/indexer-service/dev/run-dips.sh` uses old config fields (`allowed_payers`, `price_per_entity`, `price_per_epoch`) that no longer exist in the indexer-rs `DipsConfig` struct. The current fields are `supported_networks`, `min_grt_per_30_days`, `min_grt_per_billion_entities_per_30_days`.
 
 **Repo**: `local-network`
-**Fix**: Replace old fields with `supported_networks = ["hardhat"]` and `[dips.min_grt_per_30_days]`. Already applied locally.
-**PR**: not submitted
+**Fix**: Replaced old fields with `supported_networks = ["hardhat"]` and `[dips.min_grt_per_30_days]`. Applied in local-network.
+**PR**: local-network fix applied, not submitted as standalone PR
 
 ## BUG-004: register_new_indexing_request does not accept num_candidates
 
@@ -38,7 +38,7 @@
 
 **Repo**: `dipper`
 **Fix**: Add an optional `num_candidates` field to the EIP-712 message struct, the RPC handler, and the CLI `--num-candidates` flag. Default to 3 when not provided.
-**PR**: https://github.com/edgeandnode/dipper/pull/572
+**PR**: https://github.com/edgeandnode/dipper/pull/572 (merged)
 
 ## BUG-005: TAP subgraph pointed at old Escrow contract instead of Horizon PaymentsEscrow
 
@@ -47,8 +47,8 @@
 **Root cause**: `containers/core/subgraph-deploy/run.sh` deployed the TAP subgraph (`semiotic/tap`) pointing at the old TAP Escrow from `tap-contracts.json`. The `tap-escrow-manager` correctly authorizes signers on the Horizon PaymentsEscrow from `horizon.json`. The subgraph never indexes the Horizon authorization events, so the indexer-service sees no authorized signers.
 
 **Repo**: `local-network`
-**Fix**: Changed `contract_addr Escrow tap-contracts` to `contract_addr PaymentsEscrow.address horizon` in subgraph-deploy/run.sh. Applied locally.
-**PR**: not submitted
+**Fix**: Changed `contract_addr Escrow tap-contracts` to `contract_addr PaymentsEscrow.address horizon` in subgraph-deploy/run.sh. Applied in local-network.
+**PR**: local-network fix applied, not submitted as standalone PR
 
 ## BUG-006: RecurringCollector address missing from horizon.json on fresh deploy
 
@@ -77,8 +77,8 @@
 **Root cause**: The `AllocationManager.stakeUsageSummary()` calls `RewardsManager.getRewards(SubgraphService, allocationId)` before executing allocation transactions. The RewardsManager checks whether the caller (SubgraphService at `0x09635F...`) is a registered rewards issuer. On a fresh local-network deploy, SubgraphService is never whitelisted in the RewardsManager, so all `getRewards` calls revert.
 
 **Repo**: `local-network` (deploy scripts)
-**Fix**: The deploy scripts need to call `RewardsManager.setRewardsIssuer(SubgraphService, true)` after contract deployment. Needs investigation into which deploy script should handle this and what the RewardsManager ABI looks like.
-**PR**: not submitted
+**Fix**: Added idempotent `RewardsManager.setSubgraphService()` call in `containers/core/graph-contracts/run.sh`. Applied in local-network.
+**PR**: local-network fix applied, not submitted as standalone PR
 
 ## BUG-009: IISA API does not reload scores after cronjob updates them
 
@@ -87,8 +87,8 @@
 **Root cause**: The IISA HTTP API (`iisa` service) loads scores into an in-memory DataFrame at startup and never reloads them. The `POST /refresh` endpoint exists but nothing calls it. The cronjob writes to `/app/scores/indexer_scores.json` on a shared volume, but the API reads from memory, not disk, on each request.
 
 **Repo**: `subgraph-dips-indexer-selection`
-**Fix**: Two-layer approach applied locally: (1) The cronjob now calls `POST /refresh` on the IISA API after writing scores (`IISA_API_URL` env var, warns at startup if unset). (2) The API now runs a background task that checks the scores file mtime every `IISA_SCORES_RELOAD_INTERVAL` seconds (default 120) and reloads when it changes. The cronjob provides immediate freshness; the periodic reload is a fallback if the refresh call fails.
-**PR**: https://github.com/edgeandnode/subgraph-dips-indexer-selection/pull/75
+**Fix**: Two-layer approach: (1) The cronjob calls `POST /refresh` on the IISA API after writing scores. (2) The API runs a background task that checks the scores file mtime every `IISA_SCORES_RELOAD_INTERVAL` seconds (default 120) and reloads when it changes.
+**PR**: https://github.com/edgeandnode/subgraph-dips-indexer-selection/pull/75 (merged)
 
 ## BUG-010: Dipper topology excludes indexers without allocations
 
@@ -98,7 +98,7 @@
 
 **Repo**: `dipper`
 **Fix**: Extended the `indexer_operators` fetcher to also return the URL field, and changed its `Extend<Snapshot>` impl to create indexer entries (`.or_insert_with()`) instead of only modifying existing ones (`.and_modify()`). Now all registered indexers with a valid URL appear in the topology regardless of allocation status.
-**PR**: not submitted
+**PR**: https://github.com/edgeandnode/dipper/pull/581 (merged)
 
 ## BUG-011: Extra indexers rejected with SIGNER_NOT_AUTHORISED due to missing escrow accounts
 
@@ -107,8 +107,8 @@
 **Root cause**: The indexer-service's DIPs signer validator reuses the TAP `EscrowSignerValidator`, which queries the network subgraph for `paymentsEscrowAccounts` filtered by receiver (indexer address). The `tap-escrow-manager` only deposits GRT into PaymentsEscrow for the primary indexer. Extra indexers have no escrow accounts, so the query returns empty and all signers are rejected -- even though the signer authorization (on GraphTallyCollector) exists at the payer level.
 
 **Repo**: `local-network`
-**Fix**: Added escrow deposits (GRT approve + `PaymentsEscrow.deposit(collector, receiver, amount)`) for each extra indexer in the `start-indexing-extra` init container generated by `scripts/gen-extra-indexers.py`. In production, the `IndexingAgreementManager` contract (on the `mde/dips-ignition-deployment` branch) handles this automatically when `offerAgreement()` is called.
-**PR**: not submitted
+**Fix**: Added escrow deposits (GRT approve + `PaymentsEscrow.deposit(collector, receiver, amount)`) for each extra indexer in the `start-indexing-extra` init container generated by `scripts/gen-extra-indexers.py`. In production, the `IndexingAgreementManager` contract (on the `mde/dips-ignition-deployment` branch) handles this automatically when `offerAgreement()` is called. Applied in local-network.
+**PR**: local-network fix applied, not submitted as standalone PR
 
 ## BUG-012: Dipper chain_listener disabled — agreements expire despite on-chain acceptance
 
@@ -116,16 +116,26 @@
 
 **Root cause**: Dipper's `chain_listener` service monitors a subgraph for `IndexingAgreementAccepted` and `IndexingAgreementCanceled` events to transition agreement status from Created to AcceptedOnChain. The chain_listener config is `None` in the local-network run.sh because no such subgraph existed. Without it, agreements stay in Created status until the expiration service marks them Expired (deadline_seconds = 300), regardless of what happened on-chain.
 
-**Repo**: `dipper` (config), `graphprotocol/indexing-payments-subgraph` (data source)
-**Fix**: Created `graphprotocol/indexing-payments-subgraph` which indexes all IndexingAgreement events from the SubgraphService contract. The subgraph auto-deploys in local-network when DIPs contracts are present. Remaining work: configure dipper's `chain_listener` section in `containers/indexing-payments/dipper/run.sh` to point at this subgraph.
-**PR**: subgraph repo created and merged (graphprotocol/indexing-payments-subgraph). Dipper config not yet updated.
+**Repo**: `dipper` (config), `graphprotocol/indexing-payments-subgraph` (data source), `local-network`
+**Fix**: Created `graphprotocol/indexing-payments-subgraph` which indexes all IndexingAgreement events from the SubgraphService contract. The subgraph auto-deploys in local-network when DIPs contracts are present. Dipper's `chain_listener` section configured in `containers/indexing-payments/dipper/run.sh`. Dipper configmap example updated upstream.
+**PR**: subgraph repo merged. Dipper configmap PR #585 (merged). Local-network run.sh updated.
 
-## BUG-013: RCA metadata ABI encoding mismatch causes on-chain acceptance to revert
+## BUG-013: RCA metadata version field causes on-chain acceptance to revert
 
 **Symptom**: Every DIPs on-chain acceptance reverts with `IndexingAgreementDecoderInvalidData("decodeRCAMetadata", data)`. The indexer-agent picks up the accepted proposal, attempts `SubgraphService.acceptIndexingAgreement()`, and the contract can't decode the metadata bytes.
 
-**Root cause**: Alloy's `SolValue::abi_encode()` on a struct with dynamic fields (`bytes`) wraps the encoding with a 32-byte outer tuple offset (`0x20` prefix, 224 bytes total). Solidity's `abi.encode()` for the same struct does not include this prefix (192 bytes). The SubgraphService contract calls `abi.decode(rca.metadata, (AcceptIndexingAgreementMetadata))` which expects Solidity's format. The extra `0x20` prefix causes the decoder to misalign and revert.
+**Root cause**: Dipper was encoding `version: 1` in the RCA metadata, but the Solidity enum `IndexingAgreementVersion.V1` has value `0`. The contract decoded version `1` as an unknown variant and reverted. The initial investigation (PR #582) incorrectly attributed this to an `abi_encode` vs `abi_encode_params` mismatch — that PR was closed after testing showed the encoding format was not the issue.
 
 **Repo**: `dipper`
-**Fix**: Switch from `.abi_encode()` to `.abi_encode_params()` in `into_sol_rca()` (`bin/dipper-service/src/indexer_rpc_client.rs`). The `_params` variant produces the inner encoding without the outer offset, matching Solidity's format.
-**PR**: https://github.com/edgeandnode/dipper/pull/582
+**Fix**: Use `version: 0` for `IndexingAgreementVersion.V1` in the RCA metadata.
+**PR**: https://github.com/edgeandnode/dipper/pull/583 (merged)
+
+## BUG-014: Indexer-agent pauses indexing-payments subgraph due to startup race condition
+
+**Symptom**: Dipper's chain_listener reports "Subgraph appears stalled" and never sees on-chain `IndexingAgreementAccepted` events. Agreements that were accepted on-chain by indexer-agents expire in dipper's DB (status 5 = Expired) after `deadline_seconds` (300s). Dipper then reassesses and creates duplicate agreements, leading to over-allocation.
+
+**Root cause**: The indexer-agent's `run-dips.sh` checks once at startup for the indexing-payments subgraph deployment and sets `INDEXER_AGENT_OFFCHAIN_SUBGRAPHS` if found. On a fresh deploy, the agent starts before `subgraph-deploy` finishes deploying the indexing-payments subgraph (they run in parallel with no compose dependency). The single-shot check finds nothing (`INDEXING_PAYMENTS_DEPLOYMENT=`), the env var is never set, and the agent's `reconcileDeployments` subsequently pauses the subgraph because it has no allocation and no offchain rule.
+
+**Repo**: `local-network`
+**Fix**: Changed the single check to a wait loop (up to 3 minutes, 5s intervals) that polls for the indexing-payments subgraph before giving up. Applied in `containers/indexer/indexer-agent/dev/run-dips.sh`.
+**PR**: local-network fix applied, not submitted as standalone PR

@@ -102,6 +102,29 @@ export INDEXER_AGENT_MAX_PROVISION_INITIAL_SIZE=200000
 export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
 export INDEXER_AGENT_LOG_LEVEL=trace
 
+# Keep the indexing-payments subgraph deployed (dipper's chain_listener reads it).
+# Without this, reconcileDeployments pauses it because it has no allocation.
+# Wait up to 3 minutes -- subgraph-deploy runs in parallel and may not finish yet.
+echo "Waiting for indexing-payments subgraph..."
+INDEXING_PAYMENTS_DEPLOYMENT=""
+for _ip_attempt in $(seq 1 36); do
+  INDEXING_PAYMENTS_DEPLOYMENT=$(curl -s "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments" \
+    -H 'content-type: application/json' \
+    -d '{"query":"{ _meta { deployment } }"}' 2>/dev/null \
+    | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])" 2>/dev/null || true)
+  if [ -n "${INDEXING_PAYMENTS_DEPLOYMENT}" ]; then
+    break
+  fi
+  [ $((_ip_attempt % 6)) -eq 0 ] && echo "  still waiting for indexing-payments subgraph (attempt ${_ip_attempt}/36)..."
+  sleep 5
+done
+if [ -n "${INDEXING_PAYMENTS_DEPLOYMENT}" ]; then
+  echo "Adding indexing-payments (${INDEXING_PAYMENTS_DEPLOYMENT}) to offchain subgraphs"
+  export INDEXER_AGENT_OFFCHAIN_SUBGRAPHS="${INDEXING_PAYMENTS_DEPLOYMENT}"
+else
+  echo "WARNING: indexing-payments subgraph not found after 3m -- chain_listener will stall"
+fi
+
 # DIPs configuration
 export INDEXER_AGENT_ENABLE_DIPS=true
 export INDEXER_AGENT_DIPS_EPOCHS_MARGIN=1

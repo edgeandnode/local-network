@@ -2,6 +2,7 @@
 """Print the local network state as a tree: network > subgraph > indexer."""
 
 import json
+import subprocess
 import sys
 from urllib.request import Request, urlopen
 
@@ -196,6 +197,38 @@ def fetch_gns_subgraphs(ns_id: str) -> list[dict]:
     return all_subgraphs
 
 
+def fetch_dips_deployments(ns_id: str) -> set[str]:
+    """Query dipper's postgres for deployment IDs with active indexing requests."""
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "exec",
+                "-i",
+                "postgres",
+                "psql",
+                "-U",
+                "postgres",
+                "-d",
+                "dipper_1",
+                "-t",
+                "-A",
+                "-c",
+                "SELECT DISTINCT deployment_id FROM dipper_reg_indexing_requests",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return set()
+        return {
+            line.strip() for line in result.stdout.strip().splitlines() if line.strip()
+        }
+    except Exception:
+        return set()
+
+
 def format_tokens(raw: str) -> str:
     grt = int(raw) / 1e18
     if grt >= 1_000_000:
@@ -329,13 +362,17 @@ def main():
             print(f"  {branch} {label}")
 
     # GNS-only subgraphs (published on-chain but not deployed to graph-node)
-    gns_only = sorted(gns_deployments - set(statuses.keys()))
+    # Exclude deployments that already appear in the allocation tree
+    gns_only = sorted(gns_deployments - set(statuses.keys()) - allocated_deps)
     if gns_only:
+        # Check which GNS-only deployments have DIPs indexing requests
+        dips_deps = fetch_dips_deployments(ns_id)
         print(f"\nGNS-only ({len(gns_only)} published on-chain, not indexed)")
         for i, dep in enumerate(gns_only):
             is_last = i == len(gns_only) - 1
             branch = "\u2514\u2500" if is_last else "\u251c\u2500"
-            print(f"  {branch} {dep}")
+            suffix = "  dips" if dep in dips_deps else ""
+            print(f"  {branch} {dep}{suffix}")
 
     # Contract health checks
     health_checks = fetch_contract_health(ns_id)
