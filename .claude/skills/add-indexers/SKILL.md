@@ -181,10 +181,8 @@ done
 # Unpause primary
 docker unpause indexer-service
 
-# Wait for agent reconciliation to settle after unpause
-sleep 20
-
 # Resume any paused subgraphs and verify sync
+# The offchain rule set above prevents the agent from re-pausing indexing-payments.
 python3 scripts/check-subgraph-sync.py --resume indexing-payments
 python3 scripts/check-subgraph-sync.py
 ```
