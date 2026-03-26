@@ -160,9 +160,14 @@ while true; do
 done
 ```
 
-Once allocations exist, build Redpanda history for ALL indexers. The gateway's candidate-selection algorithm heavily favors the primary indexer (highest stake), so extras never get queries naturally. Temporarily pause the primary to force the gateway to route to extras:
+Once allocations exist, build Redpanda history for ALL indexers. The gateway's candidate-selection algorithm heavily favors the primary indexer (highest stake), so extras never get queries naturally. Temporarily pause the primary to force the gateway to route to extras.
+
+Before pausing, protect the indexing-payments subgraph by setting an offchain indexing rule on the primary agent. Without this, the agent detects the paused service as unhealthy and pauses all subgraphs without allocations -- including indexing-payments. The reconciliation loop then re-pauses it even after `subgraph_resume` because there is no offchain rule to override the automatic behavior (BUG-014).
 
 ```bash
+# Protect indexing-payments subgraph before pausing the primary service
+python3 scripts/set-offchain-rule.py indexing-payments
+
 # Pause primary so gateway routes to extras
 docker pause indexer-service
 
@@ -176,16 +181,12 @@ done
 # Unpause primary
 docker unpause indexer-service
 
-# Resume any subgraphs that the agent may have paused while the
-# primary indexer-service was down (especially indexing-payments)
-for dep in $(curl -s -X POST http://localhost:8030/graphql \
-  -H 'content-type: application/json' \
-  -d '{"query":"{ indexingStatuses { subgraph } }"}' \
-  | python3 -c "import json,sys; [print(s['subgraph']) for s in json.load(sys.stdin)['data']['indexingStatuses']]"); do
-  curl -s -X POST "http://localhost:8020/" -H 'content-type: application/json' \
-    -d "{\"jsonrpc\": \"2.0\", \"method\": \"subgraph_resume\", \"params\": {\"deployment\": \"${dep}\"}, \"id\": 1}" > /dev/null
-done
-echo "All subgraphs resumed"
+# Wait for agent reconciliation to settle after unpause
+sleep 20
+
+# Resume any paused subgraphs and verify sync
+python3 scripts/check-subgraph-sync.py --resume indexing-payments
+python3 scripts/check-subgraph-sync.py
 ```
 
 ### 9. Trigger IISA score refresh

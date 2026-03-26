@@ -88,6 +88,31 @@ DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/di
 
 Should show `dipper Up ... (healthy)`. If still restarting after 60 seconds, check gateway logs for persistent 402s.
 
+### 6b. Verify indexing-payments subgraph
+
+The indexing-payments subgraph is critical for DIPs -- dipper's chain_listener reads it to detect on-chain `IndexingAgreementAccepted` events. Without it, agreements expire after 300 seconds regardless of whether indexer-agents accepted them on-chain (BUG-012, BUG-014).
+
+Check it's deployed and syncing:
+
+```bash
+python3 scripts/check-subgraph-sync.py indexing-payments
+```
+
+If exit code is 1, the subgraph-deploy container may still be running. Check `DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml logs subgraph-deploy 2>&1 | tail -20`.
+
+Verify the primary agent has the offchain rule (set by `run-dips.sh`'s wait loop):
+
+```bash
+DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml \
+  logs indexer-agent 2>&1 | grep -m1 "Adding indexing-payments"
+```
+
+Expected: a log line showing the indexing-payments deployment was added to offchain subgraphs. If instead you see `"WARNING: indexing-payments subgraph not found after 3m"`, the agent started before subgraph-deploy finished. Set the offchain rule manually:
+
+```bash
+python3 scripts/set-offchain-rule.py indexing-payments
+```
+
 ### 7. Full status check
 
 ```bash

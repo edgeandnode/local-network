@@ -1,19 +1,22 @@
 ---
 name: send-indexing-request
 description: Send a test indexing request to dipper via the CLI. Use when testing the DIPs flow end-to-end, when the user asks to register an indexing request, send a test agreement, trigger the DIPs pipeline, or test dipper proposals.
+argument-hint: "[deployment_id]"
 ---
 
 # Send Indexing Request
 
-Register an indexing request with dipper and monitor the full DIPs pipeline: IISA candidate selection, RCA proposal signing, and indexer-service accept/reject.
+Register an indexing request with dipper and monitor the full DIPs pipeline: IISA candidate selection, RCA proposal signing, indexer-service accept/reject, and on-chain acceptance via the chain_listener.
 
 ## Steps
 
 ### 1. Build the dipper CLI (if not already built)
 
 ```bash
-cd /Users/samuel/Documents/github/dipper && cargo build --bin dipper-cli --release
+cargo build --manifest-path /Users/samuel/Documents/github/dipper/Cargo.toml --bin dipper-cli --release
 ```
+
+The path comes from `DIPPER_SOURCE_ROOT` in `.environment`. Always use absolute paths to the dipper binary -- never `cd` to the dipper repo, as it breaks subsequent docker compose commands that expect to be in the local-network directory.
 
 ### 2. Verify dipper is healthy
 
@@ -61,11 +64,13 @@ The indexer count should match the total number of indexers with allocations. If
 
 ### 4. Send the indexing request
 
+If this skill was invoked with an argument (e.g., `/send-indexing-request QmSQq...`), use that value as the deployment ID. Otherwise default to `QmPdbQaRCMhgouSZSW3sHZxU3M8KwcngWASvreAexzmmrh` (the graph-network subgraph).
+
 ```bash
-cd /Users/samuel/Documents/github/dipper && ./target/release/dipper-cli indexings register \
+/Users/samuel/Documents/github/dipper/target/release/dipper-cli indexings register \
   --server-url http://localhost:9000 \
   --signing-key "0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573" \
-  QmPdbQaRCMhgouSZSW3sHZxU3M8KwcngWASvreAexzmmrh \
+  <DEPLOYMENT_ID> \
   1337
 ```
 
@@ -84,23 +89,26 @@ DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/di
 
 ### 5. Monitor the pipeline
 
-Check logs from all three services involved in the flow:
-
 ```bash
-DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml logs -f dipper iisa indexer-service --since 30s 2>&1
+python3 scripts/monitor-dips-pipeline.py <REQUEST_ID>
 ```
 
-The expected sequence:
+This polls dipper's database for agreement status changes, checks indexing-payments subgraph health proactively, and exits when all agreements reach a terminal state. Expected runtime: 30-120 seconds.
 
-1. **dipper** receives the request and calls IISA for candidate selection
-2. **iisa** scores indexers and returns candidates (only 1 indexer in local-network)
-3. **dipper** constructs an RCA, signs it via EIP-712, sends a proposal to indexer-service
-4. **indexer-service** validates the RCA and accepts or rejects
+The script tracks the full lifecycle: IISA candidate selection, RCA proposal delivery, indexer-service accept/reject, and on-chain acceptance via dipper's chain_listener. If agreements stay in `CREATED` for >60 seconds, it checks the indexing-payments subgraph and warns if it is lagging or paused (BUG-014).
+
+If the script warns about the indexing-payments subgraph, resume it:
+
+```bash
+python3 scripts/check-subgraph-sync.py --resume indexing-payments
+```
+
+Then re-run the monitor.
 
 ### 6. Check request status
 
 ```bash
-cd /Users/samuel/Documents/github/dipper && ./target/release/dipper-cli indexings status \
+/Users/samuel/Documents/github/dipper/target/release/dipper-cli indexings status \
   --server-url http://localhost:9000 \
   --signing-key "0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573" \
   <REQUEST_ID>
@@ -114,7 +122,7 @@ cd /Users/samuel/Documents/github/dipper && ./target/release/dipper-cli indexing
 | Signing key | RECEIVER: `0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573` |
 | Signing address | `0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3` |
 | Chain ID | 1337 (hardhat) |
-| Default deployment | `QmPdbQaRCMhgouSZSW3sHZxU3M8KwcngWASvreAexzmmrh` |
+| Default deployment | `QmPdbQaRCMhgouSZSW3sHZxU3M8KwcngWASvreAexzmmrh` (graph-network; override via skill argument) |
 
 ## Common rejection reasons
 
