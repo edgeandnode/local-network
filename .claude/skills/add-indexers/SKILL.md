@@ -14,6 +14,14 @@ Add N extra indexers to the running local network. Each extra indexer gets a ful
 
 The argument is the number of NEW indexers to add (defaults to 1).
 
+## Working directory
+
+All commands must run from the local-network project root. Always cd first:
+
+```bash
+cd /Users/samuel/Documents/github/local-network
+```
+
 ## Accounts
 
 Extra indexers use hardhat "junk" mnemonic accounts starting at index 2. Maximum 18 extra (indices 2-19).

@@ -8,6 +8,16 @@ argument-hint: "[deployment_id]"
 
 Register an indexing request with dipper and monitor the full DIPs pipeline: IISA candidate selection, RCA proposal signing, indexer-service accept/reject, and on-chain acceptance via the chain_listener.
 
+## Working directory
+
+All docker compose commands and local scripts must run from the local-network project root. Always cd first:
+
+```bash
+cd /Users/samuel/Documents/github/local-network
+```
+
+Never `cd` to the dipper repo for docker compose commands -- it will look for docker-compose.yaml in the wrong directory.
+
 ## Steps
 
 ### 1. Build the dipper CLI (if not already built)

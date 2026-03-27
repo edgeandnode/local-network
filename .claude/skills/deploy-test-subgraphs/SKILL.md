@@ -4,7 +4,12 @@ description: Publish test subgraphs to GNS on the local network. Use when the us
 argument-hint: "[count] [prefix]"
 ---
 
-Run `python3 scripts/deploy-test-subgraph.py <count> [prefix]` from the local-network repo root.
+Run from the local-network project root (`cd /Users/samuel/Documents/github/local-network` first):
+
+```bash
+cd /Users/samuel/Documents/github/local-network
+python3 scripts/deploy-test-subgraph.py <count> [prefix]
+```
 
 - `count` defaults to 1 if the user doesn't specify a number
 - `prefix` defaults to `test-subgraph` -- each subgraph is named `<prefix>-1`, `<prefix>-2`, etc.
