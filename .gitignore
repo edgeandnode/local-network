@@ -26,3 +26,4 @@ compose/extra-indexers.yaml
 
 # Legacy local config directory (now uses config-local Docker volume)
 config/local/
+/.playwright-mcp
