@@ -37,6 +37,23 @@ Dev overrides (`compose/dev/dips.yaml`) mount local source for: contracts, index
 - `COMPOSE_FILE=docker-compose.yaml:compose/dev/dips.yaml` activates dev overrides.
 - `DOCKER_DEFAULT_PLATFORM=` must prefix docker compose commands to avoid conflicts with per-service `platform: linux/arm64` in dips.yaml. We are testing on MacOS, production on linux.
 
+## On-chain Event Signatures
+
+The SubgraphService contract (`0xcf7ed3...` on local-network) emits events that share topic0 across different functions. Never assume a topic0 maps to a single function -- always cross-reference with the transaction's input selector or agent logs.
+
+| topic0 prefix | Event | Emitted by |
+|---|---|---|
+| `0x443f56bd` | Allocation-related | **Both** `startService` and `acceptIndexingAgreement` -- ambiguous without checking tx selector |
+| `0x02a24054` | AllocationCreated | `startService` |
+| `0x54fe682b` | ServiceStarted | `startService` |
+| `0xddf252ad` | Transfer | GRT token operations |
+| `0x8c5be1e5` | Approval | GRT token operations |
+| `0xa111914d` | RewardsAssigned | RewardsManager |
+| `0x48c384dd` | ProvisionIncreased | HorizonStaking |
+| `0xeaf6ea3a` | TokensAllocated | HorizonStaking |
+
+To distinguish a DIPs acceptance from a regular allocation: check the agent log for a `proposalId` field, or check the tx input for the `acceptIndexingAgreement` function selector vs `startService`.
+
 ## Rules
 
 - Never apply hack fixes to unblock testing. If something is broken, find the root cause and document it properly in bugs.
