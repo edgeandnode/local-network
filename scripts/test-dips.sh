@@ -32,6 +32,9 @@ pass=0
 fail=0
 total=0
 
+# Cancel test scenarios are skipped until audit-fix contracts are deployed
+SKIP_CANCEL_TESTS="${SKIP_CANCEL_TESTS:-true}"
+
 # ── Helpers ───────────────────────────────────────────────────────────
 
 check() {
@@ -269,7 +272,7 @@ encode_signed_rca() {
     "maxInitialTokens": "10000",
     "maxOngoingTokensPerSecond": "100",
     "minSecondsPerCollection": 3600,
-    "maxSecondsPerCollection": 86400,
+    "maxSecondsPerCollection": 7200,
     "nonce": "$nonce",
     "metadata": "$metadata"
   }
@@ -339,7 +342,7 @@ ensure_payer_escrow() {
     "$GRT_TOKEN" "approve(address,uint256)" "$PAYMENTS_ESCROW" "$amount" \
     --confirmations 1 > /dev/null 2>&1
   cast send --rpc-url "$HARDHAT_RPC" --private-key "$ACCOUNT0_SECRET" \
-    "$PAYMENTS_ESCROW" "deposit(address,address,uint256)" "$RECEIVER_ADDRESS" "$RECURRING_COLLECTOR_ADDRESS" "$amount" \
+    "$PAYMENTS_ESCROW" "deposit(address,address,uint256)" "$RECURRING_COLLECTOR_ADDRESS" "$RECEIVER_ADDRESS" "$amount" \
     --confirmations 1 > /dev/null 2>&1
   echo "  OK    Payer escrow funded"
 }
@@ -448,13 +451,16 @@ get_agreement_state() {
 
 # Cancel an agreement as the payer.
 # Args: $1 = agreement ID (bytes16, 0x-prefixed)
+# Cancel an agreement as the payer.
+# Args: $1 = agreement ID (bytes16, 0x-prefixed)
 cancel_agreement() {
   local agreement_id="$1"
 
   cast send --rpc-url "$HARDHAT_RPC" --private-key "$ACCOUNT0_SECRET" \
-    "$RECURRING_COLLECTOR_ADDRESS" \
-    "cancel(bytes16,uint8)" \
-    "$agreement_id" 1 \
+    "$SUBGRAPH_SERVICE_ADDRESS" \
+    "cancelIndexingAgreementByPayer(address,bytes16)" \
+    "$ACCOUNT0_ADDRESS" \
+    "$agreement_id" \
     --confirmations 1 > /dev/null 2>&1
 }
 
@@ -478,6 +484,222 @@ poll_collection() {
     elapsed=$((elapsed + interval))
   done
   return 1
+}
+
+# Track skipped tests in summary.
+# Args: $1 = test label
+skip_test() {
+  local label="$1"
+  total=$((total + 1))
+  echo "  SKIP  $label"
+}
+
+# Wait for network subgraph to sync to chain head.
+# Args: $1 = timeout in seconds (default 60)
+# Returns: 0 if synced, 1 if timeout
+wait_subgraph_sync() {
+  local timeout="${1:-60}"
+  local elapsed=0
+  local interval=5
+
+  # Get real chain head from RPC
+  local chain_head
+  chain_head=$(cast block-number --rpc-url "$HARDHAT_RPC" 2>/dev/null || echo "0")
+
+  while [ "$elapsed" -lt "$timeout" ]; do
+    local subgraph_block
+    subgraph_block=$(curl -s --max-time 5 "$NETWORK_SUBGRAPH_URL" \
+      -H 'content-type: application/json' \
+      -d '{"query":"{ _meta { block { number } } }"}' \
+      | jq -r '.data._meta.block.number // "0"')
+
+    if [ "$subgraph_block" -ge "$chain_head" ] 2>/dev/null; then
+      return 0
+    fi
+
+    sleep "$interval"
+    elapsed=$((elapsed + interval))
+    # Refresh chain head in case more blocks were mined
+    chain_head=$(cast block-number --rpc-url "$HARDHAT_RPC" 2>/dev/null || echo "$chain_head")
+  done
+  return 1
+}
+
+# Poll until agreement reaches expected state.
+# Args: $1 = agreement ID, $2 = expected state, $3 = timeout (default 120)
+# Returns: 0 if state matches, 1 if timeout
+poll_agreement_state() {
+  local agreement_id="$1"
+  local expected_state="$2"
+  local timeout="${3:-120}"
+  local elapsed=0
+  local interval=5
+
+  while [ "$elapsed" -lt "$timeout" ]; do
+    local current_state
+    current_state=$(get_agreement_state "$agreement_id")
+    if [ "$current_state" = "$expected_state" ]; then
+      return 0
+    fi
+    sleep "$interval"
+    elapsed=$((elapsed + interval))
+  done
+  return 1
+}
+
+# Cancel an agreement as the indexer (service provider).
+# Args: $1 = agreement ID (bytes16, 0x-prefixed)
+cancel_agreement_by_indexer() {
+  local agreement_id="$1"
+
+  cast send --rpc-url "$HARDHAT_RPC" --private-key "$RECEIVER_SECRET" \
+    "$SUBGRAPH_SERVICE_ADDRESS" \
+    "cancelIndexingAgreement(address,bytes16)" \
+    "$RECEIVER_ADDRESS" \
+    "$agreement_id" \
+    --confirmations 1 > /dev/null 2>&1
+}
+
+# Ensure a deployment has an allocation without an existing agreement.
+# If allocation has an agreement, close it and wait for agent to recreate.
+# Args: $1 = deployment IPFS hash
+# Returns: 0 if clean allocation exists, 1 if failed
+ensure_clean_allocation() {
+  local deployment_hash="$1"
+  local timeout=180
+  local elapsed=0
+  local interval=10
+
+  # Check if allocation exists
+  if ! check_allocation_exists "$deployment_hash"; then
+    echo "  WARN  No allocation for $deployment_hash, waiting for agent to create..."
+    while [ "$elapsed" -lt "$timeout" ]; do
+      if check_allocation_exists "$deployment_hash"; then
+        echo "  OK    Allocation created for $deployment_hash"
+        return 0
+      fi
+      sleep "$interval"
+      elapsed=$((elapsed + interval))
+    done
+    echo "  FAIL  Timeout waiting for allocation"
+    return 1
+  fi
+
+  # Check if allocation has an agreement via network subgraph
+  local alloc_id
+  alloc_id=$(find_allocation_for_deployment "$deployment_hash")
+  if [ -z "$alloc_id" ]; then
+    return 0  # No allocation found in subgraph, assume clean
+  fi
+
+  local agreement_check
+  agreement_check=$(curl -s --max-time 10 "$NETWORK_SUBGRAPH_URL" \
+    -H 'content-type: application/json' \
+    -d "{\"query\": \"{ allocation(id: \\\"$alloc_id\\\") { indexingAgreement { id } } }\"}")
+
+  local has_agreement
+  has_agreement=$(echo "$agreement_check" | jq -r '.data.allocation.indexingAgreement.id // empty')
+
+  if [ -z "$has_agreement" ]; then
+    echo "  OK    Allocation $alloc_id has no agreement"
+    return 0
+  fi
+
+  echo "  WARN  Allocation $alloc_id has agreement $has_agreement, need to close and recreate"
+  # For now, return failure — the caller should handle or skip
+  return 1
+}
+
+# ── Subgraph deny/undeny helpers (Scenarios 11-12) ─────────────────────
+
+REWARDS_MANAGER_ADDRESS="${REWARDS_MANAGER_ADDRESS:-$(docker exec indexer-agent python3 -c "import json; print(json.load(open('/opt/config/horizon.json'))['1337']['RewardsManager']['address'])" 2>/dev/null || echo "0x0a17FabeA4633ce714F1Fa4a2dcA62C3bAc4758d")}"
+
+# Ensure ORACLE_ADDRESS is registered as the subgraphAvailabilityOracle.
+# Idempotent — skips if already set.
+ensure_subgraph_availability_oracle() {
+  if [ -z "$ORACLE_ADDRESS" ] || [ -z "$ORACLE_SECRET" ]; then
+    echo "  SKIP  ORACLE_ADDRESS/ORACLE_SECRET not set"
+    return 1
+  fi
+
+  local current_oracle
+  current_oracle=$(cast call --rpc-url "$HARDHAT_RPC" \
+    "$REWARDS_MANAGER_ADDRESS" "subgraphAvailabilityOracle()(address)" 2>/dev/null || echo "")
+  current_oracle=$(echo "$current_oracle" | tr '[:upper:]' '[:lower:]')
+  local target
+  target=$(echo "$ORACLE_ADDRESS" | tr '[:upper:]' '[:lower:]')
+
+  if [ "$current_oracle" = "$target" ]; then
+    echo "  OK    Subgraph availability oracle already set"
+    return 0
+  fi
+
+  echo "  ...   Setting subgraph availability oracle..."
+  cast send --rpc-url "$HARDHAT_RPC" \
+    --private-key "$ACCOUNT1_SECRET" \
+    "$REWARDS_MANAGER_ADDRESS" \
+    "setSubgraphAvailabilityOracle(address)" "$ORACLE_ADDRESS" \
+    --confirmations 1 > /dev/null 2>&1
+  echo "  OK    Subgraph availability oracle set"
+}
+
+# Deny a subgraph deployment.
+# Args: $1 = deployment bytes32
+deny_subgraph() {
+  local deployment_bytes32="$1"
+  cast send --rpc-url "$HARDHAT_RPC" \
+    --private-key "$ORACLE_SECRET" \
+    "$REWARDS_MANAGER_ADDRESS" \
+    "setDenied(bytes32,bool)" "$deployment_bytes32" true \
+    --confirmations 1 > /dev/null 2>&1
+}
+
+# Undeny a subgraph deployment.
+# Args: $1 = deployment bytes32
+undeny_subgraph() {
+  local deployment_bytes32="$1"
+  cast send --rpc-url "$HARDHAT_RPC" \
+    --private-key "$ORACLE_SECRET" \
+    "$REWARDS_MANAGER_ADDRESS" \
+    "setDenied(bytes32,bool)" "$deployment_bytes32" false \
+    --confirmations 1 > /dev/null 2>&1
+}
+
+# Check if a subgraph is denied.
+# Args: $1 = deployment bytes32
+# Returns: 0 if denied, 1 if not
+is_subgraph_denied() {
+  local deployment_bytes32="$1"
+  local result
+  result=$(cast call --rpc-url "$HARDHAT_RPC" \
+    "$REWARDS_MANAGER_ADDRESS" "isDenied(bytes32)(bool)" "$deployment_bytes32" 2>/dev/null || echo "false")
+  [ "$result" = "true" ]
+}
+
+# Get allocated tokens for an allocation from SubgraphService.
+# Args: $1 = allocation ID (address)
+# Returns: token amount on stdout
+get_allocation_tokens() {
+  local allocation_id="$1"
+  local result
+  result=$(cast call --rpc-url "$HARDHAT_RPC" \
+    "$SUBGRAPH_SERVICE_ADDRESS" \
+    "getAllocation(address)((address,bytes32,uint256,uint256,uint256,uint256,uint256,uint256))" \
+    "$allocation_id" 2>/dev/null || echo "")
+  # tokens is the 4th field (index 3)
+  echo "$result" | sed 's/[()]//g' | cut -d',' -f4 | tr -d ' '
+}
+
+# Find active allocation ID for a deployment.
+# Args: $1 = deployment IPFS hash
+# Returns: allocation ID on stdout, empty if not found
+find_allocation_for_deployment() {
+  local deployment_hash="$1"
+  local result
+  result=$(curl -s --max-time 10 "$NETWORK_SUBGRAPH_URL" \
+    -H 'content-type: application/json' \
+    -d "{\"query\": \"{ allocations(where: { subgraphDeployment_: { ipfsHash: \\\"$deployment_hash\\\" }, status: Active }, orderBy: createdAt, orderDirection: desc, first: 1) { id } }\"}")
+  echo "$result" | jq -r '.data.allocations[0].id // empty'
 }
 
 # ── Prerequisites ─────────────────────────────────────────────────────
@@ -804,6 +1026,10 @@ scenario_8_onchain_accept_and_collect() {
     return
   }
 
+  # Export for scenario 13 to reuse
+  S8_AGREEMENT_ID="$agreement_id"
+  S8_DEPLOYMENT_IPFS="$deployment_ipfs"
+
   # Phase 2: Collection
   echo "  Agreement accepted. Advancing time for collection..."
 
@@ -820,7 +1046,10 @@ scenario_8_onchain_accept_and_collect() {
   check "8.2 Payment collected (lastCollectionAt updated)" \
     "poll_collection '$agreement_id' '$initial_last_collected' 300" || true
 
-  cleanup_proposal "$uuid" "$deployment_ipfs"
+  # Skip cleanup if cancel tests will run (they reuse this agreement)
+  if [ "$SKIP_CANCEL_TESTS" = "true" ]; then
+    cleanup_proposal "$uuid" "$deployment_ipfs"
+  fi
   echo ""
 }
 
@@ -917,12 +1146,442 @@ scenario_10_collection_after_cancel() {
   echo ""
 }
 
+# ── Multicall accept + token amount scenarios (Scenarios 11-12) ────────
+
+scenario_11_rewarded_new_allocation() {
+  echo "=== Scenario 11: Rewarded subgraph — new allocation via multicall ==="
+
+  # This scenario needs a deployment with NO existing allocation
+  # Use a fresh deployment bytes32 that isn't already indexed
+  local uuid="0000000b-000b-000b-000b-00000000000b"
+  local deployment="0x0800000000000000000000000000000000000000000000000000000000000011"
+  local ipfs
+  ipfs=$(bytes32_to_ipfs "$deployment")
+
+  cleanup_proposal "$uuid" "$ipfs"
+
+  # Ensure NOT denied
+  if is_subgraph_denied "$deployment"; then
+    undeny_subgraph "$deployment"
+  fi
+
+  ensure_payer_escrow
+  ensure_signer_authorized
+
+  local ts
+  ts=$(date +%s)
+  local deadline=$(( ts + 7200 ))
+  local ends_at=$(( ts + 172800 ))
+  local payload
+  payload=$(encode_signed_rca "$deployment" "$deadline" "$ends_at")
+
+  if [ -z "$payload" ]; then
+    skip_test "11.1 Proposal accepted (failed to encode RCA)"
+    skip_test "11.2 Allocation has non-zero tokens"
+    return
+  fi
+
+  local agreement_id
+  agreement_id=$(get_agreement_id \
+    "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
+    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+
+  insert_proposal "$uuid" "$payload"
+  echo "  Inserted proposal for rewarded deployment (no existing allocation), waiting..."
+
+  # Agent should create allocation via multicall(startService + acceptIndexingAgreement)
+  check "11.1 Proposal accepted (multicall path)" \
+    "poll_proposal_status '$uuid' 'accepted' 300" || {
+    echo "  Acceptance failed, skipping token check"
+    cleanup_proposal "$uuid" "$ipfs"
+    return
+  }
+
+  # Verify allocation created with non-zero tokens (defaultAllocationAmount)
+  wait_subgraph_sync 60 || echo "  WARN  Subgraph sync timed out"
+  local alloc_id
+  alloc_id=$(find_allocation_for_deployment "$ipfs")
+  if [ -n "$alloc_id" ]; then
+    local tokens
+    tokens=$(get_allocation_tokens "$alloc_id")
+    check "11.2 Allocation has non-zero tokens (defaultAllocationAmount)" \
+      "[ '$tokens' != '0' ] && [ -n '$tokens' ]" || true
+    echo "  Allocation $alloc_id tokens: $tokens"
+  else
+    echo "  WARN  Could not find allocation to verify token amount"
+  fi
+
+  cleanup_proposal "$uuid" "$ipfs"
+  echo ""
+}
+
+scenario_12_denied_dips_amount() {
+  echo "=== Scenario 12: Denied subgraph — dipsAllocationAmount via multicall ==="
+
+  if [ -z "$ORACLE_ADDRESS" ] || [ -z "$ORACLE_SECRET" ]; then
+    skip_test "12.1 Proposal accepted (oracle not configured)"
+    skip_test "12.2 Allocation uses dipsAllocationAmount"
+    return
+  fi
+
+  local uuid="0000000c-000c-000c-000c-00000000000c"
+  local deployment="0x0900000000000000000000000000000000000000000000000000000000000012"
+  local ipfs
+  ipfs=$(bytes32_to_ipfs "$deployment")
+
+  cleanup_proposal "$uuid" "$ipfs"
+
+  ensure_payer_escrow
+  ensure_signer_authorized
+  ensure_subgraph_availability_oracle || {
+    skip_test "12.1 Proposal accepted (oracle setup failed)"
+    skip_test "12.2 Allocation uses dipsAllocationAmount"
+    return
+  }
+
+  # Deny the subgraph BEFORE inserting proposal
+  deny_subgraph "$deployment"
+  if ! is_subgraph_denied "$deployment"; then
+    skip_test "12.1 Proposal accepted (could not deny subgraph)"
+    skip_test "12.2 Allocation uses dipsAllocationAmount"
+    return
+  fi
+  echo "  Subgraph denied"
+
+  local ts
+  ts=$(date +%s)
+  local deadline=$(( ts + 7200 ))
+  local ends_at=$(( ts + 172800 ))
+  local payload
+  payload=$(encode_signed_rca "$deployment" "$deadline" "$ends_at")
+
+  if [ -z "$payload" ]; then
+    undeny_subgraph "$deployment"
+    skip_test "12.1 Proposal accepted (failed to encode RCA)"
+    skip_test "12.2 Allocation uses dipsAllocationAmount"
+    return
+  fi
+
+  local agreement_id
+  agreement_id=$(get_agreement_id \
+    "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
+    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+
+  insert_proposal "$uuid" "$payload"
+  echo "  Inserted proposal for denied deployment, waiting..."
+
+  check "12.1 Proposal accepted (multicall, denied subgraph)" \
+    "poll_proposal_status '$uuid' 'accepted' 300" || {
+    echo "  Acceptance failed"
+    undeny_subgraph "$deployment"
+    cleanup_proposal "$uuid" "$ipfs"
+    return
+  }
+
+  # Verify allocation uses dipsAllocationAmount (default 0 = altruistic)
+  wait_subgraph_sync 60 || echo "  WARN  Subgraph sync timed out"
+  local alloc_id
+  alloc_id=$(find_allocation_for_deployment "$ipfs")
+  if [ -n "$alloc_id" ]; then
+    local tokens
+    tokens=$(get_allocation_tokens "$alloc_id")
+    check "12.2 Allocation uses dipsAllocationAmount (expect 0)" \
+      "[ '$tokens' = '0' ]" || true
+    echo "  Allocation $alloc_id tokens: $tokens"
+  else
+    echo "  WARN  Could not find allocation to verify token amount"
+  fi
+
+  undeny_subgraph "$deployment"
+  cleanup_proposal "$uuid" "$ipfs"
+  echo ""
+}
+
+# ── On-chain cancel scenarios (Scenarios 13-15) ────────────────────────
+# Skipped by default until audit-fix contracts are deployed (Task 5B)
+
+scenario_13_indexer_cancel_and_collect() {
+  echo "=== Scenario 13: Indexer cancel + final collection ==="
+
+  if [ "$SKIP_CANCEL_TESTS" = "true" ]; then
+    skip_test "13.1 Agreement cancelled by indexer"
+    skip_test "13.2 Final payment collected after cancel"
+    skip_test "13.3 No further collections after final"
+    return
+  fi
+
+  # Reuse agreement from scenario 8 if available
+  if [ -z "${S8_AGREEMENT_ID:-}" ]; then
+    skip_test "13.1 Agreement cancelled by indexer (no S8 agreement)"
+    skip_test "13.2 Final payment collected after cancel (no S8 agreement)"
+    skip_test "13.3 No further collections after final (no S8 agreement)"
+    return
+  fi
+
+  local agreement_id="$S8_AGREEMENT_ID"
+  echo "  Using agreement $agreement_id from scenario 8"
+
+  local pre_cancel_collection
+  pre_cancel_collection=$(get_last_collection_at "$agreement_id")
+
+  # Find the DIPS rule for this agreement's deployment
+  local deployment_ipfs
+  deployment_ipfs=$(gql "$AGENT_URL" \
+    "{ indexingRules(merged: false) { identifier identifierType decisionBasis } }" \
+    | jq -r '.data.indexingRules[] | select(.identifierType == "deployment" and .decisionBasis == "dips") | .identifier' \
+    | head -1)
+
+  if [ -z "$deployment_ipfs" ] || [ "$deployment_ipfs" = "null" ]; then
+    # Fallback to exported S8 deployment
+    deployment_ipfs="${S8_DEPLOYMENT_IPFS:-}"
+    if [ -z "$deployment_ipfs" ]; then
+      skip_test "13.1 Agreement cancelled by indexer (no DIPS rule found)"
+      skip_test "13.2 Final payment collected after cancel (no DIPS rule found)"
+      skip_test "13.3 No further collections after final (no DIPS rule found)"
+      return
+    fi
+  fi
+
+  # Cancel via blocklist (set NEVER rule)
+  gql "$AGENT_URL" "mutation { setIndexingRule(rule: { identifier: \\\"$deployment_ipfs\\\", identifierType: deployment, decisionBasis: never, protocolNetwork: \\\"hardhat\\\" }) { identifier } }" > /dev/null
+
+  echo "  Set NEVER rule on $deployment_ipfs, waiting for agent to cancel..."
+  check "13.1 Agreement cancelled by indexer" \
+    "poll_agreement_state '$agreement_id' '2' 180" || {
+    return
+  }
+
+  check "13.2 Final payment collected after cancel" \
+    "poll_collection '$agreement_id' '$pre_cancel_collection' 120" || true
+
+  local post_final
+  post_final=$(get_last_collection_at "$agreement_id")
+  advance_time 7200
+  wait_subgraph_sync 60 || true
+  sleep 30
+
+  local after_wait
+  after_wait=$(get_last_collection_at "$agreement_id")
+  check "13.3 No further collections after final" \
+    "[ '$post_final' = '$after_wait' ]" || true
+
+  echo ""
+}
+
+scenario_14_payer_cancel_final_collect() {
+  echo "=== Scenario 14: Payer cancel + periodic final collection ==="
+
+  if [ "$SKIP_CANCEL_TESTS" = "true" ]; then
+    skip_test "14.1 Agreement cancelled by payer"
+    skip_test "14.2 Final payment collected via periodic loop"
+    skip_test "14.3 No further collections after final"
+    return
+  fi
+
+  local deployment_ipfs
+  deployment_ipfs=$(gql "$AGENT_URL" \
+    "{ indexingRules(merged: false) { identifier identifierType decisionBasis } }" \
+    | jq -r '.data.indexingRules[] | select(.identifierType == "deployment" and .decisionBasis == "always") | .identifier' \
+    | head -1)
+
+  if [ -z "$deployment_ipfs" ] || [ "$deployment_ipfs" = "null" ]; then
+    skip_test "14.1 Agreement cancelled by payer (no deployment)"
+    skip_test "14.2 Final payment collected (no deployment)"
+    skip_test "14.3 No further collections (no deployment)"
+    return
+  fi
+
+  ensure_clean_allocation "$deployment_ipfs" || {
+    skip_test "14.1 Agreement cancelled by payer (no clean allocation)"
+    skip_test "14.2 Final payment collected (no clean allocation)"
+    skip_test "14.3 No further collections (no clean allocation)"
+    return
+  }
+
+  local deployment_bytes32
+  deployment_bytes32=$(ipfs_to_bytes32 "$deployment_ipfs")
+
+  local uuid="0000000e-000e-000e-000e-00000000000e"
+  cleanup_proposal "$uuid"
+  ensure_payer_escrow
+  ensure_signer_authorized
+
+  local ts
+  ts=$(date +%s)
+  local deadline=$(( ts + 7200 ))
+  local ends_at=$(( ts + 172800 ))
+  local payload
+  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at")
+
+  local agreement_id
+  agreement_id=$(get_agreement_id \
+    "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
+    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+
+  insert_proposal "$uuid" "$payload"
+
+  poll_proposal_status "$uuid" "accepted" 180 || {
+    cleanup_proposal "$uuid"
+    skip_test "14.1 Agreement cancelled by payer (accept failed)"
+    skip_test "14.2 Final payment collected (accept failed)"
+    skip_test "14.3 No further collections (accept failed)"
+    return
+  }
+
+  # Collect once
+  advance_time 3700
+  wait_subgraph_sync 60 || true
+  local initial_collection
+  initial_collection=$(get_last_collection_at "$agreement_id")
+  poll_collection "$agreement_id" "$initial_collection" 300 || true
+
+  local pre_cancel
+  pre_cancel=$(get_last_collection_at "$agreement_id")
+
+  # Payer cancels
+  cancel_agreement "$agreement_id"
+  check "14.1 Agreement cancelled by payer" \
+    "poll_agreement_state '$agreement_id' '3' 60" || {
+    cleanup_proposal "$uuid"
+    return
+  }
+
+  advance_time 3700
+  wait_subgraph_sync 60 || true
+
+  check "14.2 Final payment collected via periodic loop" \
+    "poll_collection '$agreement_id' '$pre_cancel' 300" || true
+
+  local post_final
+  post_final=$(get_last_collection_at "$agreement_id")
+  advance_time 7200
+  wait_subgraph_sync 60 || true
+  sleep 30
+
+  local after_wait
+  after_wait=$(get_last_collection_at "$agreement_id")
+  check "14.3 No further collections after final" \
+    "[ '$post_final' = '$after_wait' ]" || true
+
+  cleanup_proposal "$uuid"
+  echo ""
+}
+
+scenario_15_allocation_close_final_collect() {
+  echo "=== Scenario 15: Allocation close + final collection ==="
+
+  if [ "$SKIP_CANCEL_TESTS" = "true" ]; then
+    skip_test "15.1 Allocation closed"
+    skip_test "15.2 Final payment collected after close"
+    skip_test "15.3 No further collections after final"
+    return
+  fi
+
+  local deployment_ipfs
+  deployment_ipfs=$(gql "$AGENT_URL" \
+    "{ indexingRules(merged: false) { identifier identifierType decisionBasis } }" \
+    | jq -r '.data.indexingRules[] | select(.identifierType == "deployment" and .decisionBasis == "always") | .identifier' \
+    | head -1)
+
+  if [ -z "$deployment_ipfs" ] || [ "$deployment_ipfs" = "null" ]; then
+    skip_test "15.1 Allocation closed (no deployment)"
+    skip_test "15.2 Final payment collected (no deployment)"
+    skip_test "15.3 No further collections (no deployment)"
+    return
+  fi
+
+  ensure_clean_allocation "$deployment_ipfs" || {
+    skip_test "15.1 Allocation closed (no clean allocation)"
+    skip_test "15.2 Final payment collected (no clean allocation)"
+    skip_test "15.3 No further collections (no clean allocation)"
+    return
+  }
+
+  local deployment_bytes32
+  deployment_bytes32=$(ipfs_to_bytes32 "$deployment_ipfs")
+
+  local uuid="0000000f-000f-000f-000f-00000000000f"
+  cleanup_proposal "$uuid"
+  ensure_payer_escrow
+  ensure_signer_authorized
+
+  local ts
+  ts=$(date +%s)
+  local deadline=$(( ts + 7200 ))
+  local ends_at=$(( ts + 172800 ))
+  local payload
+  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at")
+
+  local agreement_id
+  agreement_id=$(get_agreement_id \
+    "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
+    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+
+  insert_proposal "$uuid" "$payload"
+
+  poll_proposal_status "$uuid" "accepted" 180 || {
+    cleanup_proposal "$uuid"
+    skip_test "15.1 Allocation closed (accept failed)"
+    skip_test "15.2 Final payment collected (accept failed)"
+    skip_test "15.3 No further collections (accept failed)"
+    return
+  }
+
+  # Collect once
+  advance_time 3700
+  wait_subgraph_sync 60 || true
+  local initial_collection
+  initial_collection=$(get_last_collection_at "$agreement_id")
+  poll_collection "$agreement_id" "$initial_collection" 300 || true
+
+  local pre_close
+  pre_close=$(get_last_collection_at "$agreement_id")
+
+  # Close allocation via NEVER rule
+  gql "$AGENT_URL" "mutation { setIndexingRule(rule: { identifier: \\\"$deployment_ipfs\\\", identifierType: deployment, decisionBasis: never, protocolNetwork: \\\"hardhat\\\" }) { identifier } }" > /dev/null
+
+  echo "  Set NEVER rule, waiting for allocation close..."
+  sleep 60
+
+  check "15.1 Allocation closed" \
+    "poll_agreement_state '$agreement_id' '2' 180" || {
+    cleanup_proposal "$uuid"
+    return
+  }
+
+  check "15.2 Final payment collected after close" \
+    "poll_collection '$agreement_id' '$pre_close' 120" || true
+
+  local post_final
+  post_final=$(get_last_collection_at "$agreement_id")
+  advance_time 7200
+  wait_subgraph_sync 60 || true
+  sleep 30
+
+  local after_wait
+  after_wait=$(get_last_collection_at "$agreement_id")
+  check "15.3 No further collections after final" \
+    "[ '$post_final' = '$after_wait' ]" || true
+
+  cleanup_proposal "$uuid"
+  echo ""
+}
+
 # ── Run ───────────────────────────────────────────────────────────────
 
 run_rejection_batch
 scenario_6_agent_restart
 scenario_8_onchain_accept_and_collect
 scenario_10_collection_after_cancel
+
+# Multicall accept + token amount (Scenarios 11-12)
+scenario_11_rewarded_new_allocation
+scenario_12_denied_dips_amount
+
+# On-chain cancel (Scenarios 13-15) — skipped by default
+scenario_13_indexer_cancel_and_collect
+scenario_14_payer_cancel_final_collect
+scenario_15_allocation_close_final_collect
 
 # ── Summary ───────────────────────────────────────────────────────────
 
