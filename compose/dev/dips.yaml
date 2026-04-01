@@ -1,0 +1,208 @@
+# DIPs Development Override
+#
+# DIPs stack with local source mounts for development components.
+#
+# Services overridden:
+#   - graph-contracts: uses local contracts source (with Ignition fix)
+#   - indexer-agent: built from local source with DIPs config
+#   - indexer-service: built from local source with [dips] config
+#   - dipper: built from local source
+#   - iisa-cronjob: scoring pipeline from local source with /dips/info fetching
+#   - iisa: built from local source (replaces GHCR image)
+#   - eligibility-oracle-node: built from local source
+#
+# Prerequisites:
+#   - Local checkouts at ~/Documents/github/:
+#     contracts, indexer, indexer-rs, dipper, subgraph-dips-indexer-selection, eligibility-oracle-node
+#
+# Activate via .env:
+#   COMPOSE_PROFILES=indexing-payments,block-oracle,rewards-eligibility
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/dips.yaml
+#   CONTRACTS_SOURCE_ROOT=~/Documents/github/contracts
+#   INDEXER_AGENT_SOURCE_ROOT=~/Documents/github/indexer
+#   INDEXER_SERVICE_SOURCE_ROOT=~/Documents/github/indexer-rs
+#   DIPPER_SOURCE_ROOT=~/Documents/github/dipper
+#   IISA_SOURCE_ROOT=~/Documents/github/subgraph-dips-indexer-selection
+#   REO_SOURCE_ROOT=~/Documents/github/eligibility-oracle-node
+
+services:
+  chain:
+    volumes:
+      - ./containers/core/chain/run.sh:/opt/run.sh:ro
+
+  # graph-contracts: volume mount temporarily disabled — image builds from
+  # CONTRACTS_COMMIT (fix/horizon-staking-ignition-dependency) which includes
+  # acceptIndexingAgreement. The local mount's build artifacts had a different
+  # directory layout that caused Ignition to deploy without the function.
+  # TODO: re-enable once local build artifacts are aligned with the image.
+  # graph-contracts:
+  #   volumes:
+  #     - ${CONTRACTS_SOURCE_ROOT:?Set CONTRACTS_SOURCE_ROOT to local contracts repo}:/opt/contracts
+
+  indexer-service:
+    cap_add:
+      - NET_ADMIN
+    platform: linux/arm64
+    # Reset base deps (indexer-agent, subgraph-deploy) so cargo build starts immediately.
+    # Script waits for config volume and indexer-agent internally.
+    depends_on: !override
+      chain: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    build:
+      target: "wrapper"
+      dockerfile_inline: |
+        FROM rust:1-slim-bookworm AS wrapper
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential curl git jq pkg-config \
+                protobuf-compiler libssl-dev libsasl2-dev \
+            && rm -rf /var/lib/apt/lists/*
+    entrypoint: ["bash", "/opt/run-dips.sh"]
+    volumes:
+      - ${INDEXER_SERVICE_SOURCE_ROOT:?Set INDEXER_SERVICE_SOURCE_ROOT to local indexer-rs checkout}:/opt/source
+      - ./containers/indexer/indexer-service/dev/run-dips.sh:/opt/run-dips.sh:ro
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    ports:
+      - "${INDEXER_SERVICE_PORT}:7601"
+      - "${INDEXER_SERVICE_DIPS_RPC_PORT}:7602"
+    environment:
+      RUST_LOG: info,indexer_service_rs=info,indexer_service_rs::middleware::tap_receipt=error,indexer_monitor=warn,indexer_dips=debug
+      RUST_BACKTRACE: 1
+      SQLX_OFFLINE: "true"
+    restart: on-failure:15
+    healthcheck:
+      interval: 2s
+      retries: 600
+      test: curl -f http://127.0.0.1:7601/
+
+  indexer-agent:
+    platform: linux/arm64
+    # Reset base deps (graph-contracts) so yarn install starts immediately.
+    # Script waits for config volume and staking internally.
+    depends_on: !override
+      chain: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    build:
+      target: "wrapper"
+      dockerfile_inline: |
+        FROM node:22-slim AS wrapper
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential curl git jq python3 \
+            && rm -rf /var/lib/apt/lists/*
+        COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
+            /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin/anvil /usr/local/bin/chisel /usr/local/bin/
+        RUN npm install -g tsx nodemon
+    entrypoint: ["bash", "/opt/run-dips.sh"]
+    volumes:
+      - ${INDEXER_AGENT_SOURCE_ROOT:?Set INDEXER_AGENT_SOURCE_ROOT to local indexer checkout}:/opt/indexer-agent-source-root
+      - ./containers/indexer/indexer-agent/dev/run-dips.sh:/opt/run-dips.sh:ro
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+
+  dipper:
+    profiles: []
+    platform: linux/arm64
+    environment:
+      RUST_LOG: info,dipper_service=debug,dipper_rpc=debug,dipper_pgregistry=debug,dipper_service::network=info,sqlx::query=warn
+    build:
+      dockerfile_inline: |
+        FROM rust:1-slim-bookworm
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential ca-certificates clang cmake curl git jq lld \
+                pkg-config libssl-dev protobuf-compiler \
+            && rm -rf /var/lib/apt/lists/*
+        ENV CC=clang CXX=clang++ RUSTFLAGS="-C link-arg=-fuse-ld=lld"
+    entrypoint: ["bash", "/opt/run.sh"]
+    # Reset base deps (block-oracle, gateway) so cargo build starts immediately.
+    # Script waits for config volume, gateway, and iisa internally.
+    depends_on: !override
+      chain: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    volumes:
+      - ${DIPPER_SOURCE_ROOT:?Set DIPPER_SOURCE_ROOT to local dipper checkout}:/opt/source
+      - ${INDEXER_SERVICE_SOURCE_ROOT:?Set INDEXER_SERVICE_SOURCE_ROOT to local indexer-rs checkout}:/opt/source-indexer-rs:ro
+      - ./containers/indexing-payments/dipper/run.sh:/opt/run.sh:ro
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+
+  # Real IISA cronjob from source - runs scoring pipeline with /dips/info fetching
+  iisa-cronjob:
+    platform: linux/arm64
+    build:
+      dockerfile_inline: |
+        FROM python:3.11-slim
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential gcc curl protobuf-compiler \
+            && rm -rf /var/lib/apt/lists/*
+        RUN pip install --no-cache-dir uv
+    entrypoint: ["bash", "/opt/run-cronjob.sh"]
+    volumes:
+      - ${IISA_SOURCE_ROOT:?Set IISA_SOURCE_ROOT to local subgraph-dips-indexer-selection checkout}/cronjobs/compute_scores:/opt/source:ro
+      - ./containers/indexing-payments/iisa/run-cronjob.sh:/opt/run-cronjob.sh:ro
+      - iisa-scores:/app/scores
+    environment:
+      PYTHONUNBUFFERED: "1"
+      SCORING_INTERVAL: "30"
+      REDPANDA_GATEWAY_IDS: "local"
+
+  # Real IISA from source - replaces GHCR image
+  iisa:
+    profiles: []
+    platform: linux/arm64
+    image: iisa:local
+    pull_policy: never
+    build:
+      dockerfile_inline: |
+        FROM python:3.12-slim
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential gcc curl \
+            && rm -rf /var/lib/apt/lists/*
+        RUN pip install --no-cache-dir uv
+    entrypoint: ["bash", "/opt/run-iisa.sh"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      gateway: { condition: service_healthy }
+      iisa-cronjob: { condition: service_healthy }
+    ports:
+      - "8080:8080"
+    volumes:
+      - ${IISA_SOURCE_ROOT:?Set IISA_SOURCE_ROOT to local subgraph-dips-indexer-selection checkout}:/opt/source
+      - ./containers/indexing-payments/iisa/run-iisa.sh:/opt/run-iisa.sh:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    environment:
+      PYTHONUNBUFFERED: "1"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 3s
+      retries: 100
+      start_period: 15s
+
+  # Real eligibility oracle from source
+  eligibility-oracle-node:
+    platform: linux/arm64
+    build:
+      dockerfile_inline: |
+        FROM rust:1-slim-bookworm
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential ca-certificates curl git pkg-config libssl-dev \
+            && rm -rf /var/lib/apt/lists/*
+    entrypoint: ["bash", "/opt/run-reo.sh"]
+    volumes:
+      - ${REO_SOURCE_ROOT:?Set REO_SOURCE_ROOT to local eligibility-oracle-node checkout}:/opt/source
+      - ./containers/oracles/eligibility-oracle-node/run-reo.sh:/opt/run-reo.sh:ro
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    environment:
+      RUST_LOG: info,eligibility_oracle=debug
+      RUST_BACKTRACE: "1"

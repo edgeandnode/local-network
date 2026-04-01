@@ -44,13 +44,52 @@ deploy_tap() {
     return
   fi
 
-  escrow=$(contract_addr Escrow tap-contracts)
+  # Horizon moved signer authorization from PaymentsEscrow to GraphTallyCollector
+  escrow=$(contract_addr GraphTallyCollector.address horizon)
 
   cd /opt/timeline-aggregation-protocol-subgraph
   sed -i "s/127.0.0.1:5001/ipfs:${IPFS_RPC_PORT}/g" package.json
   sed -i "s/127.0.0.1:8020/graph-node:${GRAPH_NODE_ADMIN_PORT}/g" package.json
   yq ".dataSources[].source.address=\"${escrow}\"" -i subgraph.yaml
   yq ".dataSources[].network |= \"hardhat\"" -i subgraph.yaml
+
+  # Horizon renamed events: AuthorizeSigner -> SignerAuthorized,
+  # RevokeAuthorizedSigner -> SignerRevoked, and swapped the parameter order
+  # from (signer, sender) to (authorizer, signer). Patch all three layers.
+
+  # 1. subgraph.yaml event signatures
+  sed -i 's/AuthorizeSigner(indexed address,indexed address)/SignerAuthorized(indexed address,indexed address)/g' subgraph.yaml
+  sed -i 's/RevokeAuthorizedSigner(indexed address,indexed address)/SignerRevoked(indexed address,indexed address)/g' subgraph.yaml
+
+  # 2. ABI: rename events and swap parameter order so codegen accessors match
+  #    the mapping code (event.params.signer = actual signer, event.params.sender = authorizer)
+  node -e "
+const fs = require('fs');
+const abi = JSON.parse(fs.readFileSync('abis/Escrow.abi.json'));
+for (const e of abi) {
+  if (e.type !== 'event') continue;
+  if (e.name === 'AuthorizeSigner') {
+    e.name = 'SignerAuthorized';
+    e.inputs = [
+      {indexed: true, internalType: 'address', name: 'sender', type: 'address'},
+      {indexed: true, internalType: 'address', name: 'signer', type: 'address'}
+    ];
+  } else if (e.name === 'RevokeAuthorizedSigner') {
+    e.name = 'SignerRevoked';
+    e.inputs = [
+      {indexed: true, internalType: 'address', name: 'sender', type: 'address'},
+      {indexed: true, internalType: 'address', name: 'authorizedSigner', type: 'address'}
+    ];
+  }
+}
+fs.writeFileSync('abis/Escrow.abi.json', JSON.stringify(abi, null, 2));
+"
+
+  # 3. Mapping imports and type annotations
+  sed -i 's/AuthorizeSigner, RevokeAuthorizedSigner/SignerAuthorized, SignerRevoked/g' src/mappings/escrow.ts
+  sed -i 's/event: AuthorizeSigner/event: SignerAuthorized/g' src/mappings/escrow.ts
+  sed -i 's/event: RevokeAuthorizedSigner/event: SignerRevoked/g' src/mappings/escrow.ts
+
   yarn codegen
   yarn build
   yarn create-local
@@ -96,19 +135,59 @@ deploy_block_oracle() {
   echo "==== Block-oracle subgraph done ===="
 }
 
-# Launch all three in parallel
+deploy_indexing_payments() {
+  echo "==== Indexing-payments subgraph ===="
+
+  # Only deploy when DIPs contracts are present (RecurringCollector in horizon.json)
+  if ! contract_addr RecurringCollector.address horizon >/dev/null 2>&1; then
+    echo "SKIP: RecurringCollector not deployed (DIPs not enabled)"
+    return
+  fi
+
+  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments" \
+    -H 'content-type: application/json' \
+    -d '{"query": "{ _meta { deployment } }" }' | grep -q "_meta"
+  then
+    echo "SKIP: Indexing-payments subgraph already deployed"
+    return
+  fi
+
+  subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
+
+  cd /opt/indexing-payments-subgraph
+
+  # Generate manifest from template with local-network addresses
+  cat > /tmp/indexing-payments-config.json <<-CONF
+  {
+    "network": "hardhat",
+    "address": "${subgraph_service}",
+    "startBlock": 0
+  }
+CONF
+  npx mustache /tmp/indexing-payments-config.json subgraph.template.yaml > subgraph.yaml
+  npx graph codegen
+  npx graph build
+  npx graph create indexing-payments --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}"
+  npx graph deploy indexing-payments --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}" --ipfs="http://ipfs:${IPFS_RPC_PORT}" --version-label=v0.1.0
+  echo "==== Indexing-payments subgraph done ===="
+}
+
+# Launch all four in parallel
 deploy_network &
 pid_network=$!
 deploy_tap &
 pid_tap=$!
 deploy_block_oracle &
 pid_oracle=$!
+deploy_indexing_payments &
+pid_payments=$!
 
 # Wait for all, fail if any fails
 failed=0
 wait $pid_network || { echo "FAILED: Network subgraph"; failed=1; }
 wait $pid_tap || { echo "FAILED: TAP subgraph"; failed=1; }
 wait $pid_oracle || { echo "FAILED: Block-oracle subgraph"; failed=1; }
+wait $pid_payments || { echo "FAILED: Indexing-payments subgraph"; failed=1; }
 
 if [ "$failed" -ne 0 ]; then
   echo "One or more subgraph deployments failed"

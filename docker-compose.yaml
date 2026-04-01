@@ -7,9 +7,11 @@ services:
       - chain-data:/data
     healthcheck: { interval: 1s, retries: 10, test: cast block }
     stop_grace_period: 30s
+    mem_limit: 512m
     restart: on-failure:3
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
+      - NODE_OPTIONS=--max-old-space-size=384
 
   block-explorer:
     container_name: block-explorer
@@ -67,6 +69,9 @@ services:
       - config-local:/opt/config:ro
     healthcheck:
       { interval: 1s, retries: 20, test: curl -f http://127.0.0.1:8030 }
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
 
   graph-contracts:
@@ -125,7 +130,10 @@ services:
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     healthcheck:
-      { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
+      { interval: 2s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
 
   subgraph-deploy:
@@ -136,6 +144,7 @@ services:
         NETWORK_SUBGRAPH_COMMIT: ${NETWORK_SUBGRAPH_COMMIT}
         TAP_SUBGRAPH_COMMIT: ${TAP_SUBGRAPH_COMMIT}
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
+        INDEXING_PAYMENTS_SUBGRAPH_COMMIT: ${INDEXING_PAYMENTS_SUBGRAPH_COMMIT}
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
@@ -149,7 +158,6 @@ services:
     build: { context: containers/indexer/start-indexing }
     depends_on:
       subgraph-deploy: { condition: service_completed_successfully }
-      indexer-agent: { condition: service_healthy }
     volumes:
       - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
@@ -210,7 +218,7 @@ services:
       args:
         TAP_ESCROW_MANAGER_COMMIT: ${TAP_ESCROW_MANAGER_COMMIT}
     depends_on:
-      subgraph-deploy: { condition: service_completed_successfully }
+      start-indexing: { condition: service_completed_successfully }
       redpanda: { condition: service_healthy }
     stop_signal: SIGKILL
     volumes:
@@ -240,6 +248,9 @@ services:
     environment:
       RUST_LOG: info,graph_gateway=trace
       RUST_BACKTRACE: 1
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
     healthcheck:
       { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7700/ }
@@ -265,6 +276,9 @@ services:
       RUST_BACKTRACE: 1
     healthcheck:
       { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
 
   tap-agent:
@@ -284,6 +298,9 @@ services:
     environment:
       RUST_LOG: info,indexer_tap_agent=trace
       RUST_BACKTRACE: 1
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
 
   # --- Profiled components (activated via COMPOSE_PROFILES in .env) ---
@@ -307,25 +324,29 @@ services:
       BLOCKCHAIN_PRIVATE_KEY: ${ACCOUNT0_SECRET}
     restart: unless-stopped
 
-  iisa-scoring:
-    container_name: iisa-scoring
+  iisa-cronjob:
+    container_name: iisa-cronjob
     profiles: [indexing-payments]
     build:
       context: containers/indexing-payments/iisa
-      dockerfile: Dockerfile.scoring
-    depends_on:
-      redpanda: { condition: service_healthy }
+      args:
+        IISA_COMMIT: ${IISA_COMMIT:-main}
+        MAXMIND_LICENSE_KEY: "skip"
     environment:
       REDPANDA_BOOTSTRAP_SERVERS: "redpanda:${REDPANDA_KAFKA_PORT}"
       REDPANDA_TOPIC: gateway_queries
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
-      IISA_SCORING_INTERVAL: "600"
+      GRAPH_NETWORK_SUBGRAPH_URL: "http://graph-node:8000/subgraphs/name/graph-network"
+      SCORING_HTTP_PORT: "9090"
+      DEGRADED_ALERT_THRESHOLD: "999"
+      IISA_API_URL: "http://iisa:8080"
     volumes:
       - iisa-scores:/app/scores
     healthcheck:
-      test: ["CMD", "test", "-f", "/app/scores/indexer_scores.json"]
-      interval: 5s
-      retries: 10
+      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
+      interval: 10s
+      retries: 60
+      start_period: 30s
     restart: unless-stopped
 
   iisa:
@@ -334,12 +355,13 @@ services:
     image: ghcr.io/edgeandnode/subgraph-dips-indexer-selection:${IISA_VERSION}
     pull_policy: if_not_present
     depends_on:
-      iisa-scoring: { condition: service_healthy }
+      iisa-cronjob: { condition: service_healthy }
     ports: ["8080:8080"]
     environment:
       IISA_HOST: "0.0.0.0"
       IISA_PORT: "8080"
-      IISA_LOG_LEVEL: INFO
+      IISA_LOG_LEVEL: DEBUG
+      IISA_SCORES_RELOAD_INTERVAL: "120"
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
     volumes:
       - iisa-scores:/app/scores
@@ -361,7 +383,6 @@ services:
       block-oracle: { condition: service_healthy }
       postgres: { condition: service_healthy }
       gateway: { condition: service_healthy }
-      iisa: { condition: service_healthy }
     ports:
       - "${DIPPER_ADMIN_RPC_PORT}:${DIPPER_ADMIN_RPC_PORT}"
       - "${DIPPER_INDEXER_RPC_PORT}:${DIPPER_INDEXER_RPC_PORT}"
