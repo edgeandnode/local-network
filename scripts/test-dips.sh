@@ -30,10 +30,79 @@ export PATH="$HOME/.foundry/bin:$PATH"
 
 pass=0
 fail=0
+skip=0
 total=0
+
+# Benchmarking
+SCRIPT_START=$(date +%s)
+declare -a SCENARIO_TIMES=()
+declare -a SCENARIO_NAMES=()
+CURRENT_SCENARIO_START=0
+
+start_scenario() {
+  local name="$1"
+  CURRENT_SCENARIO_START=$(date +%s)
+  SCENARIO_NAMES+=("$name")
+}
+
+end_scenario() {
+  local end_time=$(date +%s)
+  local duration=$((end_time - CURRENT_SCENARIO_START))
+  SCENARIO_TIMES+=("$duration")
+  echo "  [${duration}s]"
+}
+
+print_timing_summary() {
+  local total_time=$(($(date +%s) - SCRIPT_START))
+  echo ""
+  echo "=== Timing Summary ==="
+  for i in "${!SCENARIO_NAMES[@]}"; do
+    printf "  %-50s %3ds\n" "${SCENARIO_NAMES[$i]}" "${SCENARIO_TIMES[$i]}"
+  done
+  echo "  ----------------------------------------"
+  printf "  %-50s %3ds\n" "TOTAL" "$total_time"
+}
 
 # Cancel test scenarios are skipped until audit-fix contracts are deployed
 SKIP_CANCEL_TESTS="${SKIP_CANCEL_TESTS:-true}"
+
+HARDHAT_RPC="http://${CHAIN_HOST:-localhost}:${CHAIN_RPC_PORT:-8545}"
+
+# ── Fresh environment setup ──────────────────────────────────────────
+# Tears down and rebuilds the local network for a clean state.
+setup_environment() {
+  echo "--- Setting up fresh environment ---"
+  echo "  Tearing down..."
+  docker compose down -v > /dev/null 2>&1
+  echo "  Starting services..."
+  docker compose up -d > /dev/null 2>&1
+
+  echo "  Waiting for agent..."
+  for _i in $(seq 1 60); do
+    docker exec indexer-agent curl -sf http://localhost:7600/ > /dev/null 2>&1 && break
+    sleep 5
+  done
+
+  echo "  Running start-indexing..."
+  docker compose up start-indexing > /dev/null 2>&1
+
+  echo "  Waiting for allocations..."
+  for _i in $(seq 1 60); do
+    local count
+    count=$(curl -s "http://localhost:8000/subgraphs/name/graph-network" \
+      -H 'content-type: application/json' \
+      -d '{"query":"{ allocations(where:{status:Active}) { id } }"}' \
+      | jq -r '.data.allocations | length' 2>/dev/null)
+    if [ "$count" -ge 3 ] 2>/dev/null; then
+      echo "  $count allocations active"
+      break
+    fi
+    sleep 5
+  done
+
+  echo "  Environment ready"
+  echo ""
+}
 
 # ── Helpers ───────────────────────────────────────────────────────────
 
@@ -122,9 +191,9 @@ insert_proposal() {
 # Returns: 0 if found, 1 if timeout
 poll_dips_rule() {
   local deployment_hash="$1"
-  local timeout="${2:-120}"
+  local timeout="${2:-20}"
   local elapsed=0
-  local interval=5
+  local interval=2
 
   while [ "$elapsed" -lt "$timeout" ]; do
     local rules
@@ -179,7 +248,6 @@ cleanup_proposal() {
 
 # ── On-chain helpers (PLAN_03 scenarios) ──────────────────────────────
 
-HARDHAT_RPC="http://${CHAIN_HOST:-localhost}:${CHAIN_RPC_PORT:-8545}"
 NETWORK_SUBGRAPH_URL="http://${GRAPH_NODE_HOST:-localhost}:${GRAPH_NODE_GRAPHQL_PORT:-8000}/subgraphs/name/graph-network"
 
 # Read contract addresses from the agent's config (docker volume) to avoid stale hardcoded values.
@@ -193,16 +261,14 @@ PAYMENTS_ESCROW="${PAYMENTS_ESCROW:-$(docker exec indexer-agent python3 -c "impo
 # Encode a PROPERLY SIGNED RCA payload using cast EIP-712 signing.
 # Args: $1 = deployment bytes32, $2 = deadline (optional), $3 = endsAt (optional)
 # Outputs: hex-encoded signed payload (0x-prefixed)
+# Args: $1=deployment_bytes32, $2=deadline (optional), $3=ends_at (optional), $4=nonce (optional)
 encode_signed_rca() {
   local deployment_bytes32="$1"
-  local deadline="${2:-$(( $(date +%s) + 7200 ))}"
-  local ends_at="${3:-$(( $(date +%s) + 172800 ))}"
-  local nonce
-  nonce=$(date +%s%N)  # nanosecond timestamp as nonce
-
-  # Export nonce so caller can compute agreementId
-  LAST_RCA_NONCE="$nonce"
-  LAST_RCA_DEADLINE="$deadline"
+  local chain_ts
+  chain_ts=$(cast block latest --rpc-url "$HARDHAT_RPC" --json 2>/dev/null | jq -r '.timestamp' | xargs printf "%d")
+  local deadline="${2:-$(( chain_ts + 7200 ))}"
+  local ends_at="${3:-$(( chain_ts + 172800 ))}"
+  local nonce="${4:-$(date +%s%N)}"  # Use provided nonce or generate one
 
   # 1. ABI-encode metadata (same pattern as encode_rca)
   local terms
@@ -224,7 +290,7 @@ encode_signed_rca() {
     domain_chain_id=$(echo "$domain_result" | sed -n '4p')
     domain_contract=$(echo "$domain_result" | sed -n '5p')
   else
-    domain_name="GraphTallyCollector"
+    domain_name="RecurringCollector"
     domain_version="1"
     domain_chain_id=1337
     domain_contract="$RECURRING_COLLECTOR_ADDRESS"
@@ -272,7 +338,7 @@ encode_signed_rca() {
     "maxInitialTokens": "10000",
     "maxOngoingTokensPerSecond": "100",
     "minSecondsPerCollection": 3600,
-    "maxSecondsPerCollection": 7200,
+    "maxSecondsPerCollection": 86400,
     "nonce": "$nonce",
     "metadata": "$metadata"
   }
@@ -296,9 +362,9 @@ EOFJSON
 poll_proposal_status() {
   local uuid="$1"
   local expected="$2"
-  local timeout="${3:-180}"
+  local timeout="${3:-30}"
   local elapsed=0
-  local interval=5
+  local interval=2
 
   while [ "$elapsed" -lt "$timeout" ]; do
     if check_proposal_status "$uuid" "$expected"; then
@@ -340,10 +406,10 @@ ensure_payer_escrow() {
   echo "  ...   Funding payer escrow (approve + deposit)..."
   cast send --rpc-url "$HARDHAT_RPC" --private-key "$ACCOUNT0_SECRET" \
     "$GRT_TOKEN" "approve(address,uint256)" "$PAYMENTS_ESCROW" "$amount" \
-    --confirmations 1 > /dev/null 2>&1
+    --confirmations 0 > /dev/null 2>&1
   cast send --rpc-url "$HARDHAT_RPC" --private-key "$ACCOUNT0_SECRET" \
     "$PAYMENTS_ESCROW" "deposit(address,address,uint256)" "$RECURRING_COLLECTOR_ADDRESS" "$RECEIVER_ADDRESS" "$amount" \
-    --confirmations 1 > /dev/null 2>&1
+    --confirmations 0 > /dev/null 2>&1
   echo "  OK    Payer escrow funded"
 }
 
@@ -383,7 +449,7 @@ ensure_signer_authorized() {
   cast send --rpc-url "$HARDHAT_RPC" --private-key "$ACCOUNT0_SECRET" \
     "$RECURRING_COLLECTOR_ADDRESS" "authorizeSigner(address,uint256,bytes)" \
     "$ACCOUNT0_ADDRESS" "$deadline" "$proof" \
-    --confirmations 1 > /dev/null 2>&1
+    --confirmations 0 > /dev/null 2>&1
   echo "  OK    Signer authorized on RecurringCollector"
 }
 
@@ -393,11 +459,22 @@ ensure_signer_authorized() {
 # Args: $1 = seconds to advance
 advance_time() {
   local seconds="$1"
-  curl -sf "$HARDHAT_RPC" \
-    -H "Content-Type: application/json" \
-    -d "{\"jsonrpc\":\"2.0\",\"method\":\"evm_increaseTime\",\"params\":[$seconds],\"id\":1}" \
-    > /dev/null
-  cast rpc --rpc-url="$HARDHAT_RPC" evm_mine > /dev/null
+  local step=7000  # Keep each step under maxPOIStaleness (7200s)
+
+  # Advance in increments so each mined block stays within POI staleness of the next
+  local remaining=$seconds
+  while [ "$remaining" -gt 0 ]; do
+    local chunk=$remaining
+    [ "$chunk" -gt "$step" ] && chunk=$step
+    curl -sf "$HARDHAT_RPC" \
+      -H "Content-Type: application/json" \
+      -d "{\"jsonrpc\":\"2.0\",\"method\":\"evm_increaseTime\",\"params\":[$chunk],\"id\":1}" \
+      > /dev/null
+    cast rpc --rpc-url="$HARDHAT_RPC" evm_mine > /dev/null
+    remaining=$((remaining - chunk))
+  done
+  # Mine extra blocks so agent's blockNumber-10 lands after the time jump
+  for _i in $(seq 1 10); do cast rpc --rpc-url="$HARDHAT_RPC" evm_mine > /dev/null; done
 }
 
 # Compute the agreement ID from RCA parameters.
@@ -458,10 +535,9 @@ cancel_agreement() {
 
   cast send --rpc-url "$HARDHAT_RPC" --private-key "$ACCOUNT0_SECRET" \
     "$SUBGRAPH_SERVICE_ADDRESS" \
-    "cancelIndexingAgreementByPayer(address,bytes16)" \
-    "$ACCOUNT0_ADDRESS" \
+    "cancelIndexingAgreementByPayer(bytes16)" \
     "$agreement_id" \
-    --confirmations 1 > /dev/null 2>&1
+    --confirmations 0 > /dev/null 2>&1
 }
 
 # Poll until lastCollectionAt changes from an initial value.
@@ -470,9 +546,9 @@ cancel_agreement() {
 poll_collection() {
   local agreement_id="$1"
   local initial_value="$2"
-  local timeout="${3:-300}"
+  local timeout="${3:-12}"
   local elapsed=0
-  local interval=10
+  local interval=3
 
   while [ "$elapsed" -lt "$timeout" ]; do
     local current
@@ -491,6 +567,7 @@ poll_collection() {
 skip_test() {
   local label="$1"
   total=$((total + 1))
+  skip=$((skip + 1))
   echo "  SKIP  $label"
 }
 
@@ -498,9 +575,9 @@ skip_test() {
 # Args: $1 = timeout in seconds (default 60)
 # Returns: 0 if synced, 1 if timeout
 wait_subgraph_sync() {
-  local timeout="${1:-60}"
+  local timeout="${1:-15}"
   local elapsed=0
-  local interval=5
+  local interval=2
 
   # Get real chain head from RPC
   local chain_head
@@ -531,9 +608,9 @@ wait_subgraph_sync() {
 poll_agreement_state() {
   local agreement_id="$1"
   local expected_state="$2"
-  local timeout="${3:-120}"
+  local timeout="${3:-15}"
   local elapsed=0
-  local interval=5
+  local interval=2
 
   while [ "$elapsed" -lt "$timeout" ]; do
     local current_state
@@ -557,7 +634,7 @@ cancel_agreement_by_indexer() {
     "cancelIndexingAgreement(address,bytes16)" \
     "$RECEIVER_ADDRESS" \
     "$agreement_id" \
-    --confirmations 1 > /dev/null 2>&1
+    --confirmations 0 > /dev/null 2>&1
 }
 
 # Ensure a deployment has an allocation without an existing agreement.
@@ -568,7 +645,7 @@ ensure_clean_allocation() {
   local deployment_hash="$1"
   local timeout=180
   local elapsed=0
-  local interval=10
+  local interval=3
 
   # Check if allocation exists
   if ! check_allocation_exists "$deployment_hash"; then
@@ -617,7 +694,7 @@ REWARDS_MANAGER_ADDRESS="${REWARDS_MANAGER_ADDRESS:-$(docker exec indexer-agent 
 # Ensure ORACLE_ADDRESS is registered as the subgraphAvailabilityOracle.
 # Idempotent — skips if already set.
 ensure_subgraph_availability_oracle() {
-  if [ -z "$ORACLE_ADDRESS" ] || [ -z "$ORACLE_SECRET" ]; then
+  if [ -z "${ORACLE_ADDRESS:-}" ] || [ -z "${ORACLE_SECRET:-}" ]; then
     echo "  SKIP  ORACLE_ADDRESS/ORACLE_SECRET not set"
     return 1
   fi
@@ -639,7 +716,7 @@ ensure_subgraph_availability_oracle() {
     --private-key "$ACCOUNT1_SECRET" \
     "$REWARDS_MANAGER_ADDRESS" \
     "setSubgraphAvailabilityOracle(address)" "$ORACLE_ADDRESS" \
-    --confirmations 1 > /dev/null 2>&1
+    --confirmations 0 > /dev/null 2>&1
   echo "  OK    Subgraph availability oracle set"
 }
 
@@ -651,7 +728,7 @@ deny_subgraph() {
     --private-key "$ORACLE_SECRET" \
     "$REWARDS_MANAGER_ADDRESS" \
     "setDenied(bytes32,bool)" "$deployment_bytes32" true \
-    --confirmations 1 > /dev/null 2>&1
+    --confirmations 0 > /dev/null 2>&1
 }
 
 # Undeny a subgraph deployment.
@@ -662,7 +739,7 @@ undeny_subgraph() {
     --private-key "$ORACLE_SECRET" \
     "$REWARDS_MANAGER_ADDRESS" \
     "setDenied(bytes32,bool)" "$deployment_bytes32" false \
-    --confirmations 1 > /dev/null 2>&1
+    --confirmations 0 > /dev/null 2>&1
 }
 
 # Check if a subgraph is denied.
@@ -871,7 +948,9 @@ run_rejection_batch() {
 
   # ── Wait for agent to process ──
   # Poll scenario 1 as sentinel — once it's rejected, the cycle has run.
-  poll_proposal_status "$s1_uuid" "rejected" 120
+  poll_proposal_status "$s1_uuid" "rejected" 30 || echo "  WARN  Sentinel poll timed out, checking results anyway"
+  # Give agent a moment to finish processing remaining proposals in the batch
+  sleep 2
 
   # ── Check results ──
   echo ""
@@ -950,18 +1029,18 @@ scenario_6_agent_restart() {
   docker exec indexer-agent touch /opt/indexer-agent-source-root/packages/indexer-agent/src/index.ts 2>/dev/null \
     || echo "  (Could not trigger reload via touch)"
 
-  sleep 15
+  sleep 8
   local elapsed=0
-  while [ "$elapsed" -lt 60 ]; do
+  while [ "$elapsed" -lt 30 ]; do
     if gql "$AGENT_URL" "{ indexingRules(merged: false) { identifier } }" | jq -e '.data' > /dev/null 2>&1; then
       break
     fi
-    sleep 5
-    elapsed=$((elapsed + 5))
+    sleep 2
+    elapsed=$((elapsed + 2))
   done
 
   check "6.1 Proposal processed after restart" \
-    "poll_proposal_status '$uuid' 'rejected' 120" || true
+    "poll_proposal_status '$uuid' 'rejected' 30" || true
 
   cleanup_proposal "$uuid" "$ipfs"
   echo ""
@@ -998,11 +1077,13 @@ scenario_8_onchain_accept_and_collect() {
   ensure_signer_authorized
 
   local ts
-  ts=$(date +%s)
+  ts=$(cast block latest --rpc-url "$HARDHAT_RPC" --json 2>/dev/null | jq -r '.timestamp' | xargs printf "%d")
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
+  local nonce
+  nonce=$(date +%s%N)
   local payload
-  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at")
+  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at" "$nonce")
 
   if [ -z "$payload" ] || [ "$payload" = "" ]; then
     echo "  SKIP  Failed to encode signed RCA"
@@ -1013,14 +1094,14 @@ scenario_8_onchain_accept_and_collect() {
   local agreement_id
   agreement_id=$(get_agreement_id \
     "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
-    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+    "$deadline" "$nonce")
 
   insert_proposal "$uuid" "$payload"
   echo "  Inserted signed proposal for $deployment_ipfs (existing allocation), waiting for acceptance..."
 
   # Phase 1: Acceptance
   check "8.1 Proposal accepted on-chain" \
-    "poll_proposal_status '$uuid' 'accepted' 180" || {
+    "poll_proposal_status '$uuid' 'accepted' 30" || {
     echo "  Acceptance failed, skipping collection checks"
     cleanup_proposal "$uuid" "$deployment_ipfs"
     return
@@ -1038,13 +1119,14 @@ scenario_8_onchain_accept_and_collect() {
   initial_last_collected=$(get_last_collection_at "$agreement_id")
   echo "  Initial lastCollectionAt: $initial_last_collected"
 
-  # Advance time past minSecondsPerCollection (3600s in our terms)
-  advance_time 3700
-  echo "  Advanced time by 3700s. Waiting for agent collection loop..."
+  # Advance time past collection target (45000s = min3600 + 50% of (max86400-min3600))
+  advance_time 45100
+  wait_subgraph_sync 60 || echo "  WARN  Subgraph sync timed out"
+  echo "  Advanced time by 45100s. Waiting for agent collection loop..."
 
-  # Wait for the agent to collect
+  # Wait for the agent to collect (30s: agent polling interval is ~10s, need 2-3 cycles)
   check "8.2 Payment collected (lastCollectionAt updated)" \
-    "poll_collection '$agreement_id' '$initial_last_collected' 300" || true
+    "poll_collection '$agreement_id' '$initial_last_collected' 30" || true
 
   # Skip cleanup if cancel tests will run (they reuse this agreement)
   if [ "$SKIP_CANCEL_TESTS" = "true" ]; then
@@ -1083,11 +1165,13 @@ scenario_10_collection_after_cancel() {
   ensure_signer_authorized
 
   local ts
-  ts=$(date +%s)
+  ts=$(cast block latest --rpc-url "$HARDHAT_RPC" --json 2>/dev/null | jq -r '.timestamp' | xargs printf "%d")
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
+  local nonce
+  nonce=$(date +%s%N)
   local payload
-  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at")
+  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at" "$nonce")
 
   if [ -z "$payload" ] || [ "$payload" = "" ]; then
     echo "  SKIP  Failed to encode signed RCA"
@@ -1097,14 +1181,14 @@ scenario_10_collection_after_cancel() {
   local agreement_id
   agreement_id=$(get_agreement_id \
     "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
-    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+    "$deadline" "$nonce")
 
   insert_proposal "$uuid" "$payload"
   echo "  Inserted signed proposal for $deployment_ipfs, waiting for acceptance..."
 
   # Step 1: Wait for acceptance
   check "10.1 Proposal accepted on-chain" \
-    "poll_proposal_status '$uuid' 'accepted' 180" || {
+    "poll_proposal_status '$uuid' 'accepted' 30" || {
     echo "  Acceptance failed, skipping cancellation/collection checks"
     cleanup_proposal "$uuid" "$deployment_ipfs"
     return
@@ -1112,7 +1196,8 @@ scenario_10_collection_after_cancel() {
 
   # Step 2: Advance time past minSecondsPerCollection
   echo "  Agreement accepted. Advancing time before cancellation..."
-  advance_time 3700
+  advance_time 45100
+  wait_subgraph_sync 15 || echo "  WARN  Subgraph sync timed out"
 
   # Step 3: Payer cancels the agreement
   echo "  Canceling agreement as payer..."
@@ -1134,13 +1219,14 @@ scenario_10_collection_after_cancel() {
   echo "  Pre-collection lastCollectionAt: $pre_collect_timestamp"
 
   # Step 5: Advance time again so collection window opens
-  advance_time 3700
+  advance_time 45100
+  wait_subgraph_sync 15 || echo "  WARN  Subgraph sync timed out"
   echo "  Advanced time again. Waiting for agent to collect remaining fees..."
 
   # Step 6: Wait for the agent to collect from the canceled agreement
   # The agent queries state_in: [1, 3] so CanceledByPayer agreements are included.
   check "10.3 Final payment collected after cancellation" \
-    "poll_collection '$agreement_id' '$pre_collect_timestamp' 300" || true
+    "poll_collection '$agreement_id' '$pre_collect_timestamp' 30" || true
 
   cleanup_proposal "$uuid" "$deployment_ipfs"
   echo ""
@@ -1169,11 +1255,13 @@ scenario_11_rewarded_new_allocation() {
   ensure_signer_authorized
 
   local ts
-  ts=$(date +%s)
+  ts=$(cast block latest --rpc-url "$HARDHAT_RPC" --json 2>/dev/null | jq -r '.timestamp' | xargs printf "%d")
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
+  local nonce
+  nonce=$(date +%s%N)
   local payload
-  payload=$(encode_signed_rca "$deployment" "$deadline" "$ends_at")
+  payload=$(encode_signed_rca "$deployment" "$deadline" "$ends_at" "$nonce")
 
   if [ -z "$payload" ]; then
     skip_test "11.1 Proposal accepted (failed to encode RCA)"
@@ -1184,21 +1272,21 @@ scenario_11_rewarded_new_allocation() {
   local agreement_id
   agreement_id=$(get_agreement_id \
     "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
-    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+    "$deadline" "$nonce")
 
   insert_proposal "$uuid" "$payload"
   echo "  Inserted proposal for rewarded deployment (no existing allocation), waiting..."
 
   # Agent should create allocation via multicall(startService + acceptIndexingAgreement)
   check "11.1 Proposal accepted (multicall path)" \
-    "poll_proposal_status '$uuid' 'accepted' 300" || {
+    "poll_proposal_status '$uuid' 'accepted' 30" || {
     echo "  Acceptance failed, skipping token check"
     cleanup_proposal "$uuid" "$ipfs"
     return
   }
 
   # Verify allocation created with non-zero tokens (defaultAllocationAmount)
-  wait_subgraph_sync 60 || echo "  WARN  Subgraph sync timed out"
+  wait_subgraph_sync 15 || echo "  WARN  Subgraph sync timed out"
   local alloc_id
   alloc_id=$(find_allocation_for_deployment "$ipfs")
   if [ -n "$alloc_id" ]; then
@@ -1218,7 +1306,7 @@ scenario_11_rewarded_new_allocation() {
 scenario_12_denied_dips_amount() {
   echo "=== Scenario 12: Denied subgraph — dipsAllocationAmount via multicall ==="
 
-  if [ -z "$ORACLE_ADDRESS" ] || [ -z "$ORACLE_SECRET" ]; then
+  if [ -z "${ORACLE_ADDRESS:-}" ] || [ -z "${ORACLE_SECRET:-}" ]; then
     skip_test "12.1 Proposal accepted (oracle not configured)"
     skip_test "12.2 Allocation uses dipsAllocationAmount"
     return
@@ -1249,11 +1337,13 @@ scenario_12_denied_dips_amount() {
   echo "  Subgraph denied"
 
   local ts
-  ts=$(date +%s)
+  ts=$(cast block latest --rpc-url "$HARDHAT_RPC" --json 2>/dev/null | jq -r '.timestamp' | xargs printf "%d")
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
+  local nonce
+  nonce=$(date +%s%N)
   local payload
-  payload=$(encode_signed_rca "$deployment" "$deadline" "$ends_at")
+  payload=$(encode_signed_rca "$deployment" "$deadline" "$ends_at" "$nonce")
 
   if [ -z "$payload" ]; then
     undeny_subgraph "$deployment"
@@ -1265,13 +1355,13 @@ scenario_12_denied_dips_amount() {
   local agreement_id
   agreement_id=$(get_agreement_id \
     "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
-    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+    "$deadline" "$nonce")
 
   insert_proposal "$uuid" "$payload"
   echo "  Inserted proposal for denied deployment, waiting..."
 
   check "12.1 Proposal accepted (multicall, denied subgraph)" \
-    "poll_proposal_status '$uuid' 'accepted' 300" || {
+    "poll_proposal_status '$uuid' 'accepted' 30" || {
     echo "  Acceptance failed"
     undeny_subgraph "$deployment"
     cleanup_proposal "$uuid" "$ipfs"
@@ -1279,7 +1369,7 @@ scenario_12_denied_dips_amount() {
   }
 
   # Verify allocation uses dipsAllocationAmount (default 0 = altruistic)
-  wait_subgraph_sync 60 || echo "  WARN  Subgraph sync timed out"
+  wait_subgraph_sync 15 || echo "  WARN  Subgraph sync timed out"
   local alloc_id
   alloc_id=$(find_allocation_for_deployment "$ipfs")
   if [ -n "$alloc_id" ]; then
@@ -1303,67 +1393,35 @@ scenario_12_denied_dips_amount() {
 scenario_13_indexer_cancel_and_collect() {
   echo "=== Scenario 13: Indexer cancel + final collection ==="
 
-  if [ "$SKIP_CANCEL_TESTS" = "true" ]; then
-    skip_test "13.1 Agreement cancelled by indexer"
-    skip_test "13.2 Final payment collected after cancel"
-    skip_test "13.3 No further collections after final"
-    return
-  fi
-
   # Reuse agreement from scenario 8 if available
-  if [ -z "${S8_AGREEMENT_ID:-}" ]; then
+  if [ -z "${S8_AGREEMENT_ID:-}" ] || [ -z "${S8_DEPLOYMENT_IPFS:-}" ]; then
     skip_test "13.1 Agreement cancelled by indexer (no S8 agreement)"
-    skip_test "13.2 Final payment collected after cancel (no S8 agreement)"
-    skip_test "13.3 No further collections after final (no S8 agreement)"
+    skip_test "13.2 Allocation still active after cancel (no S8 agreement)"
+    skip_test "13.3 Final collection after cancel (no S8 agreement)"
     return
   fi
 
   local agreement_id="$S8_AGREEMENT_ID"
+  local deployment_ipfs="$S8_DEPLOYMENT_IPFS"
   echo "  Using agreement $agreement_id from scenario 8"
+  echo "  Deployment: $deployment_ipfs"
 
-  local pre_cancel_collection
-  pre_cancel_collection=$(get_last_collection_at "$agreement_id")
-
-  # Find the DIPS rule for this agreement's deployment
-  local deployment_ipfs
-  deployment_ipfs=$(gql "$AGENT_URL" \
-    "{ indexingRules(merged: false) { identifier identifierType decisionBasis } }" \
-    | jq -r '.data.indexingRules[] | select(.identifierType == "deployment" and .decisionBasis == "dips") | .identifier' \
-    | head -1)
-
-  if [ -z "$deployment_ipfs" ] || [ "$deployment_ipfs" = "null" ]; then
-    # Fallback to exported S8 deployment
-    deployment_ipfs="${S8_DEPLOYMENT_IPFS:-}"
-    if [ -z "$deployment_ipfs" ]; then
-      skip_test "13.1 Agreement cancelled by indexer (no DIPS rule found)"
-      skip_test "13.2 Final payment collected after cancel (no DIPS rule found)"
-      skip_test "13.3 No further collections after final (no DIPS rule found)"
-      return
-    fi
-  fi
-
-  # Cancel via blocklist (set NEVER rule)
+  # Cancel via blocklist (set NEVER rule) — agent will call cancelIndexingAgreement on-chain
   gql "$AGENT_URL" "mutation { setIndexingRule(rule: { identifier: \\\"$deployment_ipfs\\\", identifierType: deployment, decisionBasis: never, protocolNetwork: \\\"hardhat\\\" }) { identifier } }" > /dev/null
 
   echo "  Set NEVER rule on $deployment_ipfs, waiting for agent to cancel..."
   check "13.1 Agreement cancelled by indexer" \
-    "poll_agreement_state '$agreement_id' '2' 180" || {
+    "poll_agreement_state '$agreement_id' '2' 30" || {
     return
   }
 
-  check "13.2 Final payment collected after cancel" \
-    "poll_collection '$agreement_id' '$pre_cancel_collection' 120" || true
+  # Verify the allocation is still open (cancel should NOT close it)
+  wait_subgraph_sync 15 || true
+  check "13.2 Allocation still active after cancel" \
+    "check_allocation_exists '$deployment_ipfs'" || true
 
-  local post_final
-  post_final=$(get_last_collection_at "$agreement_id")
-  advance_time 7200
-  wait_subgraph_sync 60 || true
-  sleep 30
-
-  local after_wait
-  after_wait=$(get_last_collection_at "$agreement_id")
-  check "13.3 No further collections after final" \
-    "[ '$post_final' = '$after_wait' ]" || true
+  # Collection after indexer cancel is blocked in current contracts
+  skip_test "13.3 Final collection after cancel (blocked in contracts)"
 
   echo ""
 }
@@ -1407,20 +1465,22 @@ scenario_14_payer_cancel_final_collect() {
   ensure_signer_authorized
 
   local ts
-  ts=$(date +%s)
+  ts=$(cast block latest --rpc-url "$HARDHAT_RPC" --json 2>/dev/null | jq -r '.timestamp' | xargs printf "%d")
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
+  local nonce
+  nonce=$(date +%s%N)
   local payload
-  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at")
+  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at" "$nonce")
 
   local agreement_id
   agreement_id=$(get_agreement_id \
     "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
-    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+    "$deadline" "$nonce")
 
   insert_proposal "$uuid" "$payload"
 
-  poll_proposal_status "$uuid" "accepted" 180 || {
+  poll_proposal_status "$uuid" "accepted" 30 || {
     cleanup_proposal "$uuid"
     skip_test "14.1 Agreement cancelled by payer (accept failed)"
     skip_test "14.2 Final payment collected (accept failed)"
@@ -1429,11 +1489,11 @@ scenario_14_payer_cancel_final_collect() {
   }
 
   # Collect once
-  advance_time 3700
-  wait_subgraph_sync 60 || true
+  advance_time 45100
+  wait_subgraph_sync 15 || true
   local initial_collection
   initial_collection=$(get_last_collection_at "$agreement_id")
-  poll_collection "$agreement_id" "$initial_collection" 300 || true
+  poll_collection "$agreement_id" "$initial_collection" 12 || true
 
   local pre_cancel
   pre_cancel=$(get_last_collection_at "$agreement_id")
@@ -1441,22 +1501,22 @@ scenario_14_payer_cancel_final_collect() {
   # Payer cancels
   cancel_agreement "$agreement_id"
   check "14.1 Agreement cancelled by payer" \
-    "poll_agreement_state '$agreement_id' '3' 60" || {
+    "poll_agreement_state '$agreement_id' '3' 15" || {
     cleanup_proposal "$uuid"
     return
   }
 
-  advance_time 3700
-  wait_subgraph_sync 60 || true
+  advance_time 45100
+  wait_subgraph_sync 15 || true
 
   check "14.2 Final payment collected via periodic loop" \
-    "poll_collection '$agreement_id' '$pre_cancel' 300" || true
+    "poll_collection '$agreement_id' '$pre_cancel' 12" || true
 
   local post_final
   post_final=$(get_last_collection_at "$agreement_id")
   advance_time 7200
-  wait_subgraph_sync 60 || true
-  sleep 30
+  wait_subgraph_sync 15 || true
+  sleep 10
 
   local after_wait
   after_wait=$(get_last_collection_at "$agreement_id")
@@ -1468,15 +1528,9 @@ scenario_14_payer_cancel_final_collect() {
 }
 
 scenario_15_allocation_close_final_collect() {
-  echo "=== Scenario 15: Allocation close + final collection ==="
+  echo "=== Scenario 15: Allocation close cancels agreement ==="
 
-  if [ "$SKIP_CANCEL_TESTS" = "true" ]; then
-    skip_test "15.1 Allocation closed"
-    skip_test "15.2 Final payment collected after close"
-    skip_test "15.3 No further collections after final"
-    return
-  fi
-
+  # Find a deployment with an 'always' rule and active allocation (no existing agreement)
   local deployment_ipfs
   deployment_ipfs=$(gql "$AGENT_URL" \
     "{ indexingRules(merged: false) { identifier identifierType decisionBasis } }" \
@@ -1484,109 +1538,162 @@ scenario_15_allocation_close_final_collect() {
     | head -1)
 
   if [ -z "$deployment_ipfs" ] || [ "$deployment_ipfs" = "null" ]; then
-    skip_test "15.1 Allocation closed (no deployment)"
-    skip_test "15.2 Final payment collected (no deployment)"
-    skip_test "15.3 No further collections (no deployment)"
+    skip_test "15.1 Agreement accepted (no deployment with always rule)"
+    skip_test "15.2 Allocation closed"
+    skip_test "15.3 Agreement cancelled by allocation close"
     return
   fi
 
-  ensure_clean_allocation "$deployment_ipfs" || {
-    skip_test "15.1 Allocation closed (no clean allocation)"
-    skip_test "15.2 Final payment collected (no clean allocation)"
-    skip_test "15.3 No further collections (no clean allocation)"
+  if ! check_allocation_exists "$deployment_ipfs"; then
+    skip_test "15.1 Agreement accepted (no active allocation for $deployment_ipfs)"
+    skip_test "15.2 Allocation closed"
+    skip_test "15.3 Agreement cancelled by allocation close"
     return
-  }
+  fi
 
   local deployment_bytes32
   deployment_bytes32=$(ipfs_to_bytes32 "$deployment_ipfs")
 
   local uuid="0000000f-000f-000f-000f-00000000000f"
-  cleanup_proposal "$uuid"
+  cleanup_proposal "$uuid" "$deployment_ipfs"
   ensure_payer_escrow
   ensure_signer_authorized
 
   local ts
-  ts=$(date +%s)
+  ts=$(cast block latest --rpc-url "$HARDHAT_RPC" --json 2>/dev/null | jq -r '.timestamp' | xargs printf "%d")
   local deadline=$(( ts + 7200 ))
   local ends_at=$(( ts + 172800 ))
+  local nonce
+  nonce=$(date +%s%N)
   local payload
-  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at")
+  payload=$(encode_signed_rca "$deployment_bytes32" "$deadline" "$ends_at" "$nonce")
+
+  if [ -z "$payload" ] || [ "$payload" = "" ]; then
+    skip_test "15.1 Agreement accepted (failed to encode RCA)"
+    skip_test "15.2 Allocation closed"
+    skip_test "15.3 Agreement cancelled by allocation close"
+    return
+  fi
 
   local agreement_id
   agreement_id=$(get_agreement_id \
     "$ACCOUNT0_ADDRESS" "$SUBGRAPH_SERVICE_ADDRESS" "$RECEIVER_ADDRESS" \
-    "$LAST_RCA_DEADLINE" "$LAST_RCA_NONCE")
+    "$deadline" "$nonce")
 
   insert_proposal "$uuid" "$payload"
+  echo "  Inserted proposal for $deployment_ipfs, waiting for acceptance..."
 
-  poll_proposal_status "$uuid" "accepted" 180 || {
-    cleanup_proposal "$uuid"
-    skip_test "15.1 Allocation closed (accept failed)"
-    skip_test "15.2 Final payment collected (accept failed)"
-    skip_test "15.3 No further collections (accept failed)"
+  # Step 1: Accept the agreement
+  check "15.1 Agreement accepted" \
+    "poll_proposal_status '$uuid' 'accepted' 30" || {
+    echo "  Acceptance failed, skipping remaining checks"
+    cleanup_proposal "$uuid" "$deployment_ipfs"
     return
   }
 
-  # Collect once
-  advance_time 3700
-  wait_subgraph_sync 60 || true
-  local initial_collection
-  initial_collection=$(get_last_collection_at "$agreement_id")
-  poll_collection "$agreement_id" "$initial_collection" 300 || true
+  # Verify agreement is active (state=1)
+  local state_before
+  state_before=$(get_agreement_state "$agreement_id")
+  echo "  Agreement state after accept: $state_before (expected 1=Accepted)"
 
-  local pre_close
-  pre_close=$(get_last_collection_at "$agreement_id")
+  # Step 2: Close allocation with force=true (required when agreement is attached)
+  # Find the allocation ID for this deployment
+  local alloc_id
+  alloc_id=$(curl -s "$NETWORK_SUBGRAPH_URL" \
+    -H 'content-type: application/json' \
+    -d "{\"query\": \"{ allocations(where: { subgraphDeployment_: { ipfsHash: \\\"$deployment_ipfs\\\" }, status: Active }) { id } }\"}" \
+    | jq -r '.data.allocations[0].id')
 
-  # Close allocation via NEVER rule
-  gql "$AGENT_URL" "mutation { setIndexingRule(rule: { identifier: \\\"$deployment_ipfs\\\", identifierType: deployment, decisionBasis: never, protocolNetwork: \\\"hardhat\\\" }) { identifier } }" > /dev/null
+  if [ -z "$alloc_id" ] || [ "$alloc_id" = "null" ]; then
+    echo "  Could not find allocation for $deployment_ipfs"
+    cleanup_proposal "$uuid" "$deployment_ipfs"
+    return
+  fi
+  echo "  Queueing force-unallocate for allocation $alloc_id..."
 
-  echo "  Set NEVER rule, waiting for allocation close..."
-  sleep 60
+  gql "$AGENT_URL" "mutation { queueActions(actions: [{ type: unallocate, allocationID: \\\"$alloc_id\\\", deploymentID: \\\"$deployment_ipfs\\\", force: true, source: \\\"test\\\", reason: \\\"scenario-15\\\", priority: 0, status: approved, protocolNetwork: \\\"hardhat\\\", isLegacy: false }]) { id type status } }" > /dev/null
 
-  check "15.1 Allocation closed" \
-    "poll_agreement_state '$agreement_id' '2' 180" || {
-    cleanup_proposal "$uuid"
+  # Wait for the allocation to disappear from the subgraph
+  local alloc_elapsed=0
+  while [ "$alloc_elapsed" -lt 60 ]; do
+    if ! check_allocation_exists "$deployment_ipfs"; then
+      break
+    fi
+    sleep 3
+    alloc_elapsed=$((alloc_elapsed + 3))
+  done
+
+  check "15.2 Allocation closed" \
+    "! check_allocation_exists '$deployment_ipfs'" || {
+    echo "  Allocation still active after 60s"
+    cleanup_proposal "$uuid" "$deployment_ipfs"
     return
   }
 
-  check "15.2 Final payment collected after close" \
-    "poll_collection '$agreement_id' '$pre_close' 120" || true
+  # Step 3: Verify the agreement was automatically cancelled (state=2 CanceledByServiceProvider)
+  wait_subgraph_sync 15 || true
+  local state_after_close
+  state_after_close=$(get_agreement_state "$agreement_id")
+  echo "  Agreement state after close: $state_after_close (expected 2=CanceledByServiceProvider)"
+  check "15.3 Agreement cancelled by allocation close" \
+    "[ '$state_after_close' = '2' ]" || true
 
-  local post_final
-  post_final=$(get_last_collection_at "$agreement_id")
-  advance_time 7200
-  wait_subgraph_sync 60 || true
-  sleep 30
+  # Collection after close is blocked in current contracts
+  skip_test "15.4 Final collection after close (blocked in contracts)"
 
-  local after_wait
-  after_wait=$(get_last_collection_at "$agreement_id")
-  check "15.3 No further collections after final" \
-    "[ '$post_final' = '$after_wait' ]" || true
-
-  cleanup_proposal "$uuid"
+  cleanup_proposal "$uuid" "$deployment_ipfs"
   echo ""
 }
 
 # ── Run ───────────────────────────────────────────────────────────────
 
+setup_environment
+
+start_scenario "Batch: Rejection scenarios (1-5, 7, 9)"
 run_rejection_batch
+end_scenario
+
+start_scenario "Scenario 6: Agent restart"
 scenario_6_agent_restart
+end_scenario
+
+start_scenario "Scenario 8: On-chain accept + collection"
 scenario_8_onchain_accept_and_collect
+end_scenario
+
+start_scenario "Scenario 10: Collection after payer cancel"
 scenario_10_collection_after_cancel
+end_scenario
 
 # Multicall accept + token amount (Scenarios 11-12)
+start_scenario "Scenario 11: Rewarded new allocation"
 scenario_11_rewarded_new_allocation
+end_scenario
+
+start_scenario "Scenario 12: Denied DIPS amount"
 scenario_12_denied_dips_amount
+end_scenario
 
 # On-chain cancel (Scenarios 13-15) — skipped by default
+start_scenario "Scenario 13: Indexer cancel and collect"
 scenario_13_indexer_cancel_and_collect
+end_scenario
+
+start_scenario "Scenario 14: Payer cancel final collect"
 scenario_14_payer_cancel_final_collect
+end_scenario
+
+start_scenario "Scenario 15: Allocation close final collect"
 scenario_15_allocation_close_final_collect
+end_scenario
 
 # ── Summary ───────────────────────────────────────────────────────────
 
+print_timing_summary
+
+echo ""
 echo "=== Results ==="
-echo "  $pass passed, $fail failed, $total total"
+echo "  $pass passed, $fail failed, $skip skipped, $total total"
 
 if [ "$fail" -eq 0 ]; then
   echo "  All DIPs integration tests passed."

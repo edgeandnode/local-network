@@ -1,0 +1,9 @@
+# IISA Mock Override
+# Uses locally-built mock instead of real IISA from GHCR.
+
+services:
+  iisa:
+    image: local-network-iisa-mock
+    build:
+      context: containers/indexing-payments/iisa-mock
+      dockerfile: Dockerfile

@@ -1,0 +1,80 @@
+# Local DIPs Override
+# Uses local dipper build, iisa-mock, local contracts, and local indexer-rs.
+#
+# Activate via .env:
+#   COMPOSE_PROFILES=indexing-payments,block-oracle
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/local-dips.yaml
+#   DIPPER_SOURCE_ROOT=../dipper
+#   CONTRACTS_SOURCE_ROOT=../contracts
+#   INDEXER_RS_SOURCE_ROOT=../indexer-rs
+#   INDEXER_AGENT_SOURCE_ROOT=../indexer
+
+services:
+  graph-contracts:
+    volumes:
+      - ${CONTRACTS_SOURCE_ROOT:?Set CONTRACTS_SOURCE_ROOT to local contracts repo}:/opt/contracts
+
+  iisa:
+    image: local-network-iisa-mock
+    build:
+      context: containers/indexing-payments/iisa-mock
+      dockerfile: Dockerfile
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 10s
+      retries: 10
+      start_period: 5s
+
+  dipper:
+    build:
+      dockerfile_inline: |
+        FROM rust:1-slim-bookworm
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential ca-certificates clang cmake curl git jq lld \
+                pkg-config libssl-dev protobuf-compiler \
+            && rm -rf /var/lib/apt/lists/*
+        ENV CC=clang CXX=clang++ RUSTFLAGS="-C link-arg=-fuse-ld=lld"
+    entrypoint: ["bash", "/opt/run.sh"]
+    depends_on:
+      block-oracle: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      gateway: { condition: service_healthy }
+      iisa: { condition: service_healthy }
+    volumes:
+      - ${DIPPER_SOURCE_ROOT:?Set DIPPER_SOURCE_ROOT to local dipper checkout}:/opt/source
+      - ./containers/indexing-payments/dipper/run.sh:/opt/run.sh:ro
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+
+  indexer-service:
+    build:
+      dockerfile_inline: |
+        FROM indexer-service-rs:main-dips
+        RUN apt-get update && apt-get install -y curl jq && rm -rf /var/lib/apt/lists/*
+    entrypoint: ["bash", "/opt/run.sh"]
+    volumes:
+      - ./containers/indexer/indexer-service/run.sh:/opt/run.sh:ro
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+
+  tap-agent:
+    build:
+      dockerfile_inline: |
+        FROM rust:1-slim-bookworm
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential ca-certificates clang cmake curl git jq lld \
+                pkg-config libssl-dev libsasl2-dev protobuf-compiler \
+            && rm -rf /var/lib/apt/lists/*
+        ENV CC=clang CXX=clang++ RUSTFLAGS="-C link-arg=-fuse-ld=lld"
+    entrypoint: ["bash", "/opt/build-and-run.sh"]
+    volumes:
+      - ${INDEXER_RS_SOURCE_ROOT:?Set INDEXER_RS_SOURCE_ROOT to local indexer-rs checkout}:/opt/source
+      - ./containers/query-payments/tap-agent/run.sh:/opt/run.sh:ro
+      - ./containers/query-payments/tap-agent/build-and-run.sh:/opt/build-and-run.sh:ro
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro

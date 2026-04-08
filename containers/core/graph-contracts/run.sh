@@ -49,18 +49,26 @@ ensure_dispute_manager_registered() {
   fi
 }
 
+# -- Clear stale Ignition state before any deployment check --
+# This ensures we don't have partial deployment state causing issues
+rm -rf /opt/contracts/packages/subgraph-service/ignition/deployments/chain-1337
+rm -rf /opt/contracts/packages/horizon/ignition/deployments/chain-1337
+
 # -- Idempotency check --
+# Check both L2GraphToken AND HorizonStaking to ensure full deployment
 phase1_skip=false
 l2_graph_token=$(jq -r '.["1337"].L2GraphToken.address // empty' /opt/config/horizon.json 2>/dev/null || true)
-if [ -n "$l2_graph_token" ]; then
-  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$l2_graph_token" 2>/dev/null || echo "0x")
-  if [ "$code_check" != "0x" ]; then
-    echo "Graph protocol contracts already deployed (L2GraphToken at $l2_graph_token)"
+horizon_staking=$(jq -r '.["1337"].HorizonStaking.address // empty' /opt/config/horizon.json 2>/dev/null || true)
+if [ -n "$l2_graph_token" ] && [ -n "$horizon_staking" ]; then
+  token_code=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$l2_graph_token" 2>/dev/null || echo "0x")
+  staking_code=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$horizon_staking" 2>/dev/null || echo "0x")
+  if [ "$token_code" != "0x" ] && [ "$staking_code" != "0x" ]; then
+    echo "Graph protocol contracts already deployed (L2GraphToken at $l2_graph_token, HorizonStaking at $horizon_staking)"
     ensure_dispute_manager_registered
     echo "SKIP: Phase 1"
     phase1_skip=true
   else
-    echo "Contract addresses in horizon.json are stale (no code at $l2_graph_token), redeploying..."
+    echo "Contract addresses in horizon.json are stale (missing code), redeploying..."
   fi
 fi
 

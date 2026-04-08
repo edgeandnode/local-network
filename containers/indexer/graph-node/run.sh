@@ -9,6 +9,7 @@ curl -sf "http://chain:${CHAIN_RPC_PORT}" \
 
 export ETHEREUM_RPC="hardhat:http://chain:${CHAIN_RPC_PORT}/"
 export GRAPH_ALLOW_NON_DETERMINISTIC_FULLTEXT_SEARCH="true"
+export ethereum_polling_interval=1000
 unset GRAPH_NODE_CONFIG
 export IPFS="http://ipfs:${IPFS_RPC_PORT}"
 export POSTGRES_URL="postgresql://postgres:@postgres:${POSTGRES_PORT}/graph_node_1"

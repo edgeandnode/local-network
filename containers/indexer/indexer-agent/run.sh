@@ -6,10 +6,10 @@ set -eu
 
 token_address=$(contract_addr L2GraphToken.address horizon)
 staking_address=$(contract_addr HorizonStaking.address horizon)
-indexer_staked="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
-  "${staking_address}" 'hasStake(address) (bool)' "${RECEIVER_ADDRESS}")"
-echo "indexer_staked=${indexer_staked}"
-if [ "${indexer_staked}" = "false" ]; then
+indexer_stake="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
+  "${staking_address}" 'getStake(address)(uint256)' "${RECEIVER_ADDRESS}")"
+echo "indexer_stake=${indexer_stake}"
+if [ "${indexer_stake}" = "0" ]; then
   # transfer ETH to receiver
   cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--mnemonic=${MNEMONIC}" \
     --value=1ether "${RECEIVER_ADDRESS}"
@@ -64,5 +64,7 @@ export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPH
 export INDEXER_AGENT_MAX_PROVISION_INITIAL_SIZE=200000
 export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
 export INDEXER_AGENT_LOG_LEVEL=trace
+export INDEXER_AGENT_ENABLE_DIPS=true
+export INDEXER_AGENT_DIPPER_ENDPOINT="http://dipper:${DIPPER_INDEXER_RPC_PORT:-9001}"
 
 node ./dist/index.js start

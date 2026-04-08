@@ -6,10 +6,10 @@ set -xeu
 
 token_address=$(contract_addr L2GraphToken.address horizon)
 staking_address=$(contract_addr HorizonStaking.address horizon)
-indexer_staked="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
-  "${staking_address}" 'hasStake(address) (bool)' "${RECEIVER_ADDRESS}")"
-echo "indexer_staked=${indexer_staked}"
-if [ "${indexer_staked}" = "false" ]; then
+indexer_stake="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
+  "${staking_address}" 'getStake(address)(uint256)' "${RECEIVER_ADDRESS}")"
+echo "indexer_stake=${indexer_stake}"
+if [ "${indexer_stake}" = "0" ]; then
   # transfer ETH to receiver
   cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--mnemonic=${MNEMONIC}" \
     --value=1ether "${RECEIVER_ADDRESS}"
@@ -21,6 +21,20 @@ if [ "${indexer_staked}" = "false" ]; then
     "${token_address}" 'approve(address,uint256)' "${staking_address}" '100000000000000000000000'
   cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--private-key=${RECEIVER_SECRET}" \
     "${staking_address}" 'stake(uint256)' '100000000000000000000000'
+fi
+
+# Authorize the indexer as its own operator for the SubgraphService
+# This is required for attestation verification in Horizon
+subgraph_service_address=$(contract_addr SubgraphService.address subgraph-service)
+operator_authorized="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
+  "${staking_address}" 'isAuthorized(address,address,address)(bool)' \
+  "${RECEIVER_ADDRESS}" "${RECEIVER_ADDRESS}" "${subgraph_service_address}")"
+echo "operator_authorized=${operator_authorized}"
+if [ "${operator_authorized}" = "false" ]; then
+  echo "Authorizing indexer as operator for SubgraphService..."
+  cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--private-key=${RECEIVER_SECRET}" \
+    "${staking_address}" 'setOperator(address,address,bool)' \
+    "${RECEIVER_ADDRESS}" "${subgraph_service_address}" "true"
 fi
 
 export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/config/horizon.json
@@ -50,6 +64,9 @@ export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPH
 export INDEXER_AGENT_MAX_PROVISION_INITIAL_SIZE=200000
 export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
 export INDEXER_AGENT_LOG_LEVEL=trace
+export INDEXER_AGENT_POLLING_INTERVAL=2000
+export INDEXER_AGENT_ENABLE_DIPS=true
+export INDEXER_AGENT_DIPPER_ENDPOINT="http://dipper:${DIPPER_INDEXER_RPC_PORT:-9001}"
 
 cd /opt/indexer-agent-source-root
 
