@@ -227,8 +227,7 @@ done
 Show a summary including:
 - All running indexers (primary + extras) with container names, addresses, and health status
 - Number of indexers visible in the network subgraph (with URLs)
-- Number of indexers scored by IISA
-- Confirmation that the pipeline is ready for `/send-indexing-request`
+- Number of indexers scored by IISA (from the cronjob `Scoring complete: N indexers` log line)
 
 ## Constraints
 
