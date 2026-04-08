@@ -60,6 +60,7 @@ export INDEXER_AGENT_DIPPER_ENDPOINT="http://dipper:${DIPPER_INDEXER_RPC_PORT}"
 export INDEXER_AGENT_DIPS_ALLOCATION_AMOUNT=1
 export INDEXER_AGENT_DIPS_COLLECTION_TARGET=1
 export INDEXER_AGENT_DIPS_COLLECTION_SLIPPAGE=50
+export INDEXER_AGENT_INDEXING_PAYMENTS_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
 
 cd /opt/indexer-agent-source-root
 mkdir -p ./config/

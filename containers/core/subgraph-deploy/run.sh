@@ -96,19 +96,54 @@ deploy_block_oracle() {
   echo "==== Block-oracle subgraph done ===="
 }
 
-# Launch all three in parallel
+deploy_indexing_payments() {
+  echo "==== Indexing payments subgraph ===="
+  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments" \
+    -H 'content-type: application/json' \
+    -d '{"query": "{ _meta { deployment } }" }' | grep -q "_meta"
+  then
+    echo "SKIP: Indexing payments subgraph already deployed"
+    return
+  fi
+
+  subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
+  recurring_collector=$(contract_addr RecurringCollector.address horizon)
+
+  cd /opt/indexing-payments-subgraph
+
+  cat > config/hardhat.json <<EOF
+{
+  "network": "hardhat",
+  "address": "${subgraph_service}",
+  "recurringCollectorAddress": "${recurring_collector}",
+  "startBlock": 0
+}
+EOF
+
+  npx mustache config/hardhat.json subgraph.template.yaml > subgraph.yaml
+  npx graph codegen
+  npx graph build
+  npx graph create indexing-payments --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}"
+  npx graph deploy indexing-payments --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}" --ipfs="http://ipfs:${IPFS_RPC_PORT}" --version-label=v0.1.0
+  echo "==== Indexing payments subgraph done ===="
+}
+
+# Launch all four in parallel
 deploy_network &
 pid_network=$!
 deploy_tap &
 pid_tap=$!
 deploy_block_oracle &
 pid_oracle=$!
+deploy_indexing_payments &
+pid_indexing_payments=$!
 
 # Wait for all, fail if any fails
 failed=0
 wait $pid_network || { echo "FAILED: Network subgraph"; failed=1; }
 wait $pid_tap || { echo "FAILED: TAP subgraph"; failed=1; }
 wait $pid_oracle || { echo "FAILED: Block-oracle subgraph"; failed=1; }
+wait $pid_indexing_payments || { echo "FAILED: Indexing payments subgraph"; failed=1; }
 
 if [ "$failed" -ne 0 ]; then
   echo "One or more subgraph deployments failed"
