@@ -39,6 +39,7 @@ INDEXER_AGENT_SOURCE_ROOT=/Users/samuel/Documents/github/indexer
 DIPPER_SOURCE_ROOT=/Users/samuel/Documents/github/dipper
 IISA_SOURCE_ROOT=/Users/samuel/Documents/github/subgraph-dips-indexer-selection
 REO_SOURCE_ROOT=/Users/samuel/Documents/github/eligibility-oracle-node
+INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT=/Users/samuel/Documents/github/indexing-payments-subgraph
 
 # Legacy binary mounts (unused when dips.yaml is active)
 INDEXER_SERVICE_BINARY=/Users/samuel/Documents/github/indexer-rs/target/release/indexer-service-rs

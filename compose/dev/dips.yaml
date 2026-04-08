@@ -24,11 +24,16 @@
 #   DIPPER_SOURCE_ROOT=~/Documents/github/dipper
 #   IISA_SOURCE_ROOT=~/Documents/github/subgraph-dips-indexer-selection
 #   REO_SOURCE_ROOT=~/Documents/github/eligibility-oracle-node
+#   INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT=~/Documents/github/indexing-payments-subgraph
 
 services:
   chain:
     volumes:
       - ./containers/core/chain/run.sh:/opt/run.sh:ro
+
+  subgraph-deploy:
+    volumes:
+      - ${INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT:?Set INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT to local indexing-payments-subgraph checkout}:/opt/indexing-payments-subgraph
 
   # graph-contracts: volume mount temporarily disabled — image builds from
   # CONTRACTS_COMMIT (fix/horizon-staking-ignition-dependency) which includes

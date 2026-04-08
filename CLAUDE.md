@@ -31,6 +31,16 @@ The stack has these layers:
 
 Dev overrides (`compose/dev/dips.yaml`) mount local source for: contracts, indexer-rs, dipper, iisa, eligibility-oracle-node. Everything else uses pinned versions or clones at build time.
 
+### How source-mounted services pick up code changes
+
+The dev overrides volume-mount local repo checkouts into containers (e.g. `INDEXER_AGENT_SOURCE_ROOT` -> `/opt/indexer-agent-source-root`). Each service's `run.sh` or `run-dips.sh` entrypoint runs the code from this mount at container startup. The mechanism differs by language:
+
+- **TypeScript (indexer-agent)**: `run-dips.sh` runs `tsx packages/indexer-agent/src/index.ts start`, which transpiles TypeScript to JavaScript on the fly. There is a `dist/` directory with pre-compiled JS but `tsx` ignores it -- it reads directly from `src/`. Editing `.ts` files locally and restarting the container is sufficient; no `yarn build` or image rebuild needed.
+- **Rust (indexer-service, dipper, tap-agent)**: `run.sh` runs `cargo build --release` inside the container using the mounted source, then executes the compiled binary. Changes require a container restart which triggers a rebuild (~2-3 min cached, longer if dependencies changed). Extra indexer-services share a `flock`-serialized build so only one compiles at a time.
+- **Python (IISA)**: Source is mounted and run directly via `python`. Changes are picked up on container restart with no build step.
+
+All containers (primary and extras) for a given service mount the same source directory. Switching branches locally, editing code, or rebasing affects every container on the next restart or fresh deploy. No image rebuild (`--build`) is needed unless Dockerfiles, build args, or base images change -- `--no-build` is the default for speed.
+
 ## Key Config
 
 - `.environment` is the canonical config file. `.env` is a symlink to it.
