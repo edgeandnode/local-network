@@ -1,6 +1,12 @@
+#!/bin/bash
 set -xe
-source .env
-[ -f .env.local ] && source .env.local
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+source "$REPO_ROOT/.env"
+[ -f "$REPO_ROOT/.env.local" ] && source "$REPO_ROOT/.env.local"
+source "$REPO_ROOT/shared/lib.sh"
+
 name=$1
 if [ -z "$name" ]; then
   echo "Usage: $0 <name>"
@@ -23,7 +29,7 @@ deployment_hex="$(curl -s -X POST "http://${IPFS_HOST}:${IPFS_RPC_PORT}/api/v0/c
 deployment_hex="${deployment_hex#f01701220}"
 
 echo "deployment_hex=${deployment_hex}"
-gns="$(jq -r '."1337".L2GNS.address' subgraph-service.json)"
+gns="$(contract_addr L2GNS.address subgraph-service)"
 
 # https://github.com/graphprotocol/contracts/blob/3eb16c80d4652c238d3e6b2c396da712af5072b4/packages/sdk/src/deployments/network/actions/gns.ts#L38
 cast send --rpc-url="http://${CHAIN_HOST}:${CHAIN_RPC_PORT}" --confirmations=0 --mnemonic="${MNEMONIC}" \
