@@ -1,0 +1,155 @@
+# Local Network Configuration
+#
+# This file is read by:
+#   - docker-compose (YAML variable substitution, plain key=value only)
+#   - host scripts (source .env)
+#   - containers (volume-mounted at /opt/config/.env, sourced by run.sh)
+#
+# Local overrides: create .env.local (gitignored) to override values for host
+# scripts. Host scripts source .env.local after .env. Note: .env.local does NOT
+# affect containers or docker-compose — those always use .env directly.
+#
+# Host scripts use ${VAR_HOST:-localhost} for service hostnames, allowing
+# devcontainer environments to set *_HOST env vars (e.g. CHAIN_HOST=chain)
+# to reach services on the Docker network instead of localhost.
+
+# --- Service profiles ---
+# Controls which optional service groups are started.
+# Available profiles:
+#   block-oracle          epoch block oracle
+#   explorer              block explorer UI
+#   rewards-eligibility   REO eligibility oracle node
+#   indexing-payments     dipper + iisa (requires GHCR auth — see README)
+# rewards-eligibility disabled: REO contract not deployed (REO_ENABLED=0)
+COMPOSE_PROFILES=block-oracle,explorer,indexing-payments
+
+# --- Dev overrides ---
+# DIPs development: mount local source and build inside containers
+# All components built from local checkouts - no stubs or GHCR images
+# contracts repo must be on escrow-management branch with `pnpm install && pnpm build` done
+
+# Extra indexers: python3 scripts/gen-extra-indexers.py N
+# Then add :compose/extra-indexers.yaml to COMPOSE_FILE below
+COMPOSE_FILE=docker-compose.yaml:compose/dev/dips.yaml:compose/extra-indexers.yaml
+
+# Local source directories (mounted into containers, built from source)
+CONTRACTS_SOURCE_ROOT=/Users/samuel/Documents/github/contracts
+INDEXER_SERVICE_SOURCE_ROOT=/Users/samuel/Documents/github/indexer-rs
+INDEXER_AGENT_SOURCE_ROOT=/Users/samuel/Documents/github/indexer
+DIPPER_SOURCE_ROOT=/Users/samuel/Documents/github/dipper
+IISA_SOURCE_ROOT=/Users/samuel/Documents/github/subgraph-dips-indexer-selection
+REO_SOURCE_ROOT=/Users/samuel/Documents/github/eligibility-oracle-node
+INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT=/Users/samuel/Documents/github/indexing-payments-subgraph
+
+# Legacy binary mounts (unused when dips.yaml is active)
+INDEXER_SERVICE_BINARY=/Users/samuel/Documents/github/indexer-rs/target/release/indexer-service-rs
+TAP_AGENT_BINARY=/Users/samuel/Documents/github/indexer-rs/target/release/indexer-tap-agent
+
+# indexer components versions (checked Feb 2026)
+# Note: INDEXER_SERVICE_RS_VERSION and INDEXER_TAP_AGENT_VERSION are unused when dev overrides are active
+GRAPH_NODE_VERSION=v0.41.2
+INDEXER_SERVICE_RS_VERSION=main
+INDEXER_TAP_AGENT_VERSION=main
+INDEXER_AGENT_VERSION=v0.25.5
+
+# indexing-payments image versions (requires GHCR auth — see README)
+DIPPER_VERSION=latest
+IISA_VERSION=latest
+
+# gateway components versions
+GATEWAY_COMMIT=b37acb4976313316a2bc0a488ca98749da51c61d
+TAP_AGGREGATOR_VERSION=sha-d38d0b9
+TAP_ESCROW_MANAGER_COMMIT=530a5a72da7592b8d442b94d82a5a5f57d4a2b40
+
+# eligibility oracle (clone-and-build — requires published repo)
+ELIGIBILITY_ORACLE_COMMIT=84710857394d3419f83dcbf6687a91f415cc1625
+
+# network components versions
+BLOCK_ORACLE_COMMIT=3a3a425ff96130c3842cee7e43d06bbe3d729aed
+# CONTRACTS_COMMIT is used by the graph-contracts Docker image to clone and compile contracts.
+# Must match the branch with acceptIndexingAgreement + RecurringCollector + HorizonStaking fix.
+CONTRACTS_COMMIT=fix/horizon-staking-ignition-dependency
+NETWORK_SUBGRAPH_COMMIT=5b6c22089a2e55db16586a19cbf6e1d73a93c7b9
+TAP_CONTRACTS_COMMIT=e3351e70b3e5d9821bc0aaa90bb2173ca2a77af7
+TAP_SUBGRAPH_COMMIT=cf7279f60433bf9a9d897ec2548c13c0607234cc
+INDEXING_PAYMENTS_SUBGRAPH_COMMIT=22cfaf29524a36c553beccf09d1214636a9672a9
+
+# service ports
+CHAIN_RPC_PORT=8545
+IPFS_RPC_PORT=5001
+POSTGRES_PORT=5432
+GRAPH_NODE_GRAPHQL_PORT=8000
+GRAPH_NODE_ADMIN_PORT=8020
+GRAPH_NODE_STATUS_PORT=8030
+GRAPH_NODE_METRICS_PORT=8040
+INDEXER_MANAGEMENT_PORT=7600
+INDEXER_SERVICE_PORT=7601
+GATEWAY_PORT=7700
+REDPANDA_KAFKA_PORT=9092
+REDPANDA_KAFKA_EXTERNAL_PORT=29092
+REDPANDA_ADMIN_PORT=9644
+REDPANDA_PANDAPROXY_PORT=8082
+REDPANDA_SCHEMA_REGISTRY_PORT=8081
+TAP_AGGREGATOR_PORT=7610
+BLOCK_EXPLORER_PORT=3000
+
+# backward compat: old names without _PORT suffix (shell-only, uses ${} expansion)
+# docker-compose sees these as literal strings — use _PORT names in docker-compose.yaml
+# TODO: remove once all consumers (other repos) are migrated to _PORT names
+CHAIN_RPC=${CHAIN_RPC_PORT}
+IPFS_RPC=${IPFS_RPC_PORT}
+POSTGRES=${POSTGRES_PORT}
+GRAPH_NODE_GRAPHQL=${GRAPH_NODE_GRAPHQL_PORT}
+GRAPH_NODE_ADMIN=${GRAPH_NODE_ADMIN_PORT}
+GRAPH_NODE_STATUS=${GRAPH_NODE_STATUS_PORT}
+GRAPH_NODE_METRICS=${GRAPH_NODE_METRICS_PORT}
+INDEXER_MANAGEMENT=${INDEXER_MANAGEMENT_PORT}
+INDEXER_SERVICE=${INDEXER_SERVICE_PORT}
+GATEWAY=${GATEWAY_PORT}
+REDPANDA_KAFKA=${REDPANDA_KAFKA_PORT}
+REDPANDA_KAFKA_EXTERNAL=${REDPANDA_KAFKA_EXTERNAL_PORT}
+REDPANDA_ADMIN=${REDPANDA_ADMIN_PORT}
+REDPANDA_PANDAPROXY=${REDPANDA_PANDAPROXY_PORT}
+REDPANDA_SCHEMA_REGISTRY=${REDPANDA_SCHEMA_REGISTRY_PORT}
+TAP_AGGREGATOR=${TAP_AGGREGATOR_PORT}
+BLOCK_EXPLORER=${BLOCK_EXPLORER_PORT}
+
+# Indexing Payments (used with indexing-payments override)
+DIPPER_ADMIN_RPC_PORT=9000
+DIPPER_INDEXER_RPC_PORT=9001
+INDEXER_SERVICE_DIPS_RPC_PORT=7602
+
+## Chain config
+CHAIN_ID=1337
+CHAIN_NAME="hardhat"
+
+## Wallet
+## - Account 0 used by: EBO, admin actions (deploy contracts, transfer ETH/GRT), gateway payer for PaymentsEscrow
+## - Account 1 used by: Gateway signer for PaymentsEscrow
+MNEMONIC="test test test test test test test test test test test junk"
+ACCOUNT0_ADDRESS="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+ACCOUNT0_SECRET="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+ACCOUNT1_ADDRESS="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+ACCOUNT1_SECRET="0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+
+# receiver of Scalar payments (receiver is index 0 of mnemonic)
+INDEXER_MNEMONIC="test test test test test test test test test test test zero"
+RECEIVER_ADDRESS="0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3"
+RECEIVER_SECRET="0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573"
+
+# subgraphs
+SUBGRAPH="BFr2mx7FgkJ36Y6pE5BiXs1KmNUmVDCnL82KUSdcLW1g"
+SUBGRAPH_2="9p1TRzaccKzWBN4P6YEwEUxYwJn6HwPxf5dKXK2NYxgS"
+
+# REO (Rewards Eligibility Oracle)
+# Set to 1 to deploy and configure the REO contract (Phase 4). Unset or 0 to skip.
+REO_ENABLED=0
+# eligibilityPeriod: how long an indexer stays eligible after renewal (seconds)
+REO_ELIGIBILITY_PERIOD=300
+# oracleUpdateTimeout: fail-safe — if no oracle update for this long, all indexers eligible (seconds)
+REO_ORACLE_UPDATE_TIMEOUT=86400
+
+# Gateway
+GATEWAY_API_KEY="deadbeefdeadbeefdeadbeefdeadbeef"
+
+REO_BINARY=/Users/samuel/Documents/github/eligibility-oracle-node/target/release/eligibility-oracle

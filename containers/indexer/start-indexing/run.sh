@@ -157,4 +157,43 @@ do
   sleep 2
 done
 
+# -- Authorize ACCOUNT0 as signer on RecurringCollector (required for DIPs) --
+# The RecurringCollector uses the Authorizable pattern: signers must be explicitly
+# authorized before their EIP-712 signatures are accepted. Without this, all DIPs
+# on-chain acceptance calls fail with RecurringCollectorInvalidSigner().
+recurring_collector=$(contract_addr RecurringCollector.address horizon 2>/dev/null) || recurring_collector=""
+if [ -n "$recurring_collector" ]; then
+  is_authorized=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+    "${recurring_collector}" 'isAuthorized(address,address)(bool)' \
+    "${ACCOUNT0_ADDRESS}" "${ACCOUNT0_ADDRESS}" 2>/dev/null) || is_authorized="false"
+
+  if [ "$is_authorized" = "true" ]; then
+    elapsed "ACCOUNT0 already authorized on RecurringCollector"
+  else
+    elapsed "Authorizing ACCOUNT0 as signer on RecurringCollector..."
+    # The proof is an EIP-191 signed message proving the signer consents.
+    # Message: keccak256(abi.encodePacked(chainId, contractAddr, "authorizeSignerProof", deadline, authorizer))
+    proof_deadline=$(($(date +%s) + 86400))
+    msg_hash=$(cast keccak "$(cast abi-encode --packed 'f(uint256,address,string,uint256,address)' \
+      "${CHAIN_ID}" "${recurring_collector}" 'authorizeSignerProof' "${proof_deadline}" "${ACCOUNT0_ADDRESS}")")
+
+    # Sign with EIP-191 (personal_sign adds the "\x19Ethereum Signed Message:\n32" prefix)
+    proof=$(cast wallet sign --private-key="${ACCOUNT0_SECRET}" "${msg_hash}")
+
+    if cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --private-key="${ACCOUNT0_SECRET}" \
+      "${recurring_collector}" 'authorizeSigner(address,uint256,bytes)' \
+      "${ACCOUNT0_ADDRESS}" "${proof_deadline}" "${proof}"; then
+      elapsed "ACCOUNT0 authorized on RecurringCollector"
+    else
+      elapsed "WARNING: Failed to authorize ACCOUNT0 on RecurringCollector"
+    fi
+  fi
+fi
+
+# Switch from automine to interval mining now that all deployments are done.
+# Services like block-oracle and graph-node need regular blocks to function.
+block_time="${BLOCK_TIME:-1}"
+elapsed "Enabling interval mining (${block_time}s blocks)..."
+cast rpc --rpc-url="http://chain:${CHAIN_RPC_PORT}" evm_setIntervalMining "${block_time}" > /dev/null
+
 elapsed "Allocations active, done"

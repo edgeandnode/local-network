@@ -2,6 +2,7 @@ FROM node:23.11-bookworm-slim
 ARG NETWORK_SUBGRAPH_COMMIT
 ARG TAP_SUBGRAPH_COMMIT
 ARG BLOCK_ORACLE_COMMIT
+ARG INDEXING_PAYMENTS_SUBGRAPH_COMMIT
 
 RUN apt-get update \
   && apt-get install -y curl git jq \
@@ -24,7 +25,7 @@ RUN git clone https://github.com/graphprotocol/graph-network-subgraph && \
   cd graph-network-subgraph && git checkout ${NETWORK_SUBGRAPH_COMMIT} && \
   pnpm install && pnpm add -D ts-node
 
-# 2. TAP subgraph
+# 2. TAP subgraph (patched at deploy time for Horizon event names)
 RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph --recursive && \
   cd timeline-aggregation-protocol-subgraph && git checkout ${TAP_SUBGRAPH_COMMIT} && yarn
 
@@ -32,6 +33,11 @@ RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgr
 RUN git clone https://github.com/graphprotocol/block-oracle && \
   cd block-oracle && git checkout ${BLOCK_ORACLE_COMMIT} && \
   cd packages/subgraph && yarn
+
+# 4. Indexing payments subgraph (DIPs agreement lifecycle)
+RUN git clone https://github.com/graphprotocol/indexing-payments-subgraph && \
+  cd indexing-payments-subgraph && git checkout ${INDEXING_PAYMENTS_SUBGRAPH_COMMIT} && \
+  npm install
 
 COPY --chmod=755 ./run.sh /opt/run.sh
 ENTRYPOINT ["bash", "/opt/run.sh"]

@@ -29,7 +29,7 @@ cat >config.json <<-EOF
   "network_subgraph": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network",
   "query_auth": "freestuff",
   "rpc_url": "http://chain:${CHAIN_RPC_PORT}",
-  "signers": ["${ACCOUNT1_SECRET}"],
+  "signers": ["${ACCOUNT0_SECRET}", "${ACCOUNT1_SECRET}"],
   "secret_key": "${ACCOUNT0_SECRET}",
   "update_interval_seconds": 10
 }
