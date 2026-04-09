@@ -5,7 +5,7 @@
 #   - indexer-agent: hot-reload from local source with DIPs env vars
 #
 # Prerequisites:
-#   - Sibling checkouts: ../indexer-rs, ../indexer, ../dipper
+#   - Sibling checkouts: ../indexer-rs, ../indexer, ../dipper, ../indexing-payments-subgraph
 #   - indexing-payments profile enabled (for dipper service)
 #
 # Activate via .env:
@@ -16,6 +16,10 @@
 #   DIPPER_SOURCE_ROOT=../dipper
 
 services:
+  subgraph-deploy:
+    volumes:
+      - ${INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT:-../indexing-payments-subgraph}:/opt/indexing-payments-subgraph
+
   indexer-service:
     build:
       target: "wrapper"

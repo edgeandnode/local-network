@@ -110,6 +110,7 @@ deploy_indexing_payments() {
   recurring_collector=$(contract_addr RecurringCollector.address horizon)
 
   cd /opt/indexing-payments-subgraph
+  [ -d node_modules ] || npm install
 
   cat > config/hardhat.json <<EOF
 {
