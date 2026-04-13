@@ -152,8 +152,18 @@ deploy_indexing_payments() {
     return
   fi
 
+  # Wait for both config files before reading addresses. In the parallel
+  # deploy path, horizon.json may be partially written when we land here.
+  wait_for_config 300
+
   subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
   recurring_collector=$(contract_addr RecurringCollector.address horizon)
+  echo "deploy_indexing_payments: subgraph_service=${subgraph_service} recurring_collector=${recurring_collector}"
+
+  if [ -z "${subgraph_service}" ] || [ -z "${recurring_collector}" ]; then
+    echo "ERROR: deploy_indexing_payments got empty addresses, bailing"
+    return 1
+  fi
 
   cd /opt/indexing-payments-subgraph
 
