@@ -23,7 +23,7 @@ def gql(url: str, query: str) -> dict:
     )
     with urlopen(req, timeout=5) as resp:
         data = json.loads(resp.read())
-    if "errors" in data:
+    if data.get("errors"):
         raise RuntimeError(f"GraphQL error from {url}: {data['errors']}")
     return data["data"]
 
@@ -46,6 +46,7 @@ def set_rule(port: int, deployment: str) -> dict:
         "mutation { setIndexingRule("
         f'identifier: "{deployment}", '
         "rule: { "
+        f'identifier: "{deployment}", '
         "identifierType: deployment, "
         "decisionBasis: offchain, "
         'protocolNetwork: "eip155:1337"'

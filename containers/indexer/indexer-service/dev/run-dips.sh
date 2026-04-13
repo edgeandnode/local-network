@@ -96,6 +96,7 @@ host = "0.0.0.0"
 port = "${INDEXER_SERVICE_DIPS_RPC_PORT}"
 recurring_collector = "${recurring_collector}"
 supported_networks = ["hardhat"]
+indexing_payments_subgraph_url = "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graphprotocol/indexing-payments"
 
 [dips.min_grt_per_30_days]
 "hardhat" = "${DIPS_MIN_GRT_PER_30_DAYS}"

@@ -153,14 +153,18 @@ deploy_indexing_payments() {
   fi
 
   subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
+  recurring_collector=$(contract_addr RecurringCollector.address horizon)
 
   cd /opt/indexing-payments-subgraph
 
-  # Generate manifest from template with local-network addresses
+  # Generate manifest from template with local-network addresses. The
+  # subgraph now indexes both SubgraphService (IndexingAgreementAccepted,
+  # etc.) and RecurringCollector (OfferStored) events.
   cat > /tmp/indexing-payments-config.json <<-CONF
   {
     "network": "hardhat",
-    "address": "${subgraph_service}",
+    "subgraphServiceAddress": "${subgraph_service}",
+    "recurringCollectorAddress": "${recurring_collector}",
     "startBlock": 0
   }
 CONF

@@ -78,6 +78,20 @@ cat >config.json <<-EOF
     "secret_key": "${ACCOUNT0_SECRET}",
     "chain_id": ${CHAIN_ID}
   },
+  "chain_client": {
+    "enabled": true,
+    "providers": ["http://chain:${CHAIN_RPC_PORT}"],
+    "request_timeout": 30,
+    "max_retries": 3,
+    "chain_id": ${CHAIN_ID},
+    "subgraph_service_address": "${subgraph_service}",
+    "recurring_collector_address": "${recurring_collector}",
+    "gas_price_multiplier": 1.2,
+    "max_gas_price_gwei": 100,
+    "gas_buffer_multiplier": 2.0,
+    "gas_floor": 100000,
+    "gas_max_addition": 200000
+  },
   "tap_signer": {
     "secret_key": "${ACCOUNT0_SECRET}",
     "chain_id": ${CHAIN_ID},

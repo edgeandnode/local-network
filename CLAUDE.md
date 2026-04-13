@@ -47,6 +47,10 @@ All containers (primary and extras) for a given service mount the same source di
 - `COMPOSE_FILE=docker-compose.yaml:compose/dev/dips.yaml` activates dev overrides.
 - `DOCKER_DEFAULT_PLATFORM=` must prefix docker compose commands to avoid conflicts with per-service `platform: linux/arm64` in dips.yaml. We are testing on MacOS, production on linux.
 
+## DIPs conditions field
+
+The audit-branch `RecurringCollectionAgreement` struct has a `uint16 conditions` field (a bitmask of payer-declared conditions like `CONDITION_ELIGIBILITY_CHECK = 1`). Local-network always uses `conditions = 0`. Setting any non-zero value makes the `RecurringCollector` contract staticcall the payer to verify it implements an eligibility callback interface. Our payer is an EOA (ACCOUNT0 = dipper's wallet), so any non-zero condition bit causes both the `offer()` and `accept()` calls to revert. Exercising the eligibility-check path requires a contract payer, which is out of scope for local testing.
+
 ## On-chain Event Signatures
 
 The SubgraphService contract (`0xcf7ed3...` on local-network) emits events that share topic0 across different functions. Never assume a topic0 maps to a single function -- always cross-reference with the transaction's input selector or agent logs.
