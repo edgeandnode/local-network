@@ -1,7 +1,9 @@
 #!/usr/bin/env sh
 set -eu
+# shellcheck source=/dev/null
 . /opt/config/.env
 
+# shellcheck source=/dev/null
 . /opt/shared/lib.sh
 
 # --- Start cargo build immediately (no deps needed) ---

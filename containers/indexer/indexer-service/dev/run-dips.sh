@@ -1,7 +1,9 @@
 #!/bin/bash
 set -eu
 
+# shellcheck source=/dev/null
 . /opt/config/.env
+# shellcheck source=/dev/null
 . /opt/shared/lib.sh
 
 # Allow env var overrides for multi-indexer support
@@ -11,6 +13,8 @@ INDEXER_DB_NAME="${INDEXER_DB_NAME:-indexer_components_1}"
 GRAPH_NODE_HOST="${GRAPH_NODE_HOST:-graph-node}"
 PROTOCOL_GRAPH_NODE_HOST="${PROTOCOL_GRAPH_NODE_HOST:-graph-node}"
 POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
+# POSTGRES_PORT defaults to 5432 if not sourced from /opt/config/.env above.
+POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 DIPS_MIN_GRT_PER_30_DAYS="${DIPS_MIN_GRT_PER_30_DAYS:-450}"
 
 # --- Start cargo build immediately (no deps needed) ---
