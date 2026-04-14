@@ -222,7 +222,7 @@ services:
     build:
       context: containers/query-payments/tap-escrow-manager
       args:
-        TAP_ESCROW_MANAGER_COMMIT: ${TAP_ESCROW_MANAGER_COMMIT}
+        TAP_ESCROW_MANAGER_VERSION: ${TAP_ESCROW_MANAGER_VERSION}
     depends_on:
       subgraph-deploy: { condition: service_completed_successfully }
       redpanda: { condition: service_healthy }
@@ -241,7 +241,7 @@ services:
     build:
       context: containers/core/gateway
       args:
-        GATEWAY_COMMIT: ${GATEWAY_COMMIT}
+        GATEWAY_VERSION: ${GATEWAY_VERSION}
     depends_on:
       indexer-service: { condition: service_healthy }
       redpanda: { condition: service_healthy }
@@ -305,11 +305,11 @@ services:
 
   eligibility-oracle-node:
     container_name: eligibility-oracle-node
-    profiles: [rewards-eligibility]
+    profiles: [eligibility-oracle]
     build:
       context: containers/oracles/eligibility-oracle-node
       args:
-        ELIGIBILITY_ORACLE_COMMIT: ${ELIGIBILITY_ORACLE_COMMIT}
+        ELIGIBILITY_ORACLE_NODE_VERSION: ${ELIGIBILITY_ORACLE_NODE_VERSION}
     depends_on:
       redpanda: { condition: service_healthy }
       gateway: { condition: service_healthy }
@@ -405,6 +405,8 @@ services:
     depends_on:
       start-indexing: { condition: service_completed_successfully }
       gateway: { condition: service_healthy }
+      graph-contracts-horizon: { condition: service_completed_successfully }
+      graph-contracts-issuance: { condition: service_completed_successfully }
     command: echo "Local network ready"
 
 volumes:

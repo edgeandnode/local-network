@@ -6,12 +6,12 @@ set -eu
 # Wait for the REO contract address to be available in issuance.json
 reo_address=""
 for f in issuance.json; do
-  reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address // empty' "/opt/config/$f" 2>/dev/null || true)
+  reo_address=$(jq -r '.["1337"].RewardsEligibilityOracleA.address // empty' "/opt/config/$f" 2>/dev/null || true)
   [ -n "$reo_address" ] && break
 done
 
 if [ -z "$reo_address" ]; then
-  echo "ERROR: RewardsEligibilityOracle address not found in issuance.json"
+  echo "ERROR: RewardsEligibilityOracleA address not found in issuance.json"
   echo "The REO contract must be deployed before starting the oracle node."
   exit 1
 fi
@@ -57,13 +57,15 @@ max_latency_ms = 10000
 max_blocks_behind = 100000
 
 [blockchain]
-contract_address = "${reo_address}"
-rpc_urls = ["http://chain:${CHAIN_RPC_PORT}"]
-chain_id = ${CHAIN_ID}
 private_key = "\$BLOCKCHAIN_PRIVATE_KEY"
-# Re-submit before the 300s eligibility period expires.
-# Note that a new block needs to be mined to trigger the oracle node.
-staleness_threshold_secs = 200
+
+[[blockchain.contracts]]
+chain_id = ${CHAIN_ID}
+contract_address = "${reo_address}"
+
+[[blockchain.chains]]
+chain_id = ${CHAIN_ID}
+rpc_urls = ["http://chain:${CHAIN_RPC_PORT}"]
 
 EOF
 

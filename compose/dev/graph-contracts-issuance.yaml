@@ -5,7 +5,7 @@
 # The repo must have pnpm install and pnpm build already run.
 #
 # Activate via COMPOSE_FILE in .env:
-#   COMPOSE_FILE=docker-compose.yaml:compose/dev/graph-contracts-only.yaml:compose/dev/graph-contracts-issuance.yaml
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/graph-contracts-horizon.yaml:compose/dev/graph-contracts-issuance.yaml
 
 services:
   graph-contracts-issuance:

@@ -23,7 +23,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RPC_URL="http://${CHAIN_HOST:-localhost}:${CHAIN_RPC_PORT}"
 
 # Read REO contract address from config-local volume
-REO_ADDRESS=$(contract_addr RewardsEligibilityOracle.address issuance 2>/dev/null) || true
+REO_ADDRESS=$(contract_addr RewardsEligibilityOracleA.address issuance 2>/dev/null) || true
 if [ -z "$REO_ADDRESS" ]; then
   echo "ERROR: RewardsEligibilityOracle address not found."
   echo "  Is the local network running with the REO contract deployed?"
