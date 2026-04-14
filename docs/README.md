@@ -60,8 +60,8 @@ Step-by-step testing guides: [flows/](./flows/)
 **Service profiles** are enabled by default in `.env`. To customize, edit `COMPOSE_PROFILES`:
 
 ```bash
-COMPOSE_PROFILES=rewards-eligibility,indexing-payments,block-oracle,explorer  # all (default)
-COMPOSE_PROFILES=rewards-eligibility                                          # REO only
+COMPOSE_PROFILES=eligibility-oracle,indexing-payments,block-oracle,explorer  # all (default)
+COMPOSE_PROFILES=eligibility-oracle                                          # REO only
 ```
 
 Then `docker compose up -d` applies the active profiles automatically.

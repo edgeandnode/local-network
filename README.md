@@ -33,7 +33,7 @@ Create `.env.local` (gitignored) to override defaults without touching `.env`:
 
 ```bash
 # .env.local — your local settings
-COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer,indexing-payments
+COMPOSE_PROFILES=eligibility-oracle,block-oracle,explorer,indexing-payments
 GRAPH_NODE_VERSION=v0.38.0-rc1
 ```
 
@@ -45,22 +45,22 @@ Optional services are controlled via `COMPOSE_PROFILES` in `.env`.
 By default, profiles that work out of the box are enabled:
 
 ```bash
-COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer
+COMPOSE_PROFILES=block-oracle,explorer,eligibility-oracle,indexing-payments
 ```
 
 Available profiles:
 
-| Profile               | Services                          | Prerequisites              |
-| --------------------- | --------------------------------- | -------------------------- |
-| `block-oracle`        | block-oracle                      | none                       |
-| `explorer`            | block-explorer UI                 | none                       |
-| `rewards-eligibility` | eligibility-oracle-node           | none (clones from GitHub)  |
-| `indexing-payments`   | dipper, iisa, iisa-scoring        | GHCR auth (below)          |
+| Profile              | Services                          | Prerequisites              |
+| -------------------- | --------------------------------- | -------------------------- |
+| `block-oracle`       | block-oracle                      | none                       |
+| `explorer`           | block-explorer UI                 | none                       |
+| `eligibility-oracle` | eligibility-oracle-node           | none                       |
+| `indexing-payments`  | dipper, iisa, iisa-scoring        | GHCR auth (below)          |
 
-To enable all profiles, uncomment the full line in `.env`:
+All enabled by default; remove entries from `.env` to opt out:
 
 ```bash
-COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer,indexing-payments
+COMPOSE_PROFILES=block-oracle,explorer,eligibility-oracle,indexing-payments
 ```
 
 ### GHCR authentication (indexing-payments)

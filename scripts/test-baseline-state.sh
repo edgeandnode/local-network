@@ -227,7 +227,7 @@ echo ""
 # ============================================================
 # REO (if deployed)
 # ============================================================
-REO_ADDRESS=$(contract_addr RewardsEligibilityOracle.address issuance 2>/dev/null) || true
+REO_ADDRESS=$(contract_addr RewardsEligibilityOracleA.address issuance 2>/dev/null) || true
 
 if [ -n "$REO_ADDRESS" ]; then
   echo "--- REO Contract ---"

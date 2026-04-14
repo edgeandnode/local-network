@@ -4,22 +4,26 @@ Test the Rewards Eligibility Oracle (REO) end-to-end: indexer starts ineligible,
 
 ## Prerequisites
 
-1. Local network running with the rewards-eligibility profile enabled (`COMPOSE_PROFILES=rewards-eligibility` in `.env`, enabled by default):
+1. Local network running with the eligibility-oracle profile enabled (`COMPOSE_PROFILES=eligibility-oracle` in `.env`, enabled by default):
+
    ```bash
    docker compose up -d --build
    ```
 
 2. All core services healthy (gateway, graph-node, redpanda, chain, graph-contracts):
+
    ```bash
    docker compose ps
    ```
 
 3. REO contract deployed (Phase 4 in graph-contracts logs):
+
    ```bash
    docker compose logs graph-contracts | grep "Phase 4"
    ```
 
 4. REO node running and connected:
+
    ```bash
    docker compose logs --tail 20 eligibility-oracle-node
    ```
@@ -41,6 +45,7 @@ Run the full cycle with a single script:
 ```
 
 The script:
+
 1. Checks eligibility validation is enabled (done by deployment, errors if not)
 2. Seeds `lastOracleUpdateTime` to disable the fail-safe (if needed)
 3. Verifies the indexer is NOT eligible
@@ -53,7 +58,7 @@ The script:
 
 ```bash
 source .env
-REO=$(docker exec graph-node cat /opt/config/issuance.json | jq -r '.["1337"].RewardsEligibilityOracle.address')
+REO=$(docker exec graph-node cat /opt/config/issuance.json | jq -r '.["1337"].RewardsEligibilityOracleA.address')
 RPC="http://localhost:${CHAIN_RPC_PORT}"
 echo "REO: $REO"
 ```
@@ -81,6 +86,7 @@ cast call --rpc-url="$RPC" "$REO" "getEligibilityValidation()(bool)"
 ```
 
 If not enabled, re-run graph-contracts or enable manually:
+
 ```bash
 # Requires OPERATOR_ROLE (ACCOUNT0)
 cast send --rpc-url="$RPC" --confirmations=0 \
@@ -125,6 +131,7 @@ docker compose logs -f eligibility-oracle-node
 ```
 
 Look for:
+
 - `Consumed N messages from gateway_queries`
 - `Eligible indexers: [0xf4ef...]`
 - `renewIndexerEligibility` transaction submitted
@@ -140,32 +147,37 @@ cast call --rpc-url="$RPC" "$REO" "isEligible(address)(bool)" "$RECEIVER_ADDRESS
 
 The REO contract has three layers of eligibility logic:
 
-| Condition | `isEligible()` returns | Notes |
-|---|---|---|
-| Validation disabled | `true` (all) | Default after deployment |
-| Validation enabled, oracle never updated (fail-safe) | `true` (all) | `lastOracleUpdateTime=0`, timeout expired |
-| Validation enabled, oracle active, indexer not renewed | `false` | Deny-by-default |
-| Validation enabled, oracle active, indexer renewed | `true` | Within `eligibilityPeriod` (14 days) |
-| Validation enabled, oracle stale (`> oracleUpdateTimeout`) | `true` (all) | Fail-safe for oracle downtime |
+| Condition                                                  | `isEligible()` returns | Notes                                     |
+| ---------------------------------------------------------- | ---------------------- | ----------------------------------------- |
+| Validation disabled                                        | `true` (all)           | Default after deployment                  |
+| Validation enabled, oracle never updated (fail-safe)       | `true` (all)           | `lastOracleUpdateTime=0`, timeout expired |
+| Validation enabled, oracle active, indexer not renewed     | `false`                | Deny-by-default                           |
+| Validation enabled, oracle active, indexer renewed         | `true`                 | Within `eligibilityPeriod` (14 days)      |
+| Validation enabled, oracle stale (`> oracleUpdateTimeout`) | `true` (all)           | Fail-safe for oracle downtime             |
 
 The automated test script handles states 1 and 2 by enabling validation and seeding the oracle timestamp.
 
 ## Troubleshooting
 
 ### Indexer already eligible before test
+
 The REO node may have already submitted eligibility in a previous cycle. Wait for the `eligibilityPeriod` (14 days on-chain, but you can check the configured value) to expire, or redeploy the contracts with `docker compose down -v && up`.
 
 ### REO node not submitting on-chain
+
 Check that:
+
 - The `gateway_queries` Redpanda topic has messages: `docker compose exec redpanda rpk topic consume gateway_queries --num 1`
 - The node has ORACLE_ROLE: `cast call --rpc-url="$RPC" "$REO" "hasRole(bytes32,address)(bool)" "$(cast call --rpc-url=$RPC $REO 'ORACLE_ROLE()(bytes32)')" "$ACCOUNT0_ADDRESS"`
 - The node can reach the chain: check logs for RPC errors
 
 ### All queries failing (HTTP != 200)
+
 - Mine blocks: `./scripts/mine-block.sh 10`
 - Check gateway health: `docker compose ps gateway`
 - Ensure at least one subgraph is allocated and synced
 
 ### Cast command fails
+
 - Ensure Foundry is installed: `cast --version`
 - Check chain is running: `cast block-number --rpc-url="$RPC"`

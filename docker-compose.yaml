@@ -69,10 +69,10 @@ services:
       { interval: 1s, retries: 20, test: curl -f http://127.0.0.1:8030 }
     restart: on-failure:3
 
-  graph-contracts:
-    container_name: graph-contracts
+  graph-contracts-horizon:
+    container_name: graph-contracts-horizon
     build:
-      context: containers/core/graph-contracts
+      context: containers/core/graph-contracts-horizon
       args:
         CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
         TAP_CONTRACTS_COMMIT: ${TAP_CONTRACTS_COMMIT}
@@ -85,6 +85,19 @@ services:
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
+  graph-contracts-issuance:
+    container_name: graph-contracts-issuance
+    build:
+      context: containers/core/graph-contracts-issuance
+      args:
+        CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
+    depends_on:
+      graph-contracts-horizon: { condition: service_completed_successfully }
+    volumes:
+      - ./shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config
+
   block-oracle:
     container_name: block-oracle
     profiles: [block-oracle, indexing-payments]
@@ -93,7 +106,7 @@ services:
       args:
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
     depends_on:
-      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-horizon: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
       - ./shared:/opt/shared:ro
@@ -117,7 +130,7 @@ services:
         INDEXER_AGENT_VERSION: ${INDEXER_AGENT_VERSION}
     platform: linux/amd64
     depends_on:
-      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-horizon: { condition: service_completed_successfully }
     ports: ["${INDEXER_MANAGEMENT_PORT}:7600"]
     stop_signal: SIGKILL
     volumes:
@@ -137,7 +150,7 @@ services:
         TAP_SUBGRAPH_COMMIT: ${TAP_SUBGRAPH_COMMIT}
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
     depends_on:
-      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-horizon: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
     volumes:
       - ./shared:/opt/shared:ro
@@ -158,6 +171,7 @@ services:
   redpanda:
     container_name: redpanda
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+    user: root
     ports:
       - ${REDPANDA_KAFKA_PORT}:9092
       - ${REDPANDA_KAFKA_EXTERNAL_PORT}:29092
@@ -191,7 +205,7 @@ services:
       args:
         TAP_AGGREGATOR_VERSION: ${TAP_AGGREGATOR_VERSION}
     depends_on:
-      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-horizon: { condition: service_completed_successfully }
     ports: ["${TAP_AGGREGATOR_PORT}:7610"]
     stop_signal: SIGKILL
     volumes:
@@ -208,7 +222,7 @@ services:
     build:
       context: containers/query-payments/tap-escrow-manager
       args:
-        TAP_ESCROW_MANAGER_COMMIT: ${TAP_ESCROW_MANAGER_COMMIT}
+        TAP_ESCROW_MANAGER_VERSION: ${TAP_ESCROW_MANAGER_VERSION}
     depends_on:
       subgraph-deploy: { condition: service_completed_successfully }
       redpanda: { condition: service_healthy }
@@ -227,7 +241,7 @@ services:
     build:
       context: containers/core/gateway
       args:
-        GATEWAY_COMMIT: ${GATEWAY_COMMIT}
+        GATEWAY_VERSION: ${GATEWAY_VERSION}
     depends_on:
       indexer-service: { condition: service_healthy }
       redpanda: { condition: service_healthy }
@@ -255,6 +269,7 @@ services:
       subgraph-deploy: { condition: service_completed_successfully }
     ports:
       - "${INDEXER_SERVICE_PORT}:7601"
+      - "${INDEXER_SERVICE_DIPS_PORT}:${INDEXER_SERVICE_DIPS_PORT}"
     stop_signal: SIGKILL
     volumes:
       - ./shared:/opt/shared:ro
@@ -290,11 +305,11 @@ services:
 
   eligibility-oracle-node:
     container_name: eligibility-oracle-node
-    profiles: [rewards-eligibility]
+    profiles: [eligibility-oracle]
     build:
       context: containers/oracles/eligibility-oracle-node
       args:
-        ELIGIBILITY_ORACLE_COMMIT: ${ELIGIBILITY_ORACLE_COMMIT}
+        ELIGIBILITY_ORACLE_NODE_VERSION: ${ELIGIBILITY_ORACLE_NODE_VERSION}
     depends_on:
       redpanda: { condition: service_healthy }
       gateway: { condition: service_healthy }
@@ -317,7 +332,7 @@ services:
       redpanda: { condition: service_healthy }
     environment:
       REDPANDA_BOOTSTRAP_SERVERS: "redpanda:${REDPANDA_KAFKA_PORT}"
-      REDPANDA_TOPIC: gateway_queries
+      REDPANDA_TOPIC: gateway_queries${KAFKA_TOPIC_ENVIRONMENT:+_${KAFKA_TOPIC_ENVIRONMENT}}
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
       IISA_SCORING_INTERVAL: "600"
     volumes:
@@ -390,6 +405,8 @@ services:
     depends_on:
       start-indexing: { condition: service_completed_successfully }
       gateway: { condition: service_healthy }
+      graph-contracts-horizon: { condition: service_completed_successfully }
+      graph-contracts-issuance: { condition: service_completed_successfully }
     command: echo "Local network ready"
 
 volumes:

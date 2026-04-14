@@ -1,0 +1,10 @@
+# Network Subgraph Dev Override
+# Mounts local graphprotocol/graph-network-subgraph repo for subgraph-deploy.
+#
+# Activate via COMPOSE_FILE in .env:
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/network-subgraph.yaml
+
+services:
+  subgraph-deploy:
+    volumes:
+      - ${NETWORK_SUBGRAPH_SOURCE_ROOT:?Set NETWORK_SUBGRAPH_SOURCE_ROOT to local graph-network-subgraph repo}:/opt/graph-network-subgraph

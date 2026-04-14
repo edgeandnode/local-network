@@ -31,7 +31,7 @@ REO_POLL_TIMEOUT=150  # Max wait: 2.5 cycles (worst case: just missed a cycle)
 REO_POLL_INTERVAL=10  # Check every 10s
 
 # -- Read REO contract address from config-local volume --
-REO_ADDRESS=$(contract_addr RewardsEligibilityOracle.address issuance 2>/dev/null) || true
+REO_ADDRESS=$(contract_addr RewardsEligibilityOracleA.address issuance 2>/dev/null) || true
 if [ -z "$REO_ADDRESS" ]; then
   echo "ERROR: RewardsEligibilityOracle address not found."
   echo "  Is the local network running? Is the REO contract deployed (Phase 4)?"

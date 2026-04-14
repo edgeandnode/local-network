@@ -84,7 +84,7 @@ echo "  Indexer:  $INDEXER"
 echo ""
 
 # -- Resolve REO contract address --
-REO_ADDRESS=$(contract_addr RewardsEligibilityOracle.address issuance 2>/dev/null) || true
+REO_ADDRESS=$(contract_addr RewardsEligibilityOracleA.address issuance 2>/dev/null) || true
 
 if [ -z "$REO_ADDRESS" ]; then
   echo "  WARNING: REO contract not found. Skipping cast tests."

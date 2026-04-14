@@ -6,10 +6,10 @@ set -xeu
 
 token_address=$(contract_addr L2GraphToken.address horizon)
 staking_address=$(contract_addr HorizonStaking.address horizon)
-indexer_staked="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
-  "${staking_address}" 'hasStake(address) (bool)' "${RECEIVER_ADDRESS}")"
-echo "indexer_staked=${indexer_staked}"
-if [ "${indexer_staked}" = "false" ]; then
+indexer_stake="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
+  "${staking_address}" 'getStake(address)(uint256)' "${RECEIVER_ADDRESS}")"
+echo "indexer_stake=${indexer_stake}"
+if [ "${indexer_stake}" = "0" ]; then
   # transfer ETH to receiver
   cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--mnemonic=${MNEMONIC}" \
     --value=1ether "${RECEIVER_ADDRESS}"

@@ -7,8 +7,8 @@
 # Build the binary locally first:
 #   cargo build --release -p eligibility-oracle
 #
-# Activate via COMPOSE_FILE in .env (requires rewards-eligibility profile):
-#   COMPOSE_PROFILES=rewards-eligibility
+# Activate via COMPOSE_FILE in .env (requires eligibility-oracle profile):
+#   COMPOSE_PROFILES=eligibility-oracle
 #   COMPOSE_FILE=docker-compose.yaml:compose/dev/eligibility-oracle.yaml
 
 services:
