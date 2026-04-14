@@ -22,7 +22,7 @@ echo "  Chain ID: ${CHAIN_ID}"
 echo "  Redpanda: redpanda:${REDPANDA_KAFKA_PORT}"
 
 # Create compacted output topic (idempotent)
-rpk topic create indexer_daily_metrics \
+rpk topic create eligibility_oracle_state \
   --brokers="redpanda:${REDPANDA_KAFKA_PORT}" \
   -c cleanup.policy=compact,delete \
   -c retention.ms=7776000000 \

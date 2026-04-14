@@ -1,0 +1,13 @@
+# Issuance Contracts Dev Override
+# Mounts local contracts repo for the issuance deployment container.
+#
+# Uses the same CONTRACTS_SOURCE_ROOT as graph-contracts-horizon dev overlay.
+# The repo must have pnpm install and pnpm build already run.
+#
+# Activate via COMPOSE_FILE in .env:
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/graph-contracts-only.yaml:compose/dev/graph-contracts-issuance.yaml
+
+services:
+  graph-contracts-issuance:
+    volumes:
+      - ${CONTRACTS_SOURCE_ROOT:?Set CONTRACTS_SOURCE_ROOT to local contracts repo}:/opt/contracts
