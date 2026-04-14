@@ -1,16 +1,22 @@
-FROM node:23.11-bookworm-slim
+# Mirrors graphprotocol/contracts CI environment
+# (see .github/actions/setup/action.yml in the contracts repo).
+FROM node:22-bookworm-slim
 ARG CONTRACTS_COMMIT
 ARG TAP_CONTRACTS_COMMIT
 
+# libudev-dev / libusb-1.0-0-dev: required by contracts repo's pnpm install
+# (native deps of hardhat-secure-accounts / ledger toolchain). Upstream CI
+# installs these same packages before `pnpm install --frozen-lockfile`.
 RUN apt-get update \
-  && apt-get install -y curl git jq python3 make g++ \
+  && apt-get install -y curl git jq python3 make g++ libudev-dev libusb-1.0-0-dev \
   && rm -rf /var/lib/apt/lists/*
 
-# Package managers via corepack (non-strict: repos mix pnpm/yarn packageManager fields)
+# Corepack picks pnpm per-directory from each project's `packageManager` field:
+#   /opt/contracts           → pnpm@10.x  (Horizon / CONTRACTS_COMMIT)
+#   /opt/contracts-data-edge → pnpm@9.0.6 (older pinned commit for DataEdge)
+# Strict mode off because TAP contracts (yarn-based) has no packageManager field.
 ENV COREPACK_ENABLE_STRICT=0
-RUN corepack enable \
-  && corepack prepare pnpm@9.0.6 --activate \
-  && corepack prepare yarn@1.22.22 --activate
+RUN corepack enable
 
 # Foundry
 COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
@@ -19,12 +25,15 @@ COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
 WORKDIR /opt
 
 # 1. Graph protocol contracts (Horizon)
+#    Install/build commands mirror upstream CI (see contracts repo's
+#    .github/actions/setup/action.yml and .github/workflows/build-test.yml).
 RUN git clone https://github.com/graphprotocol/contracts && \
   cd contracts && git checkout ${CONTRACTS_COMMIT} && \
-  pnpm install --ignore-scripts && pnpm build
+  pnpm install --frozen-lockfile && pnpm build
 
-# 2. TAP contracts
-RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-contracts && \
+# 2. TAP contracts (separate repo, yarn-based — pin yarn here, not globally)
+RUN corepack prepare yarn@1.22.22 --activate && \
+  git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-contracts && \
   cd timeline-aggregation-protocol-contracts && git checkout ${TAP_CONTRACTS_COMMIT} && \
   yarn && forge build
 
