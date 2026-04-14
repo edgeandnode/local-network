@@ -36,9 +36,9 @@ then
     fi
 
     echo "  ${subgraph_name}: adding signal..."
-    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --mnemonic="${MNEMONIC}" \
+    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --mnemonic="${MNEMONIC}" \
       "${graph_token}" "approve(address,uint256)" "${curation}" "${signal_per_dep}"
-    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --mnemonic="${MNEMONIC}" \
+    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --mnemonic="${MNEMONIC}" \
       "${curation}" "mint(bytes32,uint256,uint256)" "0x${dep_hex}" "${signal_per_dep}" "0"
     added=$((added + 1))
   done
@@ -95,7 +95,7 @@ else
     dep_hex="$(curl -s -X POST "http://ipfs:${IPFS_RPC_PORT}/api/v0/cid/format?arg=${dep_id}&b=base16" | jq -r '.Formatted')"
     dep_hex="${dep_hex#f01701220}"
     echo "Publishing ${dep_name}: ${dep_id} -> 0x${dep_hex}"
-    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --mnemonic="${MNEMONIC}" \
+    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --mnemonic="${MNEMONIC}" \
       "${gns}" 'publishNewSubgraph(bytes32,bytes32,bytes32)' \
       "0x${dep_hex}" \
       '0x0000000000000000000000000000000000000000000000000000000000000000' \
@@ -114,9 +114,9 @@ else
   for dep_hex in ${all_dep_hexes}; do
     elapsed "Adding curation signal to 0x${dep_hex}..."
     total_approve="3000000000000000000000"  # 3000 GRT total (enough for all)
-    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --mnemonic="${MNEMONIC}" \
+    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --mnemonic="${MNEMONIC}" \
       "${graph_token}" "approve(address,uint256)" "${curation}" "${total_approve}"
-    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --mnemonic="${MNEMONIC}" \
+    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --mnemonic="${MNEMONIC}" \
       "${curation}" "mint(bytes32,uint256,uint256)" "0x${dep_hex}" "${signal_per_dep}" "0"
   done
   elapsed "Curation signal added to all deployments"
