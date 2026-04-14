@@ -171,6 +171,7 @@ services:
   redpanda:
     container_name: redpanda
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+    user: root
     ports:
       - ${REDPANDA_KAFKA_PORT}:9092
       - ${REDPANDA_KAFKA_EXTERNAL_PORT}:29092
@@ -330,7 +331,7 @@ services:
       redpanda: { condition: service_healthy }
     environment:
       REDPANDA_BOOTSTRAP_SERVERS: "redpanda:${REDPANDA_KAFKA_PORT}"
-      REDPANDA_TOPIC: gateway_queries
+      REDPANDA_TOPIC: gateway_queries${KAFKA_TOPIC_ENVIRONMENT:+_${KAFKA_TOPIC_ENVIRONMENT}}
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
       IISA_SCORING_INTERVAL: "600"
     volumes:

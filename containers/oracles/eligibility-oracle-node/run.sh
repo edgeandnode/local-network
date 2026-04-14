@@ -21,8 +21,11 @@ echo "  REO contract: ${reo_address}"
 echo "  Chain ID: ${CHAIN_ID}"
 echo "  Redpanda: redpanda:${REDPANDA_KAFKA_PORT}"
 
+input_topic=$(kafka_topic gateway_queries)
+output_topic=$(kafka_topic eligibility_oracle_state)
+
 # Create compacted output topic (idempotent)
-rpk topic create eligibility_oracle_state \
+rpk topic create "$output_topic" \
   --brokers="redpanda:${REDPANDA_KAFKA_PORT}" \
   -c cleanup.policy=compact,delete \
   -c retention.ms=7776000000 \
@@ -32,7 +35,7 @@ rpk topic create eligibility_oracle_state \
 # survive Redpanda restarts and can cause the oracle to skip new messages
 # when the topic has been repopulated after a network restart.
 rpk group seek eligibility-oracle --to start \
-  --topics gateway_queries \
+  --topics "$input_topic" \
   --brokers="redpanda:${REDPANDA_KAFKA_PORT}" \
   2>/dev/null || true
 
@@ -40,6 +43,8 @@ rpk group seek eligibility-oracle --to start \
 cat >config.toml <<EOF
 [kafka]
 bootstrap_servers = "redpanda:${REDPANDA_KAFKA_PORT}"
+input_topic = "${input_topic}"
+output_topic = "${output_topic}"
 # Shorter rebuild timeout for local network
 rebuild_timeout_secs = 10
 

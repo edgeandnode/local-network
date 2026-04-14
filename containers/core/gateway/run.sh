@@ -31,6 +31,7 @@ cat >config.json <<-EOF
   ],
   "exchange_rate_provider": 1.0,
   "graph_env_id": "local",
+  "kafka_topic_environment": "${KAFKA_TOPIC_ENVIRONMENT:-}",
   "indexer_selection_retry_limit": 2,
   "kafka": {
     "bootstrap.servers": "redpanda:${REDPANDA_KAFKA_PORT}"

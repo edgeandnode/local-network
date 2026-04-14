@@ -88,6 +88,19 @@ ipfs_hash_to_hex() {
   printf '%s' "$_full" | cut -c5-
 }
 
+# kafka_topic BASE
+# Returns BASE with _${KAFKA_TOPIC_ENVIRONMENT} appended when set, or BASE unchanged.
+# Mirrors gateway's kafka_topic_environment config.
+kafka_topic() {
+  _env="${KAFKA_TOPIC_ENVIRONMENT:-}"
+  _env=$(printf '%s' "$_env" | tr -d '[:space:]')
+  if [ -n "$_env" ]; then
+    printf '%s_%s' "$1" "$_env"
+  else
+    printf '%s' "$1"
+  fi
+}
+
 # wait_for_gql URL QUERY JQ_FILTER [TIMEOUT]
 # Polls a GraphQL endpoint until JQ_FILTER returns a non-empty value.
 # Prints the value on success, exits 1 on timeout.
