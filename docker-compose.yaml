@@ -69,10 +69,10 @@ services:
       { interval: 1s, retries: 20, test: curl -f http://127.0.0.1:8030 }
     restart: on-failure:3
 
-  graph-contracts:
-    container_name: graph-contracts
+  graph-contracts-horizon:
+    container_name: graph-contracts-horizon
     build:
-      context: containers/core/graph-contracts
+      context: containers/core/graph-contracts-horizon
       args:
         CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
         TAP_CONTRACTS_COMMIT: ${TAP_CONTRACTS_COMMIT}
@@ -85,6 +85,19 @@ services:
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
+  graph-contracts-issuance:
+    container_name: graph-contracts-issuance
+    build:
+      context: containers/core/graph-contracts-issuance
+      args:
+        CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
+    depends_on:
+      graph-contracts-horizon: { condition: service_completed_successfully }
+    volumes:
+      - ./shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config
+
   block-oracle:
     container_name: block-oracle
     profiles: [block-oracle, indexing-payments]
@@ -93,7 +106,7 @@ services:
       args:
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
     depends_on:
-      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-horizon: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
       - ./shared:/opt/shared:ro
@@ -117,7 +130,7 @@ services:
         INDEXER_AGENT_VERSION: ${INDEXER_AGENT_VERSION}
     platform: linux/amd64
     depends_on:
-      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-horizon: { condition: service_completed_successfully }
     ports: ["${INDEXER_MANAGEMENT_PORT}:7600"]
     stop_signal: SIGKILL
     volumes:
@@ -137,7 +150,7 @@ services:
         TAP_SUBGRAPH_COMMIT: ${TAP_SUBGRAPH_COMMIT}
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
     depends_on:
-      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-horizon: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
     volumes:
       - ./shared:/opt/shared:ro
@@ -191,7 +204,7 @@ services:
       args:
         TAP_AGGREGATOR_VERSION: ${TAP_AGGREGATOR_VERSION}
     depends_on:
-      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-horizon: { condition: service_completed_successfully }
     ports: ["${TAP_AGGREGATOR_PORT}:7610"]
     stop_signal: SIGKILL
     volumes:

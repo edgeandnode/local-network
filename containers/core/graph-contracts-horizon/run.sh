@@ -66,6 +66,8 @@ fi
 
 if [ "$phase1_skip" = "false" ]; then
   echo "Deploying new version of the protocol"
+  # Clean stale Ignition state from previous localNetwork runs (dev overlay)
+  rm -rf /opt/contracts/packages/subgraph-service/ignition/deployments/chain-1337
   cd /opt/contracts/packages/subgraph-service
   npx hardhat deploy:protocol --network localNetwork --subgraph-service-config localNetwork
 
@@ -201,147 +203,10 @@ fi
 
 echo "==== Phase 3 complete ===="
 
-# ============================================================
-# Phase 4: Rewards Eligibility Oracle (REO)
-# ============================================================
-if [ "${REO_ENABLED:-0}" != "1" ]; then
-  echo "==== Phase 4: Rewards Eligibility Oracle (SKIPPED — REO_ENABLED not set) ===="
-else
-echo "==== Phase 4: Rewards Eligibility Oracle ===="
-
-# Ensure NetworkOperator in issuance address book (required by configure step)
-TEMP_JSON=$(jq --arg op "${ACCOUNT0_ADDRESS}" \
-  '.["1337"].NetworkOperator = {"address": $op}' /opt/config/issuance.json)
-printf '%s\n' "$TEMP_JSON" > /opt/config/issuance.json
-
-# -- Idempotency check --
-# The hardhat deploy configure step (04_configure.ts) targets REO_DEFAULTS
-# (14d eligibility, 7d timeout) using the GOVERNOR account, which lacks
-# OPERATOR_ROLE. run.sh below handles all configuration using ACCOUNT0
-# (OPERATOR). So we only run hardhat deploy for initial deployment; on
-# re-runs where the REO proxy already exists on-chain, skip straight to
-# the idempotent configuration below.
-phase4_deploy_skip=false
-reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address // empty' /opt/config/issuance.json 2>/dev/null || true)
-if [ -n "$reo_address" ]; then
-  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$reo_address" 2>/dev/null || echo "0x")
-  if [ "$code_check" != "0x" ]; then
-    echo "REO already deployed at $reo_address"
-    echo "SKIP: hardhat deploy (configuration handled below)"
-    phase4_deploy_skip=true
-  else
-    echo "REO address stale (no code at $reo_address), redeploying..."
-  fi
-fi
-
-if [ "$phase4_deploy_skip" = "false" ]; then
-  cd /opt/contracts/packages/deployment
-
-  # Clean any stale governance TX batches from partial runs
-  rm -rf /opt/contracts/packages/deployment/txs/localNetwork
-
-  # Full REO lifecycle via deployment package tags:
-  #   sync → deploy → configure → transfer → integrate → verify
-  # Deploy scripts are idempotent (skip if already deployed/configured).
-  # The mnemonic provides both deployer (ACCOUNT0) and governor (ACCOUNT1),
-  # so all steps including RM integration execute directly.
-  #
-  # Some steps (upgrade) exit with code 1 after saving governance TX batches.
-  # On localNetwork, the governor key is available so we auto-execute and retry.
-  export GOVERNOR_KEY="${ACCOUNT1_SECRET}"
-  for attempt in 1 2 3; do
-    echo "  Deploy attempt $attempt..."
-    if npx hardhat deploy --tags rewards-eligibility --network localNetwork --skip-prompts; then
-      break
-    fi
-    # Check for pending governance TXs and execute them
-    if ls /opt/contracts/packages/deployment/txs/localNetwork/*.json 2>/dev/null | grep -qv executed; then
-      echo "  Executing pending governance TXs..."
-      npx hardhat deploy:execute-governance --network localNetwork || true
-    else
-      echo "  No governance TXs to execute, deployment failed for another reason"
-      exit 1
-    fi
-  done
-
-  # Read deployed REO address from issuance address book
-  reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address' /opt/config/issuance.json)
-fi
-
-echo "  REO deployed at: $reo_address"
-
-# Grant ORACLE_ROLE to the REO node signing key (ACCOUNT0).
-# OPERATOR_ROLE is the admin for ORACLE_ROLE, and ACCOUNT0 has OPERATOR_ROLE.
-# Idempotent: only grants if not already granted.
-oracle_role=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
-  "${reo_address}" "ORACLE_ROLE()(bytes32)")
-has_role=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
-  "${reo_address}" "hasRole(bytes32,address)(bool)" "${oracle_role}" "${ACCOUNT0_ADDRESS}" 2>/dev/null || echo "false")
-if [ "$has_role" = "true" ]; then
-  echo "  ORACLE_ROLE already granted to ${ACCOUNT0_ADDRESS}"
-else
-  echo "  Granting ORACLE_ROLE to ${ACCOUNT0_ADDRESS} (via OPERATOR_ROLE)"
-  cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
-    --private-key="${ACCOUNT0_SECRET}" \
-    "${reo_address}" "grantRole(bytes32,address)" "${oracle_role}" "${ACCOUNT0_ADDRESS}"
-fi
-
-# Enable eligibility validation (deny-by-default).
-# The contract defaults to validation disabled (everyone eligible). For local
-# testing we want the realistic deny-by-default behaviour. Idempotent.
-# Requires OPERATOR_ROLE (ACCOUNT0).
-validation_enabled=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
-  "${reo_address}" "getEligibilityValidation()(bool)" 2>/dev/null || echo "false")
-if [ "$validation_enabled" = "true" ]; then
-  echo "  Eligibility validation already enabled"
-else
-  echo "  Enabling eligibility validation (deny-by-default)"
-  cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
-    --private-key="${ACCOUNT0_SECRET}" \
-    "${reo_address}" "setEligibilityValidation(bool)" true
-fi
-
-# Set eligibility period (how long an indexer stays eligible after renewal).
-# Contract default is 14 days; local network uses a short value for fast iteration.
-# Requires OPERATOR_ROLE (ACCOUNT0).
-current_period=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
-  "${reo_address}" "getEligibilityPeriod()(uint256)" 2>/dev/null | awk '{print $1}')
-if [ "$current_period" = "${REO_ELIGIBILITY_PERIOD}" ]; then
-  echo "  Eligibility period already set to ${REO_ELIGIBILITY_PERIOD}s"
-else
-  echo "  Setting eligibility period to ${REO_ELIGIBILITY_PERIOD}s (was ${current_period}s)"
-  cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
-    --private-key="${ACCOUNT0_SECRET}" \
-    "${reo_address}" "setEligibilityPeriod(uint256)" "${REO_ELIGIBILITY_PERIOD}"
-fi
-
-# Set oracle update timeout (fail-safe: all indexers eligible if no oracle update for this long).
-# Contract default is 7 days; local network uses a longer value to avoid accidental fail-safe.
-# Requires OPERATOR_ROLE (ACCOUNT0).
-current_timeout=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
-  "${reo_address}" "getOracleUpdateTimeout()(uint256)" 2>/dev/null | awk '{print $1}')
-if [ "$current_timeout" = "${REO_ORACLE_UPDATE_TIMEOUT}" ]; then
-  echo "  Oracle update timeout already set to ${REO_ORACLE_UPDATE_TIMEOUT}s"
-else
-  echo "  Setting oracle update timeout to ${REO_ORACLE_UPDATE_TIMEOUT}s (was ${current_timeout}s)"
-  cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
-    --private-key="${ACCOUNT0_SECRET}" \
-    "${reo_address}" "setOracleUpdateTimeout(uint256)" "${REO_ORACLE_UPDATE_TIMEOUT}"
-fi
-
-# Clean deployment metadata from address books.
-# The deployment package writes fields like implementationDeployment and
-# proxyDeployment that the indexer-agent doesn't recognise, causing it to
-# crash with "Address book entry contains invalid fields".
-for ab in horizon.json subgraph-service.json; do
-  if [ -f "/opt/config/$ab" ]; then
-    TEMP_JSON=$(jq 'walk(if type == "object" then del(.implementationDeployment, .proxyDeployment) else . end)' "/opt/config/$ab")
-    printf '%s\n' "$TEMP_JSON" > "/opt/config/$ab"
-  fi
-done
-
-echo "==== Phase 4 complete ===="
-fi  # REO_ENABLED
+# Issuance contracts (REO + IA + RAM) are deployed by the separate
+# graph-contracts-issuance container, which runs after this one completes.
+# That container uses the deployment package's own Hardhat v3 + pnpm 10
+# toolchain natively, avoiding version conflicts with the v2 stack here.
 echo "==== All contract deployments complete ===="
 
 # Optional: keep container running for debugging

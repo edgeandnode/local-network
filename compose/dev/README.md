@@ -24,7 +24,9 @@ Then `docker compose up -d` applies the overrides automatically.
 | File                      | Service                          | Required Env Var                                       |
 | ------------------------- | -------------------------------- | ------------------------------------------------------ |
 | `graph-node.yaml`         | graph-node                       | `GRAPH_NODE_SOURCE_ROOT`                               |
-| `graph-contracts.yaml`    | graph-contracts, subgraph-deploy | `CONTRACTS_SOURCE_ROOT`, `GRAPH_CONTRACTS_SOURCE_ROOT` |
+| `graph-contracts.yaml`    | graph-contracts-horizon, subgraph-deploy | `CONTRACTS_SOURCE_ROOT`, `GRAPH_CONTRACTS_SOURCE_ROOT` |
+| `graph-contracts-only.yaml` | graph-contracts-horizon        | `CONTRACTS_SOURCE_ROOT`                                |
+| `graph-contracts-issuance.yaml` | graph-contracts-issuance  | `CONTRACTS_SOURCE_ROOT`                                |
 | `indexer-agent.yaml`      | indexer-agent                    | `INDEXER_AGENT_SOURCE_ROOT`                            |
 | `indexer-service.yaml`    | indexer-service                  | `INDEXER_SERVICE_BINARY`                               |
 | `tap-agent.yaml`          | tap-agent                        | `TAP_AGENT_BINARY`                                     |
