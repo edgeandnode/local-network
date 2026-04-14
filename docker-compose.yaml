@@ -70,11 +70,11 @@ services:
     restart: on-failure:3
 
   # --- Contract deployments ---
-  # Split into four services (contracts / issuance / tap / data-edge).
-  # All four share a single multi-stage Dockerfile in
-  # containers/core/graph-contracts; each picks its stage via `target`.
-  # The `contracts` and `issuance` stages additionally share a built
+  # Three services (contracts / issuance / tap) share a single multi-stage
+  # Dockerfile in containers/core/graph-contracts; each picks its stage via
+  # `target`. `contracts` and `issuance` additionally share a built
   # graphprotocol/contracts workspace (see `contracts-src` stage).
+  # `contracts` deploys horizon/subgraph-service + DataEdge in sequence.
 
   graph-contracts:
     container_name: graph-contracts
@@ -120,18 +120,6 @@ services:
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config
 
-  graph-contracts-data-edge:
-    container_name: graph-contracts-data-edge
-    build:
-      context: containers/core/graph-contracts
-      target: data-edge
-    depends_on:
-      chain: { condition: service_healthy }
-    volumes:
-      - ./shared:/opt/shared:ro
-      - ./.env:/opt/config/.env:ro
-      - config-local:/opt/config
-
   block-oracle:
     container_name: block-oracle
     profiles: [block-oracle, indexing-payments]
@@ -141,7 +129,6 @@ services:
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
-      graph-contracts-data-edge: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
       - ./shared:/opt/shared:ro
@@ -188,7 +175,6 @@ services:
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
       graph-contracts-tap: { condition: service_completed_successfully }
-      graph-contracts-data-edge: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
     volumes:
       - ./shared:/opt/shared:ro
@@ -446,7 +432,6 @@ services:
       gateway: { condition: service_healthy }
       graph-contracts: { condition: service_completed_successfully }
       graph-contracts-tap: { condition: service_completed_successfully }
-      graph-contracts-data-edge: { condition: service_completed_successfully }
       graph-contracts-issuance: { condition: service_completed_successfully }
     command: echo "Local network ready"
 

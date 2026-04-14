@@ -6,10 +6,9 @@
 #                  graphprotocol/contracts CI setup action)
 #   contracts-src - `base` + clone and build graphprotocol/contracts
 #                  (shared by `contracts` and `issuance`)
-#   contracts    - Phase 1 deploy: horizon + subgraph-service
+#   contracts    - horizon + subgraph-service + DataEdge deploy
 #   issuance     - REO + IA + RAM deploy (GIP-0088)
 #   tap          - legacy TAP contracts (separate repo, yarn-based)
-#   data-edge    - DataEdge contract from an older contracts snapshot
 #
 # Each compose service picks its stage via `build.target`.
 # ============================================================
@@ -29,8 +28,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # Corepack resolves pnpm per-directory from each project's packageManager
-# field (pnpm 10.x for the current contracts commit, pnpm 9.0.6 for the
-# older DataEdge snapshot — downloaded on demand).
+# field (pnpm 10.x for the contracts repo — downloaded on demand).
 # Strict mode off because TAP contracts (yarn-based) has no packageManager field.
 ENV COREPACK_ENABLE_STRICT=0
 RUN corepack enable
@@ -53,7 +51,9 @@ RUN git clone https://github.com/graphprotocol/contracts && \
   pnpm install --frozen-lockfile && pnpm build
 
 # ------------------------------------------------------------
-# contracts: Phase 1 — horizon + subgraph-service deploy.
+# contracts: horizon + subgraph-service deploy, plus DataEdge.
+# DataEdge lives in the same workspace at packages/data-edge and
+# reuses the already-built artifacts from `contracts-src`.
 # ------------------------------------------------------------
 FROM contracts-src AS contracts
 COPY --chmod=755 ./contracts.run.sh /opt/run.sh
@@ -82,18 +82,3 @@ RUN corepack prepare yarn@1.22.22 --activate && \
 COPY --chmod=755 ./tap.run.sh /opt/run.sh
 ENTRYPOINT ["bash", "/opt/run.sh"]
 
-# ------------------------------------------------------------
-# data-edge: DataEdge contract from a pinned older contracts snapshot.
-# Independent of CONTRACTS_COMMIT; runs in parallel with `contracts`.
-# The older snapshot declares pnpm@9.0.6 in its packageManager field,
-# so corepack resolves that version automatically when entering the dir.
-# ------------------------------------------------------------
-FROM base AS data-edge
-RUN git clone https://github.com/graphprotocol/contracts contracts-data-edge && \
-  cd contracts-data-edge && \
-  git checkout bdc66135e7700e9a4dcd6a4beac585337fdb9c21 && \
-  cd packages/data-edge && pnpm install && \
-  sed -i "s/localhost/chain/g" hardhat.config.ts && \
-  pnpm build
-COPY --chmod=755 ./data-edge.run.sh /opt/run.sh
-ENTRYPOINT ["bash", "/opt/run.sh"]

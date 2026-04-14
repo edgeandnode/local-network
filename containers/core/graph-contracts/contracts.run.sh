@@ -4,9 +4,10 @@ set -eu
 . /opt/shared/lib.sh
 
 # -- Ensure config files exist (empty JSON on first run) --
-# horizon.json and subgraph-service.json are written here; issuance.json
-# is read via symlink by the hardhat deploy task for cross-package lookups.
-for f in horizon.json subgraph-service.json issuance.json; do
+# horizon.json, subgraph-service.json, and block-oracle.json are written
+# here; issuance.json is read via symlink by the hardhat deploy task for
+# cross-package lookups.
+for f in horizon.json subgraph-service.json issuance.json block-oracle.json; do
   [ -f "/opt/config/$f" ] || echo '{}' > "/opt/config/$f"
 done
 
@@ -96,6 +97,63 @@ if [ -n "$rewards_manager" ]; then
   fi
 fi
 
+echo "==== Phase 1 complete ===="
+
+# ============================================================
+# Phase 2: DataEdge contract (for block-oracle)
+# ============================================================
+# Uses packages/data-edge from the same contracts workspace. Independent
+# of Phase 1 — no shared state on-chain — but bundled here because it
+# shares the same pnpm / hardhat toolchain and built workspace artifacts.
+echo "==== Phase 2: DataEdge contract ===="
+
+# -- Idempotency check --
+phase2_skip=false
+data_edge=$(jq -r '."1337".DataEdge // empty' /opt/config/block-oracle.json 2>/dev/null || true)
+if [ -n "$data_edge" ]; then
+  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$data_edge" 2>/dev/null || echo "0x")
+  if [ "$code_check" != "0x" ]; then
+    echo "DataEdge contract already deployed at $data_edge"
+    echo "SKIP: Phase 2"
+    phase2_skip=true
+  else
+    echo "DataEdge address stale (no code at $data_edge), redeploying..."
+  fi
+fi
+
+if [ "$phase2_skip" = "false" ]; then
+  cd /opt/contracts/packages/data-edge
+  # hardhat.config.ts hardcodes `localhost:8545` for the ganache network
+  # and the standard test mnemonic; patch both for the local-network stack.
+  sed -i "s/localhost/chain/g" hardhat.config.ts
+  sed -i "s/myth like bonus scare over problem client lizard pioneer submit female collect/${MNEMONIC}/g" hardhat.config.ts
+  export MNEMONIC="${MNEMONIC}"
+
+  npx hardhat data-edge:deploy --contract EventfulDataEdge --deploy-name EBO --network ganache | tee deploy.txt
+  data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
+  echo "=== DataEdge deployed at: $data_edge ==="
+
+  cat <<ADDR_EOF > /opt/config/block-oracle.json
+{
+  "1337": {
+    "DataEdge": "$data_edge"
+  }
+}
+ADDR_EOF
+
+  # Register network in DataEdge (pre-encoded setMessage calldata for eip155:1337)
+  output=$(cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --mnemonic="${MNEMONIC}" \
+    "${data_edge}" \
+    '0xa1dce3320000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000f030103176569703135353a313333370000000000000000000000000000000000' 2>&1)
+  exit_code=$?
+  if [ $exit_code -ne 0 ]; then
+    echo "Error during cast send: $output" | tee -a error.log
+  else
+    echo "$output"
+  fi
+fi
+
+echo "==== Phase 2 complete ===="
 echo "==== graph-contracts deploy complete ===="
 
 # Optional: keep container running for debugging
