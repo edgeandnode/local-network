@@ -269,6 +269,7 @@ services:
       subgraph-deploy: { condition: service_completed_successfully }
     ports:
       - "${INDEXER_SERVICE_PORT}:7601"
+      - "${INDEXER_SERVICE_DIPS_PORT}:${INDEXER_SERVICE_DIPS_PORT}"
     stop_signal: SIGKILL
     volumes:
       - ./shared:/opt/shared:ro

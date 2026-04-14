@@ -7,6 +7,7 @@ set -eu
 tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
+recurring_collector=$(contract_addr RecurringCollector.address horizon)
 
 cat >config.toml <<-EOF
 [indexer]
@@ -58,6 +59,19 @@ ${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR_PORT}"
 #   - If Horizon contracts not detected: Remain in legacy mode (V1 receipts only)
 # When disabled: Pure legacy mode, no Horizon detection performed
 enabled = true
+
+[dips]
+host = "0.0.0.0"
+port = "${INDEXER_SERVICE_DIPS_PORT}"
+recurring_collector = "${recurring_collector}"
+supported_networks = ["hardhat"]
+min_grt_per_billion_entities_per_30_days = "0"
+
+[dips.min_grt_per_30_days]
+hardhat = "0"
+
+[dips.additional_networks]
+hardhat = "1337"
 EOF
 cat config.toml
 
