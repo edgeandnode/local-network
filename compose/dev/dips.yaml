@@ -151,7 +151,6 @@ services:
     volumes:
       - ${IISA_SOURCE_ROOT:?Set IISA_SOURCE_ROOT to local subgraph-dips-indexer-selection checkout}/cronjobs/compute_scores:/opt/source:ro
       - ./containers/indexing-payments/iisa/run-cronjob.sh:/opt/run-cronjob.sh:ro
-      - iisa-scores:/app/scores
     environment:
       PYTHONUNBUFFERED: "1"
       SCORING_INTERVAL: "30"
@@ -172,10 +171,9 @@ services:
             && rm -rf /var/lib/apt/lists/*
         RUN pip install --no-cache-dir uv
     entrypoint: ["bash", "/opt/run-iisa.sh"]
-    depends_on:
+    depends_on: !override
       postgres: { condition: service_healthy }
       gateway: { condition: service_healthy }
-      iisa-cronjob: { condition: service_healthy }
     ports:
       - "8080:8080"
     volumes:
@@ -183,6 +181,7 @@ services:
       - ./containers/indexing-payments/iisa/run-iisa.sh:/opt/run-iisa.sh:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
+      - iisa-cache:/app/scores
     environment:
       PYTHONUNBUFFERED: "1"
     healthcheck:

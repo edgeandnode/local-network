@@ -335,13 +335,13 @@ services:
     environment:
       REDPANDA_BOOTSTRAP_SERVERS: "redpanda:${REDPANDA_KAFKA_PORT}"
       REDPANDA_TOPIC: gateway_queries
-      SCORES_FILE_PATH: /app/scores/indexer_scores.json
       GRAPH_NETWORK_SUBGRAPH_URL: "http://graph-node:8000/subgraphs/name/graph-network"
       SCORING_HTTP_PORT: "9090"
       DEGRADED_ALERT_THRESHOLD: "999"
       IISA_API_URL: "http://iisa:8080"
-    volumes:
-      - iisa-scores:/app/scores
+      IISA_PUSH_TOKEN: ${IISA_PUSH_TOKEN:-}
+    depends_on:
+      iisa: { condition: service_started }
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
       interval: 10s
@@ -354,17 +354,15 @@ services:
     profiles: [indexing-payments]
     image: ghcr.io/edgeandnode/subgraph-dips-indexer-selection:${IISA_VERSION}
     pull_policy: if_not_present
-    depends_on:
-      iisa-cronjob: { condition: service_healthy }
     ports: ["8080:8080"]
     environment:
       IISA_HOST: "0.0.0.0"
       IISA_PORT: "8080"
       IISA_LOG_LEVEL: DEBUG
-      IISA_SCORES_RELOAD_INTERVAL: "120"
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
+      IISA_PUSH_TOKEN: ${IISA_PUSH_TOKEN:-}
     volumes:
-      - iisa-scores:/app/scores
+      - iisa-cache:/app/scores
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
@@ -418,5 +416,5 @@ volumes:
   postgres-data:
   ipfs-data:
   redpanda-data:
-  iisa-scores:
+  iisa-cache:
   config-local:
