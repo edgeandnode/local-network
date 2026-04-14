@@ -6,8 +6,10 @@ set -eu
 # ============================================================
 # Issuance contracts: Deploy REO + IA + RAM + activation goals
 # ============================================================
-# Uses the deployment package's own Hardhat v3 + pnpm 10 toolchain.
-# Runs after graph-contracts-horizon (Phases 1-3) has deployed the base protocol.
+# Runs via the deployment package (packages/deployment, Hardhat v3).
+# Shares the same graphprotocol/contracts workspace and toolchain as
+# `graph-contracts` (both `FROM contracts-src` in Dockerfile).
+# Depends on `graph-contracts` having deployed the base protocol first.
 echo "==== Issuance contract deployment ===="
 
 cd /opt/contracts/packages/deployment

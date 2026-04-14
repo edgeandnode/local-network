@@ -69,13 +69,20 @@ services:
       { interval: 1s, retries: 20, test: curl -f http://127.0.0.1:8030 }
     restart: on-failure:3
 
-  graph-contracts-horizon:
-    container_name: graph-contracts-horizon
+  # --- Contract deployments ---
+  # Split into four services (contracts / issuance / tap / data-edge).
+  # All four share a single multi-stage Dockerfile in
+  # containers/core/graph-contracts; each picks its stage via `target`.
+  # The `contracts` and `issuance` stages additionally share a built
+  # graphprotocol/contracts workspace (see `contracts-src` stage).
+
+  graph-contracts:
+    container_name: graph-contracts
     build:
-      context: containers/core/graph-contracts-horizon
+      context: containers/core/graph-contracts
+      target: contracts
       args:
         CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
-        TAP_CONTRACTS_COMMIT: ${TAP_CONTRACTS_COMMIT}
     depends_on:
       chain: { condition: service_healthy }
     volumes:
@@ -88,11 +95,38 @@ services:
   graph-contracts-issuance:
     container_name: graph-contracts-issuance
     build:
-      context: containers/core/graph-contracts-issuance
+      context: containers/core/graph-contracts
+      target: issuance
       args:
         CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
     depends_on:
-      graph-contracts-horizon: { condition: service_completed_successfully }
+      graph-contracts: { condition: service_completed_successfully }
+    volumes:
+      - ./shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config
+
+  graph-contracts-tap:
+    container_name: graph-contracts-tap
+    build:
+      context: containers/core/graph-contracts
+      target: tap
+      args:
+        TAP_CONTRACTS_COMMIT: ${TAP_CONTRACTS_COMMIT}
+    depends_on:
+      graph-contracts: { condition: service_completed_successfully }
+    volumes:
+      - ./shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config
+
+  graph-contracts-data-edge:
+    container_name: graph-contracts-data-edge
+    build:
+      context: containers/core/graph-contracts
+      target: data-edge
+    depends_on:
+      chain: { condition: service_healthy }
     volumes:
       - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
@@ -106,7 +140,8 @@ services:
       args:
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
     depends_on:
-      graph-contracts-horizon: { condition: service_completed_successfully }
+      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-data-edge: { condition: service_completed_successfully }
     stop_signal: SIGKILL
     volumes:
       - ./shared:/opt/shared:ro
@@ -130,7 +165,8 @@ services:
         INDEXER_AGENT_VERSION: ${INDEXER_AGENT_VERSION}
     platform: linux/amd64
     depends_on:
-      graph-contracts-horizon: { condition: service_completed_successfully }
+      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-tap: { condition: service_completed_successfully }
     ports: ["${INDEXER_MANAGEMENT_PORT}:7600"]
     stop_signal: SIGKILL
     volumes:
@@ -150,7 +186,9 @@ services:
         TAP_SUBGRAPH_COMMIT: ${TAP_SUBGRAPH_COMMIT}
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
     depends_on:
-      graph-contracts-horizon: { condition: service_completed_successfully }
+      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-tap: { condition: service_completed_successfully }
+      graph-contracts-data-edge: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
     volumes:
       - ./shared:/opt/shared:ro
@@ -205,7 +243,8 @@ services:
       args:
         TAP_AGGREGATOR_VERSION: ${TAP_AGGREGATOR_VERSION}
     depends_on:
-      graph-contracts-horizon: { condition: service_completed_successfully }
+      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-tap: { condition: service_completed_successfully }
     ports: ["${TAP_AGGREGATOR_PORT}:7610"]
     stop_signal: SIGKILL
     volumes:
@@ -405,7 +444,9 @@ services:
     depends_on:
       start-indexing: { condition: service_completed_successfully }
       gateway: { condition: service_healthy }
-      graph-contracts-horizon: { condition: service_completed_successfully }
+      graph-contracts: { condition: service_completed_successfully }
+      graph-contracts-tap: { condition: service_completed_successfully }
+      graph-contracts-data-edge: { condition: service_completed_successfully }
       graph-contracts-issuance: { condition: service_completed_successfully }
     command: echo "Local network ready"
 

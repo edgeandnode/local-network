@@ -1,0 +1,11 @@
+# graph-contracts Dev Override
+# Mounts local graphprotocol/contracts repo for the `graph-contracts`
+# service (Phase 1: horizon + subgraph-service deploy).
+#
+# Activate via COMPOSE_FILE in .env:
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/graph-contracts.yaml
+
+services:
+  graph-contracts:
+    volumes:
+      - ${CONTRACTS_SOURCE_ROOT:?Set CONTRACTS_SOURCE_ROOT to local contracts repo}:/opt/contracts
