@@ -18,12 +18,15 @@ POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 DIPS_MIN_GRT_PER_30_DAYS="${DIPS_MIN_GRT_PER_30_DAYS:-450}"
 
 # --- Start cargo build immediately (no deps needed) ---
+# Always invoke cargo build so source changes are picked up. Cargo's
+# incremental build makes this a no-op when nothing changed (~1s), but
+# gating on binary existence silently runs stale binaries after source
+# edits — the exact failure mode that masked the offer-path migration
+# from landing in the container on 2026-04-15.
 (
   cd /opt/source
   flock -x 200
-  if [ ! -f ./target/debug/indexer-service-rs ]; then
-    cargo build --bin indexer-service-rs
-  fi
+  cargo build --bin indexer-service-rs
 ) 200>/opt/source/.cargo-build.lock &
 BUILD_PID=$!
 
