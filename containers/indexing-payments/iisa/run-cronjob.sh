@@ -1,7 +1,12 @@
 #!/bin/bash
 set -eu
 
-# Copy source to writable working directory (source mount is :ro)
+# Copy source to writable working directory (source mount is :ro).
+# /app must be created here explicitly — before commit 3e9e76a the
+# iisa-scores volume mount implicitly created /app/scores (and therefore
+# /app), but that mount was removed when the cronjob stopped writing
+# scores to disk.
+mkdir -p /app
 cp -r /opt/source/* /app/
 
 cd /app
