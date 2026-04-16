@@ -88,6 +88,7 @@ cat >config.json <<-EOF
     "chain_id": ${CHAIN_ID},
     "subgraph_service_address": "${subgraph_service}",
     "recurring_collector_address": "${recurring_collector}",
+    "indexing_payments_subgraph_url": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments",
     "gas_price_multiplier": 1.2,
     "max_gas_price_gwei": 100,
     "gas_buffer_multiplier": 2.0,
