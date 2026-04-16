@@ -19,11 +19,11 @@ fi
 echo "=== Configuring eligibility-oracle-node ==="
 echo "  REO contract: ${reo_address}"
 echo "  Chain ID: ${CHAIN_ID}"
-echo "  Redpanda: redpanda:${REDPANDA_KAFKA_PORT}"
+echo "  Redpanda: redpanda:9092"
 
 # Create compacted output topic (idempotent)
 rpk topic create indexer_daily_metrics \
-  --brokers="redpanda:${REDPANDA_KAFKA_PORT}" \
+  --brokers="redpanda:9092" \
   -c cleanup.policy=compact,delete \
   -c retention.ms=7776000000 \
   2>/dev/null || true
@@ -33,13 +33,13 @@ rpk topic create indexer_daily_metrics \
 # when the topic has been repopulated after a network restart.
 rpk group seek eligibility-oracle --to start \
   --topics gateway_queries \
-  --brokers="redpanda:${REDPANDA_KAFKA_PORT}" \
+  --brokers="redpanda:9092" \
   2>/dev/null || true
 
 # Generate config.toml with local network values
 cat >config.toml <<EOF
 [kafka]
-bootstrap_servers = "redpanda:${REDPANDA_KAFKA_PORT}"
+bootstrap_servers = "redpanda:9092"
 # Shorter rebuild timeout for local network
 rebuild_timeout_secs = 10
 
