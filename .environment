@@ -67,8 +67,12 @@ ELIGIBILITY_ORACLE_COMMIT=84710857394d3419f83dcbf6687a91f415cc1625
 # network components versions
 BLOCK_ORACLE_COMMIT=3a3a425ff96130c3842cee7e43d06bbe3d729aed
 # CONTRACTS_COMMIT is used by the graph-contracts Docker image to clone and compile contracts.
-# Must match the branch with acceptIndexingAgreement + RecurringCollector + HorizonStaking fix.
-CONTRACTS_COMMIT=fix/horizon-staking-ignition-dependency
+# Must match the branch with the audit-branch offer-path contracts (uint16 conditions,
+# RecurringCollector.offer(), acceptIndexingAgreement with empty signature) plus the
+# HorizonStaking ignition dependency fix. mb9/dips-local-testing-fixes is a superset of
+# indexing-payments-management-audit-fix-reduced with local testing fixes layered on top
+# (shared via draft PR graphprotocol/contracts#1319).
+CONTRACTS_COMMIT=mb9/dips-local-testing-fixes
 NETWORK_SUBGRAPH_COMMIT=5b6c22089a2e55db16586a19cbf6e1d73a93c7b9
 TAP_CONTRACTS_COMMIT=e3351e70b3e5d9821bc0aaa90bb2173ca2a77af7
 TAP_SUBGRAPH_COMMIT=cf7279f60433bf9a9d897ec2548c13c0607234cc
