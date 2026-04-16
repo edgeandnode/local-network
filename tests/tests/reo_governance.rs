@@ -80,7 +80,7 @@ async fn rewards_manager_integration() -> Result<()> {
     eprintln!("=== ReoTestPlan 1.4: RewardsManager Integration ===");
 
     let configured_reo = net.rewards_manager_reo_address()?;
-    eprintln!("  RewardsManager.getRewardsEligibilityOracle(): {configured_reo}");
+    eprintln!("  RewardsManager.getProviderEligibilityOracle(): {configured_reo}");
     eprintln!("  Expected REO address: {reo}");
 
     assert_eq!(

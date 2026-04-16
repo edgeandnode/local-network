@@ -249,7 +249,7 @@ fn load_contracts() -> Result<Contracts> {
         .ok()
         .and_then(|json| serde_json::from_str::<serde_json::Value>(&json).ok())
         .and_then(|v| {
-            v["1337"]["RewardsEligibilityOracle"]["address"]
+            v["1337"]["RewardsEligibilityOracleA"]["address"]
                 .as_str()
                 .map(String::from)
         });

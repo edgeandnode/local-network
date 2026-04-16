@@ -353,7 +353,7 @@ impl TestNetwork {
     pub fn rewards_manager_reo_address(&self) -> Result<String> {
         let output = self.cast_call(
             &self.contracts.rewards_manager,
-            "getRewardsEligibilityOracle()(address)",
+            "getProviderEligibilityOracle()(address)",
             &[],
         )?;
         Ok(output.trim().to_string())

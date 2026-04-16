@@ -159,8 +159,8 @@ else
     cast call --rpc-url="$RPC_URL" "$REO_ADDRESS" "paused()(bool)" || true
 
   if [ -n "$REWARDS_MANAGER" ]; then
-    run_cast "Troubleshoot: getRewardsEligibilityOracle" \
-      cast call --rpc-url="$RPC_URL" "$REWARDS_MANAGER" "getRewardsEligibilityOracle()(address)" || true
+    run_cast "Troubleshoot: getProviderEligibilityOracle" \
+      cast call --rpc-url="$RPC_URL" "$REWARDS_MANAGER" "getProviderEligibilityOracle()(address)" || true
   fi
 
   echo ""
