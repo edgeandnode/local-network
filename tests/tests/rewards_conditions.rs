@@ -51,7 +51,7 @@ const DEFAULT_RECLAIM_ADDRESS: &str = "0x976EA74026E726554dB657fA54763abd0C3a0aa
 ///
 /// Saves and restores original reclaim configuration.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn reclaim_configuration() -> Result<()> {
     let net = net()?;
 
@@ -147,7 +147,6 @@ async fn reclaim_configuration() -> Result<()> {
 
 /// RewardsConditionsTestPlan 1.4: Only the Governor can set reclaim addresses.
 #[tokio::test]
-#[serial]
 async fn reclaim_unauthorized_reverts() -> Result<()> {
     let net = net()?;
 
@@ -188,7 +187,7 @@ async fn reclaim_unauthorized_reverts() -> Result<()> {
 ///
 /// Saves and restores the original threshold.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn below_minimum_signal_lifecycle() -> Result<()> {
     let net = net()?;
 
@@ -309,7 +308,7 @@ async fn below_minimum_signal_lifecycle() -> Result<()> {
 /// no allocations, verify NO_ALLOCATED_TOKENS reclaim, then verify new
 /// allocation resumes from stored baseline.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn zero_allocated_tokens_lifecycle() -> Result<()> {
     let net = net()?;
 
@@ -425,7 +424,7 @@ async fn zero_allocated_tokens_lifecycle() -> Result<()> {
 /// This overlaps with allocation_lifecycle tests but explicitly checks the
 /// rewards condition context.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn poi_normal_claim() -> Result<()> {
     let net = net()?;
 
@@ -511,7 +510,7 @@ async fn poi_normal_claim() -> Result<()> {
 /// Create an allocation and attempt to close within the same epoch.
 /// The management API may reject this, which itself validates the behaviour.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn poi_allocation_too_young() -> Result<()> {
     let net = net()?;
 
@@ -601,7 +600,7 @@ async fn poi_allocation_too_young() -> Result<()> {
 /// Tests that getAccRewardsForSubgraph grows for healthy subgraphs
 /// and returns consistent values.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn observability_accumulator_growth() -> Result<()> {
     let net = net()?;
 
