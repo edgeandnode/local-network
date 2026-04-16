@@ -34,7 +34,7 @@ cat >config.json <<-EOF
   "kafka_topic_environment": "${KAFKA_TOPIC_ENVIRONMENT:-}",
   "indexer_selection_retry_limit": 2,
   "kafka": {
-    "bootstrap.servers": "redpanda:${REDPANDA_KAFKA_PORT}"
+    "bootstrap.servers": "redpanda:9092"
   },
   "log_json": false,
   "min_graph_node_version": "0.0.0",

@@ -76,7 +76,7 @@ cat >config.json <<-EOF
     "max_retries": 3
   },
   "signal": {
-    "brokers": "redpanda:${REDPANDA_KAFKA_PORT}",
+    "brokers": "redpanda:9092",
     "topic": "${signal_topic}",
     "consumer_group": "dipper-local"
   },
