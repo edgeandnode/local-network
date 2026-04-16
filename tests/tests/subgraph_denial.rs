@@ -60,7 +60,7 @@ async fn test_deployment_id(net: &TestNetwork) -> Result<String> {
 ///
 /// Restores the original denial state after testing.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn denial_state_management() -> Result<()> {
     let net = net()?;
 
@@ -139,7 +139,7 @@ async fn denial_state_management() -> Result<()> {
 ///
 /// Restores the original state after testing.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn accumulator_freeze_and_reclaim() -> Result<()> {
     let net = net()?;
 
@@ -235,7 +235,7 @@ async fn accumulator_freeze_and_reclaim() -> Result<()> {
 ///
 /// This is the critical integration test for the denial system.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn denial_lifecycle() -> Result<()> {
     let net = net()?;
 
@@ -339,7 +339,7 @@ async fn denial_lifecycle() -> Result<()> {
 /// SubgraphDenialTestPlan 6.3: Rapid deny→undeny cycle.
 /// Verify accumulators handle quick transitions correctly.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn edge_rapid_deny_undeny() -> Result<()> {
     let net = net()?;
 
@@ -383,7 +383,7 @@ async fn edge_rapid_deny_undeny() -> Result<()> {
 /// When a subgraph is denied AND the indexer is ineligible, the denial
 /// condition should be the one reported (preserving pre-denial rewards).
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn edge_denial_vs_eligibility() -> Result<()> {
     let net = net()?;
     if net.contracts.reo.is_none() {

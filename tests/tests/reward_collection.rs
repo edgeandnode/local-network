@@ -24,7 +24,7 @@ fn net() -> Result<TestNetwork> {
 /// This is the raw contract operation that the indexer-agent invokes as part
 /// of its close multicall (collect + stopService).
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn collect_indexing_rewards_increases_stake() -> Result<()> {
     let net = net()?;
 

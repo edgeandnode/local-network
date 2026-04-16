@@ -24,7 +24,7 @@ fn net() -> Result<TestNetwork> {
 ///
 /// Emulates `graph indexer allocations create` and `graph indexer allocations close`.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn close_and_recreate_allocation() -> Result<()> {
     let net = net()?;
 
@@ -116,7 +116,7 @@ async fn close_and_recreate_allocation() -> Result<()> {
 /// This test verifies that the agent-mediated close produces non-zero rewards.
 /// Emulates `graph indexer allocations close` with reward verification.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn close_allocation_collects_rewards() -> Result<()> {
     let net = net()?;
 
@@ -209,7 +209,7 @@ async fn close_allocation_collects_rewards() -> Result<()> {
 ///
 /// Emulates the `query_test.sh` script from the test plan.
 #[tokio::test]
-#[serial]
+#[serial(alloc)]
 async fn gateway_query_serving() -> Result<()> {
     let net = net()?;
 
