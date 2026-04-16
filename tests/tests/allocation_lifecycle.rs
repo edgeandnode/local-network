@@ -28,35 +28,46 @@ fn net() -> Result<TestNetwork> {
 async fn close_and_recreate_allocation() -> Result<()> {
     let net = net()?;
 
-    // Pick an existing active allocation to close
+    // Find all active allocations for the first deployment we see
     let allocs = net.get_allocations().await?;
     let allocs = allocs.as_array().context("expected allocation array")?;
     let active = allocs
         .iter()
         .find(|a| a["closedAtEpoch"].is_null())
         .context("no active allocation found to close")?;
-    let alloc_id = active["id"].as_str().context("allocation missing id")?;
     let deployment = active["subgraphDeployment"]
         .as_str()
         .context("allocation missing deployment")?
         .to_string();
 
-    // Advance epochs so allocation is old enough to close
-    eprintln!("--- Advancing 2 epochs ---");
-    let new_epoch = net.advance_epochs(2).await?;
+    // Collect all active allocation IDs for this deployment so we close them all
+    let active_ids: Vec<String> = allocs
+        .iter()
+        .filter(|a| {
+            a["closedAtEpoch"].is_null()
+                && a["subgraphDeployment"].as_str() == Some(deployment.as_str())
+        })
+        .filter_map(|a| a["id"].as_str().map(String::from))
+        .collect();
+
+    // Advance 1 epoch so allocations are old enough to close
+    // (pre-existing allocations are already many epochs old, 1 is sufficient)
+    eprintln!("--- Advancing 1 epoch ---");
+    let new_epoch = net.advance_epochs(1).await?;
     eprintln!("  Now at epoch {new_epoch}");
 
-    // Close the existing allocation (emulates: graph indexer allocations close)
-    eprintln!("--- Closing allocation {alloc_id} ---");
-    let close_result = net.close_allocation(alloc_id).await?;
-    let rewards = close_result["indexingRewards"].as_str().unwrap_or("0");
-    eprintln!("  indexingRewards: {rewards}");
-
-    assert_eq!(
-        close_result["allocation"].as_str().unwrap_or(""),
-        alloc_id,
-        "Closed allocation ID should match"
-    );
+    // Close all active allocations for this deployment
+    for id in &active_ids {
+        eprintln!("--- Closing allocation {id} ---");
+        let close_result = net.close_allocation(id).await?;
+        let rewards = close_result["indexingRewards"].as_str().unwrap_or("0");
+        eprintln!("  indexingRewards: {rewards}");
+        assert_eq!(
+            close_result["allocation"].as_str().unwrap_or(""),
+            id,
+            "Closed allocation ID should match"
+        );
+    }
 
     // Create a new allocation for the same deployment (emulates: graph indexer allocations create)
     eprintln!("--- Creating new allocation for {deployment} ---");
@@ -129,9 +140,23 @@ async fn close_allocation_collects_rewards() -> Result<()> {
     eprintln!("  Allocation: {alloc_id}");
     eprintln!("  Deployment: {deployment}");
 
-    // Close and recreate so we have a fresh allocation with known epoch boundaries
-    net.advance_epochs(2).await?;
-    net.close_allocation(&alloc_id).await?;
+    // Close ALL active allocations for this deployment so we can recreate cleanly.
+    // There may be more than one if a prior test left an extra allocation behind.
+    let active_ids: Vec<String> = allocs
+        .iter()
+        .filter(|a| {
+            a["closedAtEpoch"].is_null()
+                && a["subgraphDeployment"].as_str() == Some(deployment.as_str())
+        })
+        .filter_map(|a| a["id"].as_str().map(String::from))
+        .collect();
+
+    // Pre-existing allocations are already many epochs old, 1 is sufficient
+    net.advance_epochs(1).await?;
+    for id in &active_ids {
+        eprintln!("  Closing active allocation {id}");
+        net.close_allocation(id).await?;
+    }
 
     let result = net.create_allocation(&deployment, "0.01").await?;
     let fresh_alloc = result["allocation"]
@@ -173,8 +198,7 @@ async fn close_allocation_collects_rewards() -> Result<()> {
         "Allocation should be Closed in subgraph"
     );
 
-    // Restore allocation
-    net.advance_epochs(2).await?;
+    // Restore allocation (no epoch advance needed — creating doesn't require maturity)
     net.create_allocation(&deployment, "0.01").await?;
     eprintln!("  Restored allocation for {deployment}");
 
