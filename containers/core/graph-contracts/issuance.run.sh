@@ -151,6 +151,21 @@ if [ -n "${reo_address:-}" ]; then
       "${reo_address}" "grantRole(bytes32,address)" "${oracle_role}" "${ACCOUNT0_ADDRESS}"
   fi
 
+  # Grant PAUSE_ROLE to ACCOUNT0 so tests can pause/unpause.
+  # GOVERNOR_ROLE (held by ACCOUNT1) is the admin of PAUSE_ROLE.
+  pause_role=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+    "${reo_address}" "PAUSE_ROLE()(bytes32)")
+  has_role=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+    "${reo_address}" "hasRole(bytes32,address)(bool)" "${pause_role}" "${ACCOUNT0_ADDRESS}" 2>/dev/null || echo "false")
+  if [ "$has_role" = "true" ]; then
+    echo "  PAUSE_ROLE already granted to ${ACCOUNT0_ADDRESS}"
+  else
+    echo "  Granting PAUSE_ROLE to ${ACCOUNT0_ADDRESS} (via GOVERNOR_ROLE / ACCOUNT1)"
+    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
+      --private-key="${ACCOUNT1_SECRET}" \
+      "${reo_address}" "grantRole(bytes32,address)" "${pause_role}" "${ACCOUNT0_ADDRESS}"
+  fi
+
   # Enable eligibility validation (deny-by-default).
   validation_enabled=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
     "${reo_address}" "getEligibilityValidation()(bool)" 2>/dev/null || echo "false")
