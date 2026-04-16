@@ -141,3 +141,22 @@
 **Repo**: `local-network`
 **Fix**: Changed the single check to a wait loop (up to 3 minutes, 5s intervals) that polls for the indexing-payments subgraph before giving up. Applied in `containers/indexer/indexer-agent/dev/run-dips.sh`.
 **PR**: local-network fix applied, not submitted as standalone PR
+
+## BUG-015: @graphprotocol/interfaces NPM package stale vs audit-branch contract
+
+**Symptom**: `acceptIndexingAgreement` multicall from indexer-agent reverts on-chain with `FailedCall()` (selector `0xd6bda275`). The agent encodes the call using its installed ABI (`@graphprotocol/interfaces@0.7.0-dips.0`), which declares `acceptIndexingAgreement(address, SignedRCA)` — a two-argument function where the RCA is a 10-field struct. The audit-branch contract has been updated to `acceptIndexingAgreement(address, RCA, bytes)` — three arguments, with the RCA now containing an additional `uint16 conditions` field at position 9 (eleven fields total). The selector the agent sends (`0x0b4baec7`) no longer exists on the deployed contract, so the multicall's `Address.functionDelegateCall` fails with no return data and OpenZeppelin wraps it as `FailedCall()`.
+
+**Root cause**: The audit-branch changes to `IRecurringCollector.RecurringCollectionAgreement` (adding `conditions`) and `ISubgraphService.acceptIndexingAgreement` (splitting the packed `SignedRCA` arg into separate `RCA` and `signature` args) exist on the `mb9/dips-local-testing-fixes` branch of the contracts repo but were never released to NPM. The last published `@graphprotocol/interfaces` version carrying any DIPs changes is the pre-release `0.7.0-dips.0`, cut before these audit-branch updates. Toolshed transitively depends on interfaces via `workspace:^`, so the indexer-agent (which pulls toolshed + interfaces from NPM) ends up with the pre-audit struct shape and function signature.
+
+**Workarounds applied for local-network testing**:
+
+1. `packages/toolshed/src/core/recurring-collector.ts` — committed on `mb9/dips-local-testing-fixes` to add `uint16 conditions` to the RCA decoder tuple so the indexer-agent can decode proposals persisted by indexer-service. This change is permanent, not a hack.
+2. `packages/indexer-common/src/indexing-fees/dips.ts` — committed on `fix/getrewards-subgraph-service` to unpack `proposal.signedRca` into separate `rca` and `signature` arguments at both `acceptIndexingAgreement` call sites. This change is permanent, not a hack.
+3. Local-only override of `indexer/node_modules/@graphprotocol/toolshed/dist/core/recurring-collector.{js,d.ts}` — copied the rebuilt toolshed output so the container's running code picks up the eleven-field decoder before the NPM package is republished. Ephemeral; wiped by `yarn install`.
+4. Local-only override of `indexer/node_modules/@graphprotocol/interfaces/dist/types/**/*.d.ts` — patched the compiled type declarations so TypeScript accepts the three-argument call shape. Ephemeral; wiped by `yarn install`.
+
+**Repo**: `graphprotocol/contracts` (packages `interfaces` and `toolshed`) and `graphprotocol/indexer` (transitive consumer)
+
+**Fix (not yet done)**: Publish new NPM versions of `@graphprotocol/interfaces` and `@graphprotocol/toolshed` from a commit containing the audit-branch struct and function signature changes. Bump the indexer's resolved versions (either by pinning or by running `yarn install` once the versions are live on NPM). At that point, overrides 3 and 4 above can be removed and the indexer-agent's `dips.ts` will type-check and run correctly against stock NPM packages with no further changes. The contracts repo's `pnpm build` currently fails at the interfaces package with "missing module" errors for several TypeChain-generated files; that build failure needs to be resolved before a clean release can be cut.
+
+**PR**: not submitted; blocked on build fix and publish coordination.
