@@ -1,0 +1,13 @@
+default: test
+
+# Run all integration tests (requires `docker compose up -d` and devcontainer attached to the compose network)
+test *args:
+    cargo nextest run --no-capture --no-fail-fast {{args}}
+
+# Run a single test by substring filter
+one filter:
+    cargo nextest run --no-capture {{filter}}
+
+# Connect the current container to the compose network so service hostnames resolve
+connect:
+    ../scripts/connect-network.sh
