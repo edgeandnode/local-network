@@ -53,10 +53,15 @@ cat >config.json <<-EOF
     "chain_id": "1337",
     "payer": "${ACCOUNT0_ADDRESS}",
     "signer": "${ACCOUNT1_SECRET}",
-    "verifier": "${graph_tally_verifier}",
-    "legacy_verifier": "${tap_verifier}"
+    "verifier": "${graph_tally_verifier}"
   },
-  "subgraph_service": "${subgraph_service}"
+  "subgraph_service": "${subgraph_service}",
+  "x402": {
+    "facilitator_url": "https://x402.org/facilitator",
+    "receiver_address": "${ACCOUNT_X402_ADDRESS}",
+    "chain": "base_sepolia",
+    "price": 42e-6
+  }
 }
 EOF
 cat config.json
