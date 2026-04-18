@@ -5,7 +5,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Foundry
-COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
+COPY --from=ghcr.io/foundry-rs/foundry:stable \
     /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin/anvil /usr/local/bin/chisel /usr/local/bin/
 
 RUN npm install -g tsx nodemon prettier eslint

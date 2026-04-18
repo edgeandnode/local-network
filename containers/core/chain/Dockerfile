@@ -1,4 +1,4 @@
-FROM ghcr.io/foundry-rs/foundry:v1.0.0
+FROM ghcr.io/foundry-rs/foundry:stable
 
 # Ensure the data directory is writable by the foundry user (uid 1000)
 USER root

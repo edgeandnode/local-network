@@ -5,7 +5,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # Foundry (cast for GNS publish + evm_mine)
-COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
+COPY --from=ghcr.io/foundry-rs/foundry:stable \
   /usr/local/bin/cast /usr/local/bin/
 
 # Indexer CLI
