@@ -59,34 +59,14 @@ impl TestNetwork {
 
     /// Mine `count` blocks, advancing chain time by 12s per block (mimics Ethereum).
     ///
-    /// Mining is chunked so the network subgraph can keep pace. Anvil aggressively
-    /// prunes historical state (only the last ~10 blocks are queryable), so if
-    /// graph-node falls further behind than that, mappings that do `eth_call` at
-    /// the indexed block start failing with `BlockOutOfRangeError`. Between
-    /// chunks we wait for the subgraph to catch up to within a safe window.
+    /// Uses `anvil_mine` to batch-mine in a single RPC call. The chain container
+    /// runs anvil with `--preserve-historical-states --slots-in-an-epoch 1000000`
+    /// so historical state remains available for graph-node's eth_calls even
+    /// when the subgraph is behind the head.
     pub async fn mine_blocks(&self, count: u32) -> Result<()> {
-        const CHUNK_SIZE: u32 = 5;
-        const SUBGRAPH_LAG_BUDGET: u64 = 3;
-
-        let mut remaining = count;
-        while remaining > 0 {
-            let step = remaining.min(CHUNK_SIZE);
-            self.mine_blocks_raw(step).await?;
-            remaining -= step;
-
-            if remaining > 0 {
-                self.wait_for_subgraph_head(SUBGRAPH_LAG_BUDGET).await;
-            }
-        }
-        Ok(())
-    }
-
-    async fn mine_blocks_raw(&self, count: u32) -> Result<()> {
         if count == 0 {
             return Ok(());
         }
-        // Use anvil_mine to batch-mine with 12s intervals in a single RPC call
-        // instead of 2 calls per block (evm_increaseTime + evm_mine).
         let client = reqwest::Client::new();
         client
             .post(&self.rpc_url)
@@ -100,31 +80,6 @@ impl TestNetwork {
             .await
             .context("anvil_mine")?;
         Ok(())
-    }
-
-    /// Wait (up to 30s) until the network subgraph is within `lag_budget` blocks
-    /// of the chain head. Best-effort: logs on timeout but doesn't fail.
-    async fn wait_for_subgraph_head(&self, lag_budget: u64) {
-        let deadline = Instant::now() + Duration::from_secs(30);
-        loop {
-            let head = match self.get_block_number().await {
-                Ok(h) => h,
-                Err(_) => return,
-            };
-            let sg = self.subgraph_block_number().await.unwrap_or(0);
-            if sg + lag_budget >= head {
-                return;
-            }
-            if Instant::now() >= deadline {
-                eprintln!(
-                    "  subgraph lag budget exceeded: chain={head} subgraph={sg} \
-                     (lag={}, budget={lag_budget})",
-                    head.saturating_sub(sg)
-                );
-                return;
-            }
-            tokio::time::sleep(Duration::from_millis(500)).await;
-        }
     }
 
     /// Advance N epochs by mining blocks one epoch at a time.
