@@ -19,7 +19,7 @@ ENV COREPACK_ENABLE_STRICT=0
 RUN corepack enable
 
 # Foundry
-COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
+COPY --from=ghcr.io/foundry-rs/foundry:stable \
   /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin/
 
 WORKDIR /opt
