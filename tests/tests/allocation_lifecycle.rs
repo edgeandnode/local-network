@@ -28,19 +28,12 @@ fn net() -> Result<TestNetwork> {
 async fn close_and_recreate_allocation() -> Result<()> {
     let net = net()?;
 
-    // Find all active allocations for the first deployment we see
-    let allocs = net.get_allocations().await?;
-    let allocs = allocs.as_array().context("expected allocation array")?;
-    let active = allocs
-        .iter()
-        .find(|a| a["closedAtEpoch"].is_null())
-        .context("no active allocation found to close")?;
-    let deployment = active["subgraphDeployment"]
-        .as_str()
-        .context("allocation missing deployment")?
-        .to_string();
+    // Ensure we have an active allocation (recovers if a prior test panicked)
+    let (deployment, _) = net.ensure_active_allocation().await?;
 
     // Collect all active allocation IDs for this deployment so we close them all
+    let allocs = net.get_allocations().await?;
+    let allocs = allocs.as_array().context("expected allocation array")?;
     let active_ids: Vec<String> = allocs
         .iter()
         .filter(|a| {

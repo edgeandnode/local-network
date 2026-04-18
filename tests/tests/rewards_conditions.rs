@@ -322,20 +322,7 @@ async fn zero_allocated_tokens_lifecycle() -> Result<()> {
 
     // We need a deployment with signal but no allocations.
     // Close the current allocation, verify reclaim, then recreate.
-    let allocs = net.get_allocations().await?;
-    let allocs_arr = allocs.as_array().context("expected allocation array")?;
-    let active = allocs_arr
-        .iter()
-        .find(|a| a["closedAtEpoch"].is_null())
-        .context("no active allocation found")?;
-    let alloc_id = active["id"]
-        .as_str()
-        .context("allocation missing id")?
-        .to_string();
-    let deployment_ipfs = active["subgraphDeployment"]
-        .as_str()
-        .context("allocation missing deployment")?
-        .to_string();
+    let (deployment_ipfs, alloc_id) = net.ensure_active_allocation().await?;
 
     // Get the bytes32 deployment ID
     let deployment_id = net.query_deployment_id(&deployment_ipfs).await?;
@@ -430,31 +417,23 @@ async fn poi_normal_claim() -> Result<()> {
 
     eprintln!("=== RewardsConditionsTestPlan 4.1: Normal Claim (NONE) ===");
 
-    // Find active allocation
-    let allocs = net.get_allocations().await?;
-    let allocs_arr = allocs.as_array().context("expected allocation array")?;
-    let active = allocs_arr
-        .iter()
-        .find(|a| a["closedAtEpoch"].is_null())
-        .context("no active allocation found")?;
-    let alloc_id = active["id"]
-        .as_str()
-        .context("allocation missing id")?
-        .to_string();
-    let deployment = active["subgraphDeployment"]
-        .as_str()
-        .context("allocation missing deployment")?
-        .to_string();
-
+    // Find active allocation (recovers if a prior test panicked)
+    let (deployment, alloc_id) = net.ensure_active_allocation().await?;
     eprintln!("  Allocation: {alloc_id}");
     eprintln!("  Deployment: {deployment}");
 
-    // Ensure eligible
-    net.reo_renew_indexer(&net.indexer_address)?;
-
-    // Advance epochs for maturity
+    // Ensure eligible and advance epochs for maturity
+    if net.contracts.reo.is_some() {
+        net.reo_renew_indexer(&net.indexer_address)?;
+    }
     net.advance_epochs(2).await?;
-    net.reo_renew_indexer(&net.indexer_address)?;
+    if net.contracts.reo.is_some() {
+        net.reo_renew_indexer(&net.indexer_address)?;
+        assert!(
+            net.reo_is_eligible(&net.indexer_address)?,
+            "Indexer must be eligible before close"
+        );
+    }
 
     // Check pending rewards
     let pending = net.rewards_pending(&alloc_id)?;
@@ -464,44 +443,20 @@ async fn poi_normal_claim() -> Result<()> {
         "Should have pending rewards for healthy allocation"
     );
 
-    // Record block before close for event verification
-    let block_before = net.get_block_number_sync()?;
-
     // Close allocation
     let close = net.close_allocation(&alloc_id).await?;
     let rewards = close["indexingRewards"].as_str().unwrap_or("0");
+    let rewards_val = rewards.parse::<f64>().unwrap_or(0.0);
     eprintln!("  indexingRewards: {rewards}");
-    assert!(
-        rewards.parse::<f64>().unwrap_or(0.0) > 0.0,
-        "Normal close should yield rewards, got {rewards}"
-    );
 
-    let block_after = net.get_block_number_sync()?;
-
-    // Check for POIPresented event if available
-    let poi_topic =
-        net.cast_keccak("POIPresented(address,address,bytes32,bytes32,bytes,bytes32)")?;
-    let logs = net.cast_logs_with_topic(
-        &net.contracts.subgraph_service,
-        block_before,
-        block_after,
-        &poi_topic,
-    );
-    match logs {
-        Ok(l) => {
-            eprintln!("  POIPresented events: {}", l.len());
-            // If the event exists, the last topic should be the condition (NONE = 0x00)
-        }
-        Err(e) => {
-            eprintln!(
-                "  POIPresented event query failed (may not exist in this contract version): {e:#}"
-            );
-        }
-    }
-
-    // Restore: recreate allocation
+    // Restore allocation BEFORE asserting to prevent cascade failures
     net.create_allocation(&deployment, "0.01").await?;
     eprintln!("  Restored allocation for {deployment}");
+
+    assert!(
+        rewards_val > 0.0,
+        "Normal close should yield rewards, got {rewards}"
+    );
 
     Ok(())
 }
@@ -516,21 +471,8 @@ async fn poi_allocation_too_young() -> Result<()> {
 
     eprintln!("=== RewardsConditionsTestPlan 4.4: Allocation Too Young ===");
 
-    // Find a deployment to allocate on
-    let allocs = net.get_allocations().await?;
-    let allocs_arr = allocs.as_array().context("expected allocation array")?;
-    let active = allocs_arr
-        .iter()
-        .find(|a| a["closedAtEpoch"].is_null())
-        .context("no active allocation found")?;
-    let deployment = active["subgraphDeployment"]
-        .as_str()
-        .context("allocation missing deployment")?
-        .to_string();
-    let existing_alloc = active["id"]
-        .as_str()
-        .context("allocation missing id")?
-        .to_string();
+    // Find a deployment to allocate on (recovers if a prior test panicked)
+    let (deployment, existing_alloc) = net.ensure_active_allocation().await?;
 
     // Close existing to free the deployment
     net.reo_renew_indexer(&net.indexer_address)?;

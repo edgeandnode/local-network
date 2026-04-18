@@ -60,6 +60,45 @@ impl TestNetwork {
         Ok(resp["data"]["closeAllocation"].clone())
     }
 
+    /// Ensure at least one active allocation exists, creating one if a prior
+    /// test panicked before restoring. Returns `(deployment_ipfs, allocation_id)`.
+    pub async fn ensure_active_allocation(&self) -> Result<(String, String)> {
+        let allocs = self.get_allocations().await?;
+        let allocs = allocs.as_array().context("expected allocation array")?;
+
+        if let Some(active) = allocs.iter().find(|a| a["closedAtEpoch"].is_null()) {
+            let id = active["id"]
+                .as_str()
+                .context("allocation missing id")?
+                .to_string();
+            let dep = active["subgraphDeployment"]
+                .as_str()
+                .context("allocation missing deployment")?
+                .to_string();
+            return Ok((dep, id));
+        }
+
+        // No active allocation — recover from a closed allocation's deployment
+        eprintln!("  WARNING: no active allocation — recovering from prior test failure");
+        let closed = allocs
+            .iter()
+            .rfind(|a| !a["closedAtEpoch"].is_null())
+            .context("no allocations at all")?;
+        let deployment = closed["subgraphDeployment"]
+            .as_str()
+            .context("closed allocation missing deployment")?
+            .to_string();
+
+        let result = self.create_allocation(&deployment, "0.01").await?;
+        let id = result["allocation"]
+            .as_str()
+            .context("expected allocation ID")?
+            .to_string();
+        eprintln!("  Recovered: created allocation {id} for {deployment}");
+
+        Ok((deployment, id))
+    }
+
     /// Get allocations from the indexer management API.
     pub async fn get_allocations(&self) -> Result<Value> {
         let query = format!(
