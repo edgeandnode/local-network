@@ -115,7 +115,7 @@ deploy_indexing_payments() {
   cat > config/hardhat.json <<EOF
 {
   "network": "hardhat",
-  "address": "${subgraph_service}",
+  "subgraphServiceAddress": "${subgraph_service}",
   "recurringCollectorAddress": "${recurring_collector}",
   "startBlock": 0
 }

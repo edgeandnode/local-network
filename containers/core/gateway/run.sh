@@ -48,7 +48,7 @@ cat >config.json <<-EOF
   "payment_required": true,
   "port_api": 7700,
   "port_metrics": 7301,
-  "query_fees_target": 40e-6,
+  "query_fees_target": 100e-6,
   "receipts": {
     "chain_id": "1337",
     "payer": "${ACCOUNT0_ADDRESS}",
