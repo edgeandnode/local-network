@@ -8,7 +8,6 @@ cd /opt
 graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
 tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 dispute_manager=$(contract_addr DisputeManager.address subgraph-service)
-legacy_dispute_manager=$(contract_addr LegacyDisputeManager.address subgraph-service)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 echo "Waiting for network subgraph..." >&2
 network_subgraph_deployment=$(wait_for_gql \
@@ -19,8 +18,7 @@ cat >config.json <<-EOF
 {
   "attestations": {
     "chain_id": "1337",
-    "dispute_manager": "${dispute_manager}",
-    "legacy_dispute_manager": "${legacy_dispute_manager}"
+    "dispute_manager": "${dispute_manager}"
   },
   "api_keys": [
     {
@@ -53,10 +51,15 @@ cat >config.json <<-EOF
     "chain_id": "1337",
     "payer": "${ACCOUNT0_ADDRESS}",
     "signer": "${ACCOUNT1_SECRET}",
-    "verifier": "${graph_tally_verifier}",
-    "legacy_verifier": "${tap_verifier}"
+    "verifier": "${graph_tally_verifier}"
   },
-  "subgraph_service": "${subgraph_service}"
+  "subgraph_service": "${subgraph_service}",
+  "x402": {
+    "facilitator_url": "https://x402.org/facilitator",
+    "receiver_address": "${ACCOUNT_X402_ADDRESS}",
+    "chain": "base_sepolia",
+    "price": 42e-6
+  }
 }
 EOF
 cat config.json
