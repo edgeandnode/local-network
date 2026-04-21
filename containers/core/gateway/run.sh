@@ -8,7 +8,6 @@ cd /opt
 graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
 tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 dispute_manager=$(contract_addr DisputeManager.address subgraph-service)
-legacy_dispute_manager=$(contract_addr LegacyDisputeManager.address subgraph-service)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 echo "Waiting for network subgraph..." >&2
 network_subgraph_deployment=$(wait_for_gql \
@@ -19,8 +18,7 @@ cat >config.json <<-EOF
 {
   "attestations": {
     "chain_id": "1337",
-    "dispute_manager": "${dispute_manager}",
-    "legacy_dispute_manager": "${legacy_dispute_manager}"
+    "dispute_manager": "${dispute_manager}"
   },
   "api_keys": [
     {
