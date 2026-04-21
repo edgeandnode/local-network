@@ -56,21 +56,14 @@ for i in $(seq 1 20); do
 done
 ```
 
-Then trigger an IISA scoring run and verify all indexers are scored:
+Then trigger a fresh IISA scoring run:
 
 ```bash
 DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml -f compose/extra-indexers.yaml \
-  exec iisa-cronjob curl -s -X POST http://localhost:9090/run
+  run --rm iisa-cronjob
 ```
 
-Wait 10 seconds, then check the scoring log:
-
-```bash
-DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml -f compose/extra-indexers.yaml \
-  logs iisa-cronjob --since 15s 2>&1 | grep "Score computation complete"
-```
-
-The indexer count should match the total number of indexers with allocations. If it shows fewer, the gateway hasn't routed to all indexers yet -- send more queries and retry.
+The container runs scoring once and exits. Exit codes: `0` success, `1` scoring/push failure, `2` missing push token. The final log line (`Scoring complete: mode=..., indexers=N, ...`) reports the outcome. The indexer count should match the total number of indexers with allocations. If it shows fewer, the gateway hasn't routed to all indexers yet -- send more queries and retry.
 
 ### 4. Send the indexing request
 

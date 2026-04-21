@@ -336,18 +336,15 @@ services:
       REDPANDA_BOOTSTRAP_SERVERS: "redpanda:${REDPANDA_KAFKA_PORT}"
       REDPANDA_TOPIC: gateway_queries
       GRAPH_NETWORK_SUBGRAPH_URL: "http://graph-node:8000/subgraphs/name/graph-network"
-      SCORING_HTTP_PORT: "9090"
       DEGRADED_ALERT_THRESHOLD: "999"
       IISA_API_URL: "http://iisa:8080"
       IISA_PUSH_TOKEN: ${IISA_PUSH_TOKEN:-}
     depends_on:
       iisa: { condition: service_started }
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
-      interval: 10s
-      retries: 60
-      start_period: 30s
-    restart: unless-stopped
+    # One-shot: run scoring once and exit. Exit codes: 0 success, 1 scoring/push
+    # failure, 2 missing push token. Restart policy `no` prevents a crash-loop
+    # where Docker would otherwise rerun the ~3 min scoring pass continuously.
+    restart: "no"
 
   iisa:
     container_name: iisa

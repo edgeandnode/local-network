@@ -197,30 +197,17 @@ python3 scripts/check-subgraph-sync.py
 
 ### 9. Trigger IISA score refresh
 
-The IISA cronjob exposes `POST /run` on port 9090 for manual scoring runs. Trigger it and poll the logs for completion (do NOT use a fixed sleep):
+The cronjob container runs scoring once and exits. A fresh run is a one-off `docker compose run`:
 
 ```bash
 DOCKER_DEFAULT_PLATFORM= docker compose \
   -f docker-compose.yaml \
   -f compose/dev/dips.yaml \
   -f compose/extra-indexers.yaml \
-  exec iisa-cronjob curl -s -X POST http://localhost:9090/run
+  run --rm iisa-cronjob
 ```
 
-Poll for scoring completion:
-
-```bash
-while true; do
-  RESULT=$(DOCKER_DEFAULT_PLATFORM= docker compose \
-    -f docker-compose.yaml -f compose/dev/dips.yaml -f compose/extra-indexers.yaml \
-    logs iisa-cronjob --since 10s 2>&1 | grep "Scoring complete" | tail -1)
-  if [ -n "$RESULT" ]; then
-    echo "$RESULT"
-    break
-  fi
-  sleep 5
-done
-```
+The command blocks until scoring finishes and returns the container's exit code: `0` success, `1` scoring/push failure, `2` missing push token. The final log line (`Scoring complete: mode=..., indexers=N, ...`) is emitted on stdout before exit.
 
 ### 10. Report
 

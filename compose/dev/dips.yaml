@@ -153,7 +153,6 @@ services:
       - ./containers/indexing-payments/iisa/run-cronjob.sh:/opt/run-cronjob.sh:ro
     environment:
       PYTHONUNBUFFERED: "1"
-      SCORING_INTERVAL: "30"
       REDPANDA_GATEWAY_IDS: "local"
 
   # Real IISA from source - replaces GHCR image
