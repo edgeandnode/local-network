@@ -179,4 +179,4 @@ The existing `ensureAgreementRulesFromLegacy` path does not help: it iterates `I
 
 Scoped to `fix/getrewards-subgraph-service` (PR #1178). The 5s `startProposalAcceptanceLoop` was introduced by commit `ad6035a5` on that branch — the commit message explicitly calls out the decoupling from the 120s reconciliation loop. Every branch below #1178 (main-dips, #1181, #1185, #1190) runs `acceptPendingProposals` from the main reconciliation tick alongside `ensureAgreementRules`, so accept and rule creation happen on the same cycle and the race cannot occur there. The fix lands as a follow-up commit on #1178, which means no rebase of Maikol's stack is required.
 
-**PR**: fix committed to PR #1178 as `5ebed20d`; a standalone fix PR (#1199) was opened and then closed after the tracing was corrected.
+**PR**: fix committed to PR #1178 as `eec7914e` (after rebasing the branch onto current `feat/dips-on-chain-cancel` to drop 20 stale commits); a standalone fix PR (#1199) was opened and then closed after the tracing was corrected.
