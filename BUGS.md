@@ -160,3 +160,23 @@
 **Fix (not yet done)**: Publish new NPM versions of `@graphprotocol/interfaces` and `@graphprotocol/toolshed` from a commit containing the audit-branch struct and function signature changes. Bump the indexer's resolved versions (either by pinning or by running `yarn install` once the versions are live on NPM). At that point, overrides 3 and 4 above can be removed and the indexer-agent's `dips.ts` will type-check and run correctly against stock NPM packages with no further changes. The contracts repo's `pnpm build` currently fails at the interfaces package with "missing module" errors for several TypeChain-generated files; that build failure needs to be resolved before a clean release can be cut.
 
 **PR**: not submitted; blocked on build fix and publish coordination.
+
+## BUG-016: Indexer-agent DIPs accept/rule race — accepting indexers never sync the deployment
+
+**Symptom**: When dipper selects multiple indexers for a DIPs agreement, only some of them end up syncing the accepted deployment. On local-network, a 3-indexer agreement produced 1/3 syncing (agent 2 synced, agents 4 and 5 did not). The failing agents create the on-chain allocation successfully, but their graph-nodes never deploy the subgraph because no `dips`-basis indexing rule is ever persisted. The agent's reconciliation loop then repeatedly tries to unallocate the just-created DIPs allocation with `reason: "group:none"`, which fails with `IE067`.
+
+**Root cause**: Two independent loops in `packages/indexer-common/src/indexing-fees/dips.ts` both key off the `pending_rca_proposals` table:
+
+- **Accept loop** (`startProposalAcceptanceLoop`, every 5s, `DIPS_ACCEPTANCE_INTERVAL`) calls `processProposal` which sends `acceptIndexingAgreement`, waits for the receipt, then calls `consumer.markAccepted` to remove the row from pending.
+- **Reconcile loop** (`ensureAgreementRules` via the agent's main tick, every 15s) iterates pending proposals inside `ensureAgreementRulesFromRca` and upserts a `dips` indexing rule for each.
+
+The rule-creation loop requires the proposal to still be pending when the tick fires. Whichever loop "wins" the race to touch the proposal row determines whether the rule gets created. On hardhat, receipt processing takes 4-8 seconds, so rule-creation ticks occasionally catch proposals still pending (agent 2 was lucky). On Arbitrum (block time ~0.25s, receipt confirmation ~1-2s), the accept loop will consistently finish well before the next 15s rule-creation tick, so the rule would practically never be created and DIPs acceptance would silently no-op for every indexer.
+
+The existing `ensureAgreementRulesFromLegacy` path does not help: it iterates `IndexingAgreement`, a local table populated only by the deprecated off-chain voucher system that the RCA flow does not write to. Once `pendingRcaConsumer` is configured (DIPs enabled), `ensureAgreementRules` (dips.ts:146-159) exclusively takes the RCA branch.
+
+**Repo**: `graphprotocol/indexer`
+**Fix**: Create the `dips` indexing rule inside `processProposal` before `executeTransaction(acceptIndexingAgreement)` is called. The proposal object already carries everything the rule needs (`subgraphDeploymentId`, `minSecondsPerCollection`, `maxSecondsPerCollection`, derived allocation amount), so this is a local DB upsert with no extra subgraph queries. `ensureAgreementRulesFromRca` stays in place as a defense-in-depth no-op once the rule exists. The existing rejection-cleanup path at `dips.ts:790-807` already removes the rule if the proposal is subsequently rejected, so dangling rules are handled.
+
+Lives in `main-dips` from the already-merged PR #1172. Rather than forcing Maikol to rebase his open stack (#1181, #1185, #1190), the fix targets `feat/dips-on-chain-cancel` (#1190's branch) in a new PR so it sits directly below PR #1178 — our branch then rebases onto the fix branch and inherits it cleanly.
+
+**PR**: indexer fix PR not yet submitted; see session notes.
