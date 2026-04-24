@@ -62,6 +62,19 @@ export INDEXER_AGENT_DIPS_COLLECTION_TARGET=1
 export INDEXER_AGENT_DIPS_COLLECTION_SLIPPAGE=50
 export INDEXER_AGENT_INDEXING_PAYMENTS_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
 
+# Resolve deployment hash so the agent's auto-pause carve-out protects this subgraph.
+indexing_payments_deployment=""
+while [ -z "${indexing_payments_deployment}" ] || [ "${indexing_payments_deployment}" = "null" ]; do
+  indexing_payments_deployment="$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments" \
+    -H 'content-type: application/json' \
+    -d '{"query": "{ _meta { deployment } }" }' | jq -r '.data._meta.deployment')"
+  if [ -z "${indexing_payments_deployment}" ] || [ "${indexing_payments_deployment}" = "null" ]; then
+    echo "Waiting for indexing-payments subgraph to sync..." >&2
+    sleep 2
+  fi
+done
+export INDEXER_AGENT_INDEXING_PAYMENTS_SUBGRAPH_DEPLOYMENT="${indexing_payments_deployment}"
+
 cd /opt/indexer-agent-source-root
 mkdir -p ./config/
 cat >./config/config.yaml <<-EOF
