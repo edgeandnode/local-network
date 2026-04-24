@@ -65,4 +65,27 @@ export INDEXER_AGENT_MAX_PROVISION_INITIAL_SIZE=200000
 export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
 export INDEXER_AGENT_LOG_LEVEL=trace
 
+# Tell the agent to leave the indexing-payments subgraph alone. Without this
+# the reconciler pauses it (no allocation, no indexing rule), and dipper's
+# chain_listener stalls waiting for agreement events that never arrive.
+# subgraph-deploy is a compose dependency, so the deployment exists by now.
+indexing_payments_deployment=$(curl -sf \
+  "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments" \
+  -H 'content-type: application/json' \
+  -d '{"query":"{ _meta { deployment } }"}' \
+  | jq -r '.data._meta.deployment // empty')
+if [ -n "${indexing_payments_deployment}" ]; then
+  echo "Marking indexing-payments (${indexing_payments_deployment}) as offchain"
+  export INDEXER_AGENT_OFFCHAIN_SUBGRAPHS="${indexing_payments_deployment}"
+  # The agent constructs an indexing-payments SubgraphClient unconditionally
+  # (Network.create:100). Without an endpoint or deployment-id, it crashes
+  # with "Cannot read properties of undefined (reading 'status')" before the
+  # management API can come up. Provide the query endpoint here regardless of
+  # --enable-dips so the spec is fully populated.
+  export INDEXER_AGENT_INDEXING_PAYMENTS_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
+else
+  echo "ERROR: indexing-payments subgraph deployment not found — chain_listener will stall" >&2
+  exit 1
+fi
+
 node ./dist/index.js start

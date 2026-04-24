@@ -80,6 +80,14 @@ cat >config.json <<-EOF
     "topic": "${signal_topic}",
     "consumer_group": "dipper-local"
   },
+  "chain_listener": {
+    "enabled": true,
+    "subgraph_endpoint": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments",
+    "chain_id": ${CHAIN_ID},
+    "poll_interval": 5,
+    "request_timeout": 30,
+    "max_retries": 3
+  },
   "additional_networks": {
     "1337": "hardhat"
   }

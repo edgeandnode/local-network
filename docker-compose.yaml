@@ -172,6 +172,7 @@ services:
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
       graph-contracts-tap: { condition: service_completed_successfully }
+      subgraph-deploy: { condition: service_completed_successfully }
     ports: ["${INDEXER_MANAGEMENT_PORT}:7600"]
     stop_signal: SIGKILL
     volumes:
@@ -190,6 +191,7 @@ services:
         NETWORK_SUBGRAPH_COMMIT: ${NETWORK_SUBGRAPH_COMMIT}
         TAP_SUBGRAPH_COMMIT: ${TAP_SUBGRAPH_COMMIT}
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
+        INDEXING_PAYMENTS_SUBGRAPH_VERSION: ${INDEXING_PAYMENTS_SUBGRAPH_VERSION}
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
       graph-contracts-tap: { condition: service_completed_successfully }
