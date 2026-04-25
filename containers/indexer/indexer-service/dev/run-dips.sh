@@ -18,15 +18,31 @@ POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 DIPS_MIN_GRT_PER_30_DAYS="${DIPS_MIN_GRT_PER_30_DAYS:-450}"
 
 # --- Start cargo build immediately (no deps needed) ---
-# Always invoke cargo build so source changes are picked up. Cargo's
-# incremental build makes this a no-op when nothing changed (~1s), but
-# gating on binary existence silently runs stale binaries after source
-# edits — the exact failure mode that masked the offer-path migration
-# from landing in the container on 2026-04-15.
+# All indexer-service containers (primary + extras) share the same source mount
+# and target dir, serialized via flock. Inside the lock, skip cargo when the
+# binary exists and is newer than every input cargo would watch. Anything newer
+# forces a rebuild — silently running a stale binary is the failure mode that
+# hid the offer-path migration on 2026-04-15.
+#
+# Inputs cover every workspace path that affects the indexer-service-rs binary
+# today: workspace members under crates/ (sources, manifests, build.rs,
+# generated protos, include_str! assets), the workspace manifest, and the
+# lockfile. rust-toolchain* and .cargo aren't present today; listing them is
+# cheap insurance against a future toolchain pin or cargo config silently
+# bypassing the freshness check. find emits a stderr warning for missing
+# inputs (redirected) and continues with the rest.
 (
   cd /opt/source
   flock -x 200
-  cargo build --bin indexer-service-rs
+  BINARY=target/debug/indexer-service-rs
+  STALE_INPUT=$(find crates Cargo.toml Cargo.lock rust-toolchain rust-toolchain.toml .cargo \
+    -newer "$BINARY" 2>/dev/null | head -1)
+  if [ -f "$BINARY" ] && [ -z "$STALE_INPUT" ]; then
+    echo "Binary $BINARY up-to-date vs source; skipping cargo build"
+  else
+    [ -n "$STALE_INPUT" ] && echo "Source newer than binary ($STALE_INPUT); rebuilding"
+    cargo build --bin indexer-service-rs
+  fi
 ) 200>/opt/source/.cargo-build.lock &
 BUILD_PID=$!
 
