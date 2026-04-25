@@ -1,7 +1,9 @@
 #!/bin/bash
 set -xeu
+# shellcheck source=/dev/null
 . /opt/config/.env
 
+# shellcheck source=/dev/null
 . /opt/shared/lib.sh
 
 # Allow env var overrides for multi-indexer support
@@ -93,6 +95,7 @@ export INDEXER_AGENT_NETWORK_PROVIDER="http://chain:${CHAIN_RPC_PORT}"
 export INDEXER_AGENT_MNEMONIC="${INDEXER_OPERATOR_MNEMONIC}"
 export INDEXER_AGENT_POSTGRES_DATABASE="${INDEXER_DB_NAME}"
 export INDEXER_AGENT_POSTGRES_HOST="${POSTGRES_HOST}"
+# shellcheck disable=SC2153  # POSTGRES_PORT comes from sourced /opt/config/.env
 export INDEXER_AGENT_POSTGRES_PORT="${POSTGRES_PORT}"
 export INDEXER_AGENT_POSTGRES_USERNAME=postgres
 export INDEXER_AGENT_POSTGRES_PASSWORD=
@@ -121,6 +124,11 @@ done
 if [ -n "${INDEXING_PAYMENTS_DEPLOYMENT}" ]; then
   echo "Adding indexing-payments (${INDEXING_PAYMENTS_DEPLOYMENT}) to offchain subgraphs"
   export INDEXER_AGENT_OFFCHAIN_SUBGRAPHS="${INDEXING_PAYMENTS_DEPLOYMENT}"
+  # Wire the agent's DIPs accept path to query this subgraph for the
+  # OfferStored entity before calling acceptIndexingAgreement. Without
+  # this, the gate is a no-op and a dropped offer() tx loses the
+  # agreement to a permanent deterministic rejection.
+  export INDEXER_AGENT_INDEXING_PAYMENTS_SUBGRAPH_ENDPOINT="http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
 else
   echo "WARNING: indexing-payments subgraph not found after 3m -- chain_listener will stall"
 fi
