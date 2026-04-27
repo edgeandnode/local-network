@@ -69,13 +69,6 @@ if [ "$phase1_skip" = "false" ]; then
   cd /opt/contracts/packages/subgraph-service
   npx hardhat deploy:protocol --network localNetwork --subgraph-service-config localNetwork
 
-  # Add legacy contract stubs (gateway needs these)
-  TEMP_JSON=$(jq '.["1337"] += {
-    "LegacyServiceRegistry": {"address": "0x0000000000000000000000000000000000000000"},
-    "LegacyDisputeManager": {"address": "0x0000000000000000000000000000000000000000"}
-  }' addresses-local-network.json)
-  printf '%s\n' "$TEMP_JSON" > addresses-local-network.json
-
   ensure_dispute_manager_registered
 fi
 
