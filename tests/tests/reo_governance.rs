@@ -498,40 +498,38 @@ async fn pause_blocks_writes() -> Result<()> {
     eprintln!("  isEligible (while paused): {eligible}");
     // No assertion on the value — just that it doesn't revert
 
-    // Governance write should revert while paused
-    let period = net.reo_eligibility_period()?;
-    let gov_blocked = !net.cast_send_may_revert(
+    // Governance write — audit-fix-2 REO has no whenNotPaused guards,
+    // so writes succeed while paused. Verify they don't revert.
+    let gov_ok = net.cast_send_may_revert(
         &net.account0_secret,
         &reo,
         "setEligibilityValidation(bool)",
         &[if net.reo_validation_enabled()? { "true" } else { "false" }],
     )?;
-    eprintln!("  setEligibilityValidation while paused blocked: {gov_blocked}");
+    eprintln!("  setEligibilityValidation while paused succeeded: {gov_ok}");
 
-    // Oracle write (renewIndexerEligibility) may or may not be paused
-    // depending on the contract version
+    // Oracle write (renewIndexerEligibility) also succeeds while paused
     let array = format!("[{}]", net.indexer_address);
-    let renewal_blocked = !net.cast_send_may_revert(
+    let renewal_ok = net.cast_send_may_revert(
         &net.account0_secret,
         &reo,
         "renewIndexerEligibility(address[],bytes)",
         &[&array, "0x"],
     )?;
-    eprintln!("  renewIndexerEligibility while paused blocked: {renewal_blocked}");
+    eprintln!("  renewIndexerEligibility while paused succeeded: {renewal_ok}");
 
     // Unpause BEFORE asserting to prevent leaving contract paused on failure
     net.reo_unpause()?;
     assert!(!net.reo_is_paused()?, "Should be unpaused");
     eprintln!("  Unpaused: true");
 
-    // Writes should work again
+    // Writes should still work after unpause
     net.reo_renew_indexer(&net.indexer_address)?;
     eprintln!("  Renewal after unpause: OK");
 
-    assert!(
-        gov_blocked || renewal_blocked,
-        "At least one write function should revert while paused"
-    );
+    // audit-fix-2 REO: pause does not gate any functions, verify both succeeded
+    assert!(gov_ok, "setEligibilityValidation should succeed while paused");
+    assert!(renewal_ok, "renewIndexerEligibility should succeed while paused");
 
     Ok(())
 }
