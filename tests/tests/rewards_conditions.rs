@@ -449,8 +449,10 @@ async fn poi_normal_claim() -> Result<()> {
     let rewards_val = rewards.parse::<f64>().unwrap_or(0.0);
     eprintln!("  indexingRewards: {rewards}");
 
-    // Restore allocation BEFORE asserting to prevent cascade failures
-    net.create_allocation(&deployment, "0.01").await?;
+    // Restore allocation BEFORE asserting to prevent cascade failures.
+    // Only create if there's no other active allocation on this deployment
+    // (other tests in the serial group may have created one).
+    net.ensure_active_allocation().await?;
     eprintln!("  Restored allocation for {deployment}");
 
     assert!(

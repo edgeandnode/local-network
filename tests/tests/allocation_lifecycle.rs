@@ -113,28 +113,17 @@ async fn close_and_recreate_allocation() -> Result<()> {
 async fn close_allocation_collects_rewards() -> Result<()> {
     let net = net()?;
 
-    // Find an active allocation
-    let allocs = net.get_allocations().await?;
-    let allocs = allocs.as_array().context("expected allocation array")?;
-    let active = allocs
-        .iter()
-        .find(|a| a["closedAtEpoch"].is_null())
-        .context("no active allocation found")?;
-    let alloc_id = active["id"]
-        .as_str()
-        .context("allocation missing id")?
-        .to_string();
-    let deployment = active["subgraphDeployment"]
-        .as_str()
-        .context("allocation missing deployment")?
-        .to_string();
+    // Find an active allocation (recovers if a prior test left none)
+    let (deployment, alloc_id) = net.ensure_active_allocation().await?;
 
     eprintln!("=== Close-collects-rewards test (BaselineTestPlan 5.2) ===");
     eprintln!("  Allocation: {alloc_id}");
     eprintln!("  Deployment: {deployment}");
 
     // Close ALL active allocations for this deployment so we can recreate cleanly.
-    // There may be more than one if a prior test left an extra allocation behind.
+    // indexer-agent may auto-create extra allocations on the same deployment.
+    let allocs = net.get_allocations().await?;
+    let allocs = allocs.as_array().context("expected allocation array")?;
     let active_ids: Vec<String> = allocs
         .iter()
         .filter(|a| {
@@ -144,7 +133,6 @@ async fn close_allocation_collects_rewards() -> Result<()> {
         .filter_map(|a| a["id"].as_str().map(String::from))
         .collect();
 
-    // Pre-existing allocations are already many epochs old, 1 is sufficient
     net.advance_epochs(1).await?;
     for id in &active_ids {
         eprintln!("  Closing active allocation {id}");
@@ -192,7 +180,7 @@ async fn close_allocation_collects_rewards() -> Result<()> {
     );
 
     // Restore allocation (no epoch advance needed — creating doesn't require maturity)
-    net.create_allocation(&deployment, "0.01").await?;
+    net.ensure_active_allocation().await?;
     eprintln!("  Restored allocation for {deployment}");
 
     Ok(())
