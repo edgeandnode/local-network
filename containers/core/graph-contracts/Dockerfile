@@ -2,7 +2,7 @@
 # Multi-stage build for contract deployment images.
 #
 # Stages:
-#   base         - node 22 + foundry + corepack (mirrors upstream
+#   base         - node 24 + foundry + corepack (mirrors upstream
 #                  graphprotocol/contracts CI setup action)
 #   contracts-src - `base` + clone and build graphprotocol/contracts
 #                  (shared by `contracts` and `issuance`)
@@ -18,7 +18,7 @@
 # Mirrors graphprotocol/contracts' own CI setup:
 # .github/actions/setup/action.yml at the pinned commit.
 # ------------------------------------------------------------
-FROM node:22-bookworm-slim AS base
+FROM node:24-bookworm-slim AS base
 
 # libudev-dev / libusb-1.0-0-dev are native deps pulled in by
 # hardhat-secure-accounts / ledger toolchain. Upstream CI installs
