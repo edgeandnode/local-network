@@ -85,19 +85,6 @@ services:
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
 
-  graph-contracts-issuance:
-    container_name: graph-contracts-issuance
-    build:
-      context: containers/core/graph-contracts-issuance
-      args:
-        CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
-    depends_on:
-      graph-contracts-horizon: { condition: service_completed_successfully }
-    volumes:
-      - ./containers/shared:/opt/shared:ro
-      - ./.env:/opt/config/.env:ro
-      - config-local:/opt/config
-
   block-oracle:
     container_name: block-oracle
     profiles: [block-oracle, indexing-payments]
