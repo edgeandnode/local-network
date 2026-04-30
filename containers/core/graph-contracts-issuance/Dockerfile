@@ -15,9 +15,12 @@ WORKDIR /opt
 
 # Clone and build the contracts repo
 # Same CONTRACTS_COMMIT as graph-contracts-horizon.
+# Inline patch: HorizonStaking needs explicit `after` deps on GraphPeripheryModule + HorizonProxiesModule
+# (cherry-pick of commit 9dc67cd4 — testnet tag predates this fix).
 ARG CONTRACTS_COMMIT
 RUN git clone https://github.com/graphprotocol/contracts && \
   cd contracts && git checkout ${CONTRACTS_COMMIT} && \
+  sed -i '/constructorArgs: \[Controller, subgraphServiceAddress\],/{n;s|^  })$|  }, { after: [GraphPeripheryModule, HorizonProxiesModule] })|;}' packages/horizon/ignition/modules/core/HorizonStaking.ts && \
   pnpm install --frozen-lockfile && pnpm build
 
 COPY --chmod=755 ./run.sh /opt/run.sh
