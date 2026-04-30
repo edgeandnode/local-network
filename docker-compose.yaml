@@ -94,7 +94,7 @@ services:
     depends_on:
       graph-contracts-horizon: { condition: service_completed_successfully }
     volumes:
-      - ./shared:/opt/shared:ro
+      - ./containers/shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config
 
