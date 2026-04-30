@@ -1,4 +1,5 @@
-default: test
+default:
+    @just --list
 
 # Run all integration tests (requires `docker compose up -d` and devcontainer attached to the compose network)
 test *args:
