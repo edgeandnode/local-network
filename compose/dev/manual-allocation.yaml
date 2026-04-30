@@ -1,0 +1,20 @@
+# Indexer-agent manual allocation mode override
+#
+# Default behavior: the agent's auto-reconciler maintains an allocation per
+# discovered subgraph deployment. Convenient for human use of local-network,
+# but the integration tests close+recreate allocations explicitly and race
+# the auto-reconciler — the agent recreates an allocation between a test's
+# close and create, and the test fails with "Already allocating to the
+# subgraph deployment".
+#
+# Activate this override for test runs to keep the agent in manual mode:
+#
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/manual-allocation.yaml \
+#     docker compose up -d && cd tests && just test
+#
+# Or pin it in `.env.local` (gitignored) for ongoing test development.
+
+services:
+  indexer-agent:
+    environment:
+      INDEXER_AGENT_ALLOCATION_MANAGEMENT: manual
