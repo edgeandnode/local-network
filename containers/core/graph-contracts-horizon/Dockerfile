@@ -19,8 +19,14 @@ COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
 WORKDIR /opt
 
 # 1. Graph protocol contracts (Horizon)
+# Inline patch: HorizonStaking.ts imports both `GraphPeripheryModule` (default
+# export) and `MigratePeripheryModule` (named export) from periphery.ts, both
+# registered with id 'GraphHorizon_Periphery'. The HorizonStaking after-fix on
+# this branch surfaces a duplicate-id check in ignition-core 0.15.13. Renaming
+# the migrate variant's id keeps both reachable and the duplicate check happy.
 RUN git clone https://github.com/graphprotocol/contracts && \
   cd contracts && git checkout ${CONTRACTS_COMMIT} && \
+  sed -i "s|MigratePeripheryModule = buildModule('GraphHorizon_Periphery'|MigratePeripheryModule = buildModule('GraphHorizon_Periphery_Migrate'|" packages/horizon/ignition/modules/periphery/periphery.ts && \
   pnpm install --ignore-scripts && pnpm build
 
 # 2. TAP contracts
