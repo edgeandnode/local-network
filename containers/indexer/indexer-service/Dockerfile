@@ -1,3 +1,4 @@
+# check=skip=InvalidDefaultArgInFrom
 ## Local-network wrapper for indexer-service-rs
 ARG INDEXER_SERVICE_RS_VERSION
 FROM ghcr.io/graphprotocol/indexer-service-rs:${INDEXER_SERVICE_RS_VERSION}

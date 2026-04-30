@@ -1,3 +1,4 @@
+# check=skip=InvalidDefaultArgInFrom
 ARG INDEXER_AGENT_VERSION
 FROM ghcr.io/graphprotocol/indexer-agent:${INDEXER_AGENT_VERSION}
 RUN apt-get update \
