@@ -5,7 +5,6 @@ set -eu
 . /opt/shared/lib.sh
 
 cd /opt
-tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 
@@ -36,7 +35,6 @@ syncing_interval_secs = 30
 
 [blockchain]
 chain_id = 1337
-receipts_verifier_address = "${tap_verifier}"
 receipts_verifier_address_v2 = "${graph_tally_verifier}"
 subgraph_service_address = "${subgraph_service}"
 
