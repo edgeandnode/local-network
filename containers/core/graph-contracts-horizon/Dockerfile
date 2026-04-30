@@ -19,13 +19,8 @@ COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
 WORKDIR /opt
 
 # 1. Graph protocol contracts (Horizon)
-# Inline patch: HorizonStaking needs explicit `after` deps on GraphPeripheryModule + HorizonProxiesModule
-# (cherry-pick of commit 9dc67cd4 — testnet tag predates this fix; without it Ignition reverts with
-# GraphDirectoryInvalidZeroAddress("GraphToken") under localNetwork).
 RUN git clone https://github.com/graphprotocol/contracts && \
   cd contracts && git checkout ${CONTRACTS_COMMIT} && \
-  sed -i '/constructorArgs: \[Controller, subgraphServiceAddress\],/{n;s|^  })$|  }, { after: [GraphPeripheryModule, HorizonProxiesModule] })|;}' packages/horizon/ignition/modules/core/HorizonStaking.ts && \
-  grep -A1 'constructorArgs: \[Controller, subgraphServiceAddress\],' packages/horizon/ignition/modules/core/HorizonStaking.ts && \
   pnpm install --ignore-scripts && pnpm build
 
 # 2. TAP contracts
