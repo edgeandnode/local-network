@@ -1,3 +1,4 @@
+# check=skip=InvalidDefaultArgInFrom
 ARG ELIGIBILITY_ORACLE_NODE_VERSION
 FROM ghcr.io/edgeandnode/eligibility-oracle-node:${ELIGIBILITY_ORACLE_NODE_VERSION}
 

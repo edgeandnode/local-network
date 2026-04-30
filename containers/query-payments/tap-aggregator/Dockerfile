@@ -1,3 +1,4 @@
+# check=skip=InvalidDefaultArgInFrom
 ARG TAP_AGGREGATOR_VERSION
 FROM ghcr.io/semiotic-ai/tap_aggregator:${TAP_AGGREGATOR_VERSION}
 RUN apt-get update \

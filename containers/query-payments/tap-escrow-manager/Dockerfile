@@ -1,3 +1,4 @@
+# check=skip=InvalidDefaultArgInFrom
 ARG TAP_ESCROW_MANAGER_VERSION
 FROM ghcr.io/edgeandnode/tap-escrow-manager:${TAP_ESCROW_MANAGER_VERSION}
 

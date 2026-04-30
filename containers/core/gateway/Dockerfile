@@ -1,3 +1,4 @@
+# check=skip=InvalidDefaultArgInFrom
 ARG GATEWAY_VERSION
 FROM ghcr.io/edgeandnode/graph-gateway:${GATEWAY_VERSION}
 

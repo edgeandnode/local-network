@@ -1,4 +1,5 @@
-ARG INDEXING_PAYMENTS_SUBGRAPH_VERSION=local
+# check=skip=InvalidDefaultArgInFrom
+ARG INDEXING_PAYMENTS_SUBGRAPH_VERSION
 FROM ghcr.io/graphprotocol/indexing-payments-subgraph:${INDEXING_PAYMENTS_SUBGRAPH_VERSION} AS indexing-payments-src
 
 FROM node:23.11-bookworm-slim
