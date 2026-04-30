@@ -23,7 +23,7 @@
 //!   - Cycle 6.1 (New alloc while denied): Would need second deployment.
 //!   - Cycle 6.2 (All close while denied): Risk of losing test deployment.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use local_network_tests::TestNetwork;
 use serial_test::serial;
 
