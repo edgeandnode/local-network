@@ -236,6 +236,7 @@ async fn accumulator_freeze_and_reclaim() -> Result<()> {
 /// This is the critical integration test for the denial system.
 #[tokio::test]
 #[serial(alloc)]
+#[ignore = "requires REO contract (rewards-eligibility profile, not deployed on main yet)"]
 async fn denial_lifecycle() -> Result<()> {
     let net = net()?;
 

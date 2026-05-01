@@ -309,6 +309,7 @@ async fn below_minimum_signal_lifecycle() -> Result<()> {
 /// allocation resumes from stored baseline.
 #[tokio::test]
 #[serial(alloc)]
+#[ignore = "requires REO contract (rewards-eligibility profile, not deployed on main yet)"]
 async fn zero_allocated_tokens_lifecycle() -> Result<()> {
     let net = net()?;
 
@@ -425,6 +426,7 @@ async fn zero_allocated_tokens_lifecycle() -> Result<()> {
 /// rewards condition context.
 #[tokio::test]
 #[serial(alloc)]
+#[ignore = "requires REO contract (rewards-eligibility profile, not deployed on main yet)"]
 async fn poi_normal_claim() -> Result<()> {
     let net = net()?;
 
@@ -511,6 +513,7 @@ async fn poi_normal_claim() -> Result<()> {
 /// The management API may reject this, which itself validates the behaviour.
 #[tokio::test]
 #[serial(alloc)]
+#[ignore = "requires REO contract (rewards-eligibility profile, not deployed on main yet)"]
 async fn poi_allocation_too_young() -> Result<()> {
     let net = net()?;
 
