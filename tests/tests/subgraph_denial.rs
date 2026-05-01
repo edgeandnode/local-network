@@ -23,7 +23,7 @@
 //!   - Cycle 6.1 (New alloc while denied): Would need second deployment.
 //!   - Cycle 6.2 (All close while denied): Risk of losing test deployment.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use local_network_tests::TestNetwork;
 use serial_test::serial;
 
@@ -41,16 +41,8 @@ const RECLAIM_ADDRESS: &str = "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc";
 
 /// Helper: get the bytes32 deployment ID for the test subgraph.
 async fn test_deployment_id(net: &TestNetwork) -> Result<String> {
-    let allocs = net.get_allocations().await?;
-    let allocs_arr = allocs.as_array().context("expected allocation array")?;
-    let active = allocs_arr
-        .iter()
-        .find(|a| a["closedAtEpoch"].is_null())
-        .context("no active allocation found")?;
-    let ipfs = active["subgraphDeployment"]
-        .as_str()
-        .context("allocation missing deployment")?;
-    net.query_deployment_id(ipfs).await
+    let (deployment, _) = net.ensure_active_allocation().await?;
+    net.query_deployment_id(&deployment).await
 }
 
 // ── Cycle 2: Denial State Management ──
@@ -242,21 +234,8 @@ async fn denial_lifecycle() -> Result<()> {
 
     eprintln!("=== SubgraphDenialTestPlan: Full Denial Lifecycle ===");
 
-    // Get test deployment
-    let allocs = net.get_allocations().await?;
-    let allocs_arr = allocs.as_array().context("expected allocation array")?;
-    let active = allocs_arr
-        .iter()
-        .find(|a| a["closedAtEpoch"].is_null())
-        .context("no active allocation found")?;
-    let alloc_id = active["id"]
-        .as_str()
-        .context("allocation missing id")?
-        .to_string();
-    let deployment_ipfs = active["subgraphDeployment"]
-        .as_str()
-        .context("allocation missing deployment")?
-        .to_string();
+    // Get test deployment (ensure_active_allocation recovers if a prior test panicked)
+    let (deployment_ipfs, alloc_id) = net.ensure_active_allocation().await?;
     let deployment_id = net.query_deployment_id(&deployment_ipfs).await?;
     eprintln!("  Deployment: {deployment_ipfs} ({deployment_id})");
     eprintln!("  Allocation: {alloc_id}");
@@ -433,24 +412,17 @@ async fn edge_denial_vs_eligibility() -> Result<()> {
     net.rewards_set_denied(&deployment_id, true)?;
     let denied = net.rewards_is_denied(&deployment_id)?;
     eprintln!("  isDenied: {denied} (should be true)");
-    assert!(denied, "Subgraph should be denied");
 
     // Both conditions active: ineligible indexer + denied subgraph
-    // If denial takes precedence, pre-denial rewards should be preserved
-    // (not reclaimed as INDEXER_INELIGIBLE)
-
     // Check that pending rewards are frozen (not zeroed by ineligibility)
     let allocs = net.query_active_allocations(&net.indexer_address).await?;
     if let Some(alloc) = allocs.as_array().and_then(|a| a.first()) {
         let alloc_id = alloc["id"].as_str().unwrap_or("unknown");
         let rewards = net.rewards_pending(alloc_id)?;
         eprintln!("  Pending rewards (both denied + ineligible): {rewards}");
-        // With denial taking precedence, rewards should be the frozen
-        // pre-denial amount, not zero (which ineligibility would give)
-        // Note: the exact behaviour depends on the contract implementation
     }
 
-    // Restore: undeny and re-enable eligibility
+    // Restore BEFORE asserting to prevent state leakage on failure
     eprintln!();
     eprintln!("--- Restoring ---");
     net.rewards_set_denied(&deployment_id, false)?;
@@ -458,6 +430,8 @@ async fn edge_denial_vs_eligibility() -> Result<()> {
     net.reo_set_validation(original_validation)?;
     net.reo_renew_indexer(&net.indexer_address)?;
     eprintln!("  Restored.");
+
+    assert!(denied, "Subgraph should be denied");
 
     Ok(())
 }

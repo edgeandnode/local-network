@@ -60,6 +60,54 @@ impl TestNetwork {
         Ok(resp["data"]["closeAllocation"].clone())
     }
 
+    /// Ensure at least one active allocation exists, creating one if a prior
+    /// test panicked before restoring. Returns `(deployment_ipfs, allocation_id)`.
+    pub async fn ensure_active_allocation(&self) -> Result<(String, String)> {
+        let allocs = self.get_allocations().await?;
+        let allocs = allocs.as_array().context("expected allocation array")?;
+
+        if let Some(active) = allocs.iter().find(|a| a["closedAtEpoch"].is_null()) {
+            let id = active["id"]
+                .as_str()
+                .context("allocation missing id")?
+                .to_string();
+            let dep = active["subgraphDeployment"]
+                .as_str()
+                .context("allocation missing deployment")?
+                .to_string();
+            return Ok((dep, id));
+        }
+
+        // No active allocation — recover from a closed allocation's deployment,
+        // or from the network subgraph if the management API has no allocations at all.
+        eprintln!("  WARNING: no active allocation — recovering from prior test failure");
+        let deployment = if let Some(closed) = allocs.iter().rfind(|a| !a["closedAtEpoch"].is_null()) {
+            closed["subgraphDeployment"]
+                .as_str()
+                .context("closed allocation missing deployment")?
+                .to_string()
+        } else {
+            // No allocations at all — query the network subgraph for a signalled deployment
+            eprintln!("  WARNING: no allocations at all — querying network subgraph for a deployment");
+            let deployments = self.query_deployments_with_signal().await?;
+            let deps = deployments.as_array().context("expected deployment array")?;
+            let dep = deps.first().context("no signalled deployments found")?;
+            dep["ipfsHash"]
+                .as_str()
+                .context("deployment missing ipfsHash")?
+                .to_string()
+        };
+
+        let result = self.create_allocation(&deployment, "0.01").await?;
+        let id = result["allocation"]
+            .as_str()
+            .context("expected allocation ID")?
+            .to_string();
+        eprintln!("  Recovered: created allocation {id} for {deployment}");
+
+        Ok((deployment, id))
+    }
+
     /// Get allocations from the indexer management API.
     pub async fn get_allocations(&self) -> Result<Value> {
         let query = format!(
