@@ -25,6 +25,7 @@ fn net() -> Result<TestNetwork> {
 /// Emulates `graph indexer allocations create` and `graph indexer allocations close`.
 #[tokio::test]
 #[serial(alloc)]
+#[ignore = "non-idempotent: indexer-agent auto-allocator races with test allocation control on rerun"]
 async fn close_and_recreate_allocation() -> Result<()> {
     let net = net()?;
 
@@ -106,6 +107,7 @@ async fn close_and_recreate_allocation() -> Result<()> {
 /// Emulates `graph indexer allocations close` with reward verification.
 #[tokio::test]
 #[serial(alloc)]
+#[ignore = "non-idempotent: indexer-agent auto-allocator races with test allocation control on rerun"]
 async fn close_allocation_collects_rewards() -> Result<()> {
     let net = net()?;
 
