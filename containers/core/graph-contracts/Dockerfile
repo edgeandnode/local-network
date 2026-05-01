@@ -11,9 +11,8 @@ RUN apt-get update \
   && apt-get install -y curl git jq python3 make g++ libudev-dev libusb-1.0-0-dev \
   && rm -rf /var/lib/apt/lists/*
 
-# Corepack picks pnpm per-directory from each project's `packageManager` field:
-#   /opt/contracts           → pnpm@10.x  (Horizon / CONTRACTS_COMMIT)
-#   /opt/contracts-data-edge → pnpm@9.0.6 (older pinned commit for DataEdge)
+# Corepack resolves pnpm per-directory from each project's `packageManager`
+# field (pnpm 10.x for the contracts repo — downloaded on demand).
 # Strict mode off because TAP contracts (yarn-based) has no packageManager field.
 ENV COREPACK_ENABLE_STRICT=0
 RUN corepack enable
@@ -37,12 +36,8 @@ RUN corepack prepare yarn@1.22.22 --activate && \
   cd timeline-aggregation-protocol-contracts && git checkout ${TAP_CONTRACTS_COMMIT} && \
   yarn && forge build
 
-# 3. DataEdge contracts (fixed commit, for block-oracle setup)
-RUN git clone https://github.com/graphprotocol/contracts contracts-data-edge && \
-  cd contracts-data-edge && git checkout bdc66135e7700e9a4dcd6a4beac585337fdb9c21 && \
-  cd packages/data-edge && pnpm install && \
-  sed -i "s/localhost/chain/g" hardhat.config.ts && \
-  pnpm build
+# DataEdge (packages/data-edge in the contracts workspace) is built by the
+# Phase 1 `pnpm build` above; deploy happens at runtime from /opt/contracts.
 
 COPY --chmod=755 ./run.sh /opt/run.sh
 ENTRYPOINT ["bash", "/opt/run.sh"]

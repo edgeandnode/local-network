@@ -171,9 +171,13 @@ if [ -n "$data_edge" ]; then
 fi
 
 if [ "$phase3_skip" = "false" ]; then
-  cd /opt/contracts-data-edge/packages/data-edge
-  export MNEMONIC="${MNEMONIC}"
+  cd /opt/contracts/packages/data-edge
+  # hardhat.config.ts hardcodes `localhost:8545` for the ganache network and
+  # the standard test mnemonic; patch both for the local-network stack.
+  # (The previous pinned-clone setup did the localhost→chain sed at build time.)
+  sed -i "s/localhost/chain/g" hardhat.config.ts
   sed -i "s/myth like bonus scare over problem client lizard pioneer submit female collect/${MNEMONIC}/g" hardhat.config.ts
+  export MNEMONIC="${MNEMONIC}"
   npx hardhat data-edge:deploy --contract EventfulDataEdge --deploy-name EBO --network ganache | tee deploy.txt
   data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
 
