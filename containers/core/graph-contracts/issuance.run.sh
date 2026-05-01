@@ -106,18 +106,29 @@ if [ "$phase_skip" = "false" ]; then
     "GIP-0088:issuance-connect" \
     "GIP-0088:issuance-allocate"; do
     echo "  --- Running: --tags ${goal} ---"
-    for _ in 1 2 3; do
+    succeeded=false
+    for attempt in 1 2 3; do
       if pnpm exec hardhat deploy --tags "${goal}" --network localNetwork --skip-prompts; then
+        succeeded=true
         break
       fi
       if find /opt/contracts/packages/deployment/txs/localNetwork -maxdepth 1 -name '*.json' ! -name '*executed*' -print -quit 2>/dev/null | grep -q .; then
         echo "  Executing pending governance TXs..."
         pnpm exec hardhat deploy:execute-governance --network localNetwork || true
       else
-        echo "  Activation goal failed (no governance TXs pending)"
-        exit 1
+        # No pending TXs = deploy aborted before writing any (typically
+        # NonceTooLowError from a parallel tx wallet collision with another
+        # contract-deploy container). The connect/integrate/allocate scripts
+        # gate every tx behind an on-chain pre-check, so re-running is safe:
+        # any tx that did land before the abort gets skipped on the next pass.
+        echo "  Deploy failed with no pending TXs (attempt ${attempt}/3); retrying..."
+        sleep 2
       fi
     done
+    if [ "$succeeded" = false ]; then
+      echo "  ERROR: --tags ${goal} failed after 3 attempts"
+      exit 1
+    fi
     if find /opt/contracts/packages/deployment/txs/localNetwork -maxdepth 1 -name '*.json' ! -name '*executed*' -print -quit 2>/dev/null | grep -q .; then
       echo "  Executing governance TXs..."
       pnpm exec hardhat deploy:execute-governance --network localNetwork || true
