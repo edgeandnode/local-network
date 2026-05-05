@@ -1,6 +1,8 @@
 #!/bin/bash
 set -eu
+# shellcheck source=/dev/null
 . /opt/config/.env
+# shellcheck source=/dev/null
 . /opt/shared/lib.sh
 
 # -- Ensure config files exist (empty JSON on first run) --
@@ -70,6 +72,17 @@ if [ "$skip" = "false" ]; then
   rm -rf /opt/contracts/packages/subgraph-service/ignition/deployments/chain-1337
   cd /opt/contracts/packages/subgraph-service
   npx hardhat deploy:protocol --network localNetwork --subgraph-service-config localNetwork
+
+  # Network subgraph mustache template still references
+  # subgraphService.LegacyServiceRegistry.address and
+  # subgraphService.LegacyDisputeManager.address. Hardhat doesn't deploy
+  # those legacy contracts, so write zero-address placeholders into the
+  # address book to satisfy graph-cli's address validation.
+  TEMP_JSON=$(jq '.["1337"] += {
+    "LegacyServiceRegistry": {"address": "0x0000000000000000000000000000000000000000"},
+    "LegacyDisputeManager": {"address": "0x0000000000000000000000000000000000000000"}
+  }' /opt/config/subgraph-service.json)
+  printf '%s\n' "$TEMP_JSON" > /opt/config/subgraph-service.json
 
   ensure_dispute_manager_registered
 fi
