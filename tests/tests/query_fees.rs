@@ -7,7 +7,7 @@
 //!   - `gateway_queries_generate_tap_receipts` → Cycle 5.1 (send test queries, verify receipts)
 //!   - `tap_escrow_state_observable` → Cycle 5.3 (verify query fee collection state)
 //!
-//! The local network runs the full TAP stack: gateway, tap-aggregator,
+//! The local network runs the full TAP stack: gateway, graph-tally-aggregator,
 //! tap-escrow-manager, tap-agent, and redpanda (Kafka). Query fees are
 //! generated automatically when queries pass through the gateway with
 //! an API key.
