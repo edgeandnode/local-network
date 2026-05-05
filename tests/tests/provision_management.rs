@@ -26,7 +26,7 @@ fn net() -> Result<TestNetwork> {
 ///   4. Deprovision (emulates `graph indexer provisions remove`)
 ///   5. Verify tokens return to idle stake
 #[tokio::test]
-#[serial]
+#[serial(staking)]
 async fn provision_lifecycle() -> Result<()> {
     let net = net()?;
     eprintln!("=== BaselineTestPlan 3.2-3.4: Provision Lifecycle ===");

@@ -8,8 +8,8 @@ grt=$(contract_addr L2GraphToken.address horizon)
 graph_tally_collector=$(contract_addr GraphTallyCollector.address horizon)
 payments_escrow=$(contract_addr PaymentsEscrow.address horizon)
 
-rpk topic create gateway_queries --brokers="redpanda:${REDPANDA_KAFKA_PORT}" || true
-rpk topic create gateway_ravs --brokers="redpanda:${REDPANDA_KAFKA_PORT}" || true
+rpk topic create gateway_queries --brokers="redpanda:9092" || true
+rpk topic create gateway_ravs --brokers="redpanda:9092" || true
 
 cat >config.json <<-EOF
 {
@@ -22,7 +22,7 @@ cat >config.json <<-EOF
   "grt_contract": "${grt}",
   "kafka": {
     "config": {
-      "bootstrap.servers": "redpanda:${REDPANDA_KAFKA_PORT}"
+      "bootstrap.servers": "redpanda:9092"
     },
     "realtime_topic": "gateway_queries"
   },

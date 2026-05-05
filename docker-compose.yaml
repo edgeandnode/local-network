@@ -26,7 +26,25 @@ services:
     volumes:
       - ipfs-data:/data/ipfs
     environment:
-      IPFS_PROFILE: server
+      IPFS_PROFILE: lowpower
+      IPFS_SWARM_KEY: ""
+      LIBP2P_FORCE_PNET: ""
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        ipfs init --profile=lowpower 2>/dev/null || true
+        ipfs config Addresses.Swarm --json '[]'
+        ipfs config --json Bootstrap '[]'
+        ipfs config Routing.Type none
+        ipfs config --json Swarm.DisableNatPortMap true
+        ipfs config --json Swarm.RelayClient.Enabled false
+        ipfs config --json Swarm.RelayService.Enabled false
+        ipfs config --json Swarm.Transports.Network.Relay false
+        ipfs config --json Discovery.MDNS.Enabled false
+        ipfs config Addresses.API /ip4/0.0.0.0/tcp/5001
+        ipfs config Addresses.Gateway /ip4/0.0.0.0/tcp/8080
+        ipfs daemon
     healthcheck: { interval: 1s, retries: 50, test: ipfs id }
     restart: on-failure:3
 
@@ -159,7 +177,6 @@ services:
     container_name: redpanda
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
     ports:
-      - ${REDPANDA_KAFKA_PORT}:9092
       - ${REDPANDA_KAFKA_EXTERNAL_PORT}:29092
       - ${REDPANDA_ADMIN_PORT}:9644
       - ${REDPANDA_PANDAPROXY_PORT}:8082
@@ -305,7 +322,7 @@ services:
     environment:
       RUST_LOG: eligibility_oracle=debug
       BLOCKCHAIN_PRIVATE_KEY: ${ACCOUNT0_SECRET}
-    restart: unless-stopped
+    restart: on-failure:3
 
   iisa-scoring:
     container_name: iisa-scoring
@@ -316,7 +333,7 @@ services:
     depends_on:
       redpanda: { condition: service_healthy }
     environment:
-      REDPANDA_BOOTSTRAP_SERVERS: "redpanda:${REDPANDA_KAFKA_PORT}"
+      REDPANDA_BOOTSTRAP_SERVERS: "redpanda:9092"
       REDPANDA_TOPIC: gateway_queries
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
       IISA_SCORING_INTERVAL: "600"
@@ -326,7 +343,7 @@ services:
       test: ["CMD", "test", "-f", "/app/scores/indexer_scores.json"]
       interval: 5s
       retries: 10
-    restart: unless-stopped
+    restart: on-failure:3
 
   iisa:
     container_name: iisa
@@ -348,7 +365,7 @@ services:
       interval: 10s
       retries: 10
       start_period: 30s
-    restart: unless-stopped
+    restart: on-failure:3
 
   dipper:
     container_name: dipper
@@ -380,7 +397,7 @@ services:
           "CMD-SHELL",
           "curl -s -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"health\",\"id\":1}' http://localhost:9000/ | grep -q jsonrpc",
         ]
-    restart: unless-stopped
+    restart: on-failure:3
 
   # --- Readiness check ---
 

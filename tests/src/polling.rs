@@ -58,35 +58,26 @@ impl TestNetwork {
     }
 
     /// Mine `count` blocks, advancing chain time by 12s per block (mimics Ethereum).
+    ///
+    /// Uses `anvil_mine` to batch-mine in a single RPC call. The :stable foundry
+    /// pin retains historical state across blocks, so graph-node's eth_calls keep
+    /// resolving even when the subgraph head lags behind.
     pub async fn mine_blocks(&self, count: u32) -> Result<()> {
-        let client = reqwest::Client::new();
-        for _ in 0..count {
-            // Advance time by 12 seconds
-            client
-                .post(&self.rpc_url)
-                .json(&serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "method": "evm_increaseTime",
-                    "params": [12],
-                    "id": 1
-                }))
-                .send()
-                .await
-                .context("evm_increaseTime")?;
-
-            // Mine the block
-            client
-                .post(&self.rpc_url)
-                .json(&serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "method": "evm_mine",
-                    "params": [],
-                    "id": 2
-                }))
-                .send()
-                .await
-                .context("evm_mine")?;
+        if count == 0 {
+            return Ok(());
         }
+        let client = reqwest::Client::new();
+        client
+            .post(&self.rpc_url)
+            .json(&serde_json::json!({
+                "jsonrpc": "2.0",
+                "method": "anvil_mine",
+                "params": [count, 12],
+                "id": 1
+            }))
+            .send()
+            .await
+            .context("anvil_mine")?;
         Ok(())
     }
 

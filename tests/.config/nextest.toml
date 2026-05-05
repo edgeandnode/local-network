@@ -1,10 +1,49 @@
-# All tests share a single blockchain (hardhat chain) and must run serially.
+# Tests share a single blockchain so state-mutating tests need serial groups.
 # Nextest runs each test as a separate process, so #[serial] (in-process
-# locking) doesn't work. Instead, use a test group with max-threads = 1.
+# locking) doesn't provide cross-process serialization. Instead we use
+# nextest test groups with max-threads = 1 per group.
+#
+# Group mapping (keep in sync with #[serial(...)] annotations in test code):
+#   alloc    — allocation lifecycle, denial, rewards conditions, eligibility
+#   reo      — REO governance config mutations
+#   staking  — stake and provision management
+#   (none)   — read-only / revert-only tests run freely in parallel
 
-[test-groups.shared-chain]
+[test-groups.alloc]
 max-threads = 1
 
+[test-groups.reo]
+max-threads = 1
+
+[test-groups.staking]
+max-threads = 1
+
+# alloc group: allocation lifecycle, reward collection, eligibility,
+# subgraph denial, and rewards conditions (except revert-only tests)
 [[profile.default.overrides]]
-filter = "all()"
-test-group = "shared-chain"
+filter = """binary(~allocation_lifecycle) \
+  | binary(~reward_collection) \
+  | binary(~eligibility) \
+  | binary(~subgraph_denial) \
+  | (binary(~rewards_conditions) - test(=reclaim_unauthorized_reverts))"""
+test-group = "alloc"
+
+# reo group: REO governance config mutations (not reads/reverts)
+[[profile.default.overrides]]
+filter = """test(=contract_not_paused) \
+  | test(=renew_single_indexer) \
+  | test(=batch_renewal) \
+  | test(=zero_address_skipped) \
+  | test(=oracle_renewal_resets_timeout) \
+  | test(=enable_validation_eligible_stays) \
+  | test(=eligibility_expires_after_period) \
+  | test(=timeout_failopen) \
+  | test(=pause_blocks_writes) \
+  | test(=disable_validation_emergency) \
+  | test(=rewards_view_zero_for_ineligible)"""
+test-group = "reo"
+
+# staking group: stake and provision management
+[[profile.default.overrides]]
+filter = "binary(~stake_management) | binary(~provision_management)"
+test-group = "staking"

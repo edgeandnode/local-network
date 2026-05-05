@@ -15,6 +15,7 @@
 
 use anyhow::{Context, Result};
 use local_network_tests::TestNetwork;
+use serial_test::serial;
 
 fn net() -> Result<TestNetwork> {
     TestNetwork::from_default_env()
@@ -76,6 +77,7 @@ async fn create_test_allocation(net: &TestNetwork, deployment: &str) -> Result<S
 ///   - Set 4.1: `renewIndexerEligibility` → `isEligible` = true (re-renewal)
 ///   - Set 4.2: close allocation → rewards > 0 AND > Set 2 rewards (optimistic)
 #[tokio::test]
+#[serial(alloc)]
 async fn eligibility_lifecycle() -> Result<()> {
     let net = net()?;
     if net.contracts.reo.is_none() {

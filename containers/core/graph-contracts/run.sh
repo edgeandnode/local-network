@@ -69,6 +69,13 @@ if [ "$phase1_skip" = "false" ]; then
   cd /opt/contracts/packages/subgraph-service
   npx hardhat deploy:protocol --network localNetwork --subgraph-service-config localNetwork
 
+  # Add legacy contract stubs (network subgraph still references them).
+  TEMP_JSON=$(jq '.["1337"] += {
+    "LegacyServiceRegistry": {"address": "0x0000000000000000000000000000000000000000"},
+    "LegacyDisputeManager": {"address": "0x0000000000000000000000000000000000000000"}
+  }' addresses-local-network.json)
+  printf '%s\n' "$TEMP_JSON" > addresses-local-network.json
+
   ensure_dispute_manager_registered
 fi
 
@@ -110,9 +117,13 @@ if [ -n "$data_edge" ]; then
 fi
 
 if [ "$phase2_skip" = "false" ]; then
-  cd /opt/contracts-data-edge/packages/data-edge
-  export MNEMONIC="${MNEMONIC}"
+  cd /opt/contracts/packages/data-edge
+  # hardhat.config.ts hardcodes `localhost:8545` for the ganache network and
+  # the standard test mnemonic; patch both for the local-network stack.
+  # (The previous pinned-clone setup did the localhost→chain sed at build time.)
+  sed -i "s/localhost/chain/g" hardhat.config.ts
   sed -i "s/myth like bonus scare over problem client lizard pioneer submit female collect/${MNEMONIC}/g" hardhat.config.ts
+  export MNEMONIC="${MNEMONIC}"
   npx hardhat data-edge:deploy --contract EventfulDataEdge --deploy-name EBO --network ganache | tee deploy.txt
   data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
 

@@ -1,3 +1,4 @@
+# check=skip=InvalidDefaultArgInFrom
 ## Local-network wrapper for dipper-service
 ARG DIPPER_VERSION
 FROM ghcr.io/edgeandnode/dipper-service:${DIPPER_VERSION}

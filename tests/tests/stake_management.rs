@@ -21,7 +21,7 @@ fn net() -> Result<TestNetwork> {
 /// Emulates Explorer "Add Stake": approve GRT → stakeTo(indexer, amount).
 /// Verifies stakedTokens increases after staking.
 #[tokio::test]
-#[serial]
+#[serial(staking)]
 async fn add_stake() -> Result<()> {
     let net = net()?;
     eprintln!("=== BaselineTestPlan 2.1: Add Stake ===");
@@ -52,7 +52,7 @@ async fn add_stake() -> Result<()> {
 /// Note: This only unstakes idle (unprovisioned) tokens. Full thawing
 /// and withdrawal after the thawing period is tested in provision_management.
 #[tokio::test]
-#[serial]
+#[serial(staking)]
 async fn unstake_idle_tokens() -> Result<()> {
     let net = net()?;
     eprintln!("=== BaselineTestPlan 2.2: Unstake Tokens ===");

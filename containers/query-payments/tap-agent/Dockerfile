@@ -1,3 +1,4 @@
+# check=skip=InvalidDefaultArgInFrom
 ## Local-network wrapper for indexer-tap-agent
 ARG INDEXER_TAP_AGENT_VERSION
 FROM ghcr.io/graphprotocol/indexer-tap-agent:${INDEXER_TAP_AGENT_VERSION}
