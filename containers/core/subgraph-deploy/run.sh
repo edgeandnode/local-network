@@ -1,6 +1,8 @@
 #!/bin/bash
 set -eu
+# shellcheck source=/dev/null
 . /opt/config/.env
+# shellcheck source=/dev/null
 . /opt/shared/lib.sh
 
 t0=$SECONDS
