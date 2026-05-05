@@ -6,7 +6,6 @@ set -eu
 
 cd /opt
 graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
-tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 dispute_manager=$(contract_addr DisputeManager.address subgraph-service)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 echo "Waiting for network subgraph..." >&2

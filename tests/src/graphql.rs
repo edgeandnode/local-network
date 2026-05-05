@@ -139,15 +139,15 @@ impl TestNetwork {
 
     /// Query the TAP subgraph for escrow accounts.
     pub async fn query_tap_escrow_accounts(&self) -> Result<Value> {
-        let query = r#"{ escrowAccounts(first: 10) {
+        let query = r#"{ paymentsEscrowAccounts(first: 10) {
             balance
-            sender { id }
+            payer { id }
             receiver { id }
         } }"#;
         // TAP subgraph may be empty — treat GraphQL errors as empty result
-        let resp = self.graphql_post(&self.tap_subgraph_url, query, None).await;
+        let resp = self.graphql_post(&self.subgraph_url, query, None).await;
         match resp {
-            Ok(v) => Ok(v["data"]["escrowAccounts"].clone()),
+            Ok(v) => Ok(v["data"]["paymentsEscrowAccounts"].clone()),
             Err(_) => Ok(Value::Array(vec![])),
         }
     }

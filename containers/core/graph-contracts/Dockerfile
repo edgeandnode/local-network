@@ -1,6 +1,5 @@
 FROM node:23.11-bookworm-slim
 ARG CONTRACTS_COMMIT
-ARG TAP_CONTRACTS_COMMIT
 
 RUN apt-get update \
   && apt-get install -y curl git jq python3 make g++ \
@@ -23,10 +22,7 @@ RUN git clone https://github.com/graphprotocol/contracts && \
   cd contracts && git checkout ${CONTRACTS_COMMIT} && \
   pnpm install --ignore-scripts && pnpm build
 
-# 2. TAP contracts
-# Deprecated
-
-# 3. DataEdge contracts (fixed commit, for block-oracle setup)
+# 2. DataEdge contracts (fixed commit, for block-oracle setup)
 RUN git clone https://github.com/graphprotocol/contracts contracts-data-edge && \
   cd contracts-data-edge && git checkout bdc66135e7700e9a4dcd6a4beac585337fdb9c21 && \
   cd packages/data-edge && pnpm install && \
