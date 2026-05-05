@@ -4,7 +4,6 @@ set -eu
 
 . /opt/shared/lib.sh
 
-tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 
@@ -23,10 +22,6 @@ status_url = "http://graph-node:${GRAPH_NODE_STATUS_PORT}/graphql"
 [subgraphs.network]
 query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 recently_closed_allocation_buffer_secs = 60
-syncing_interval_secs = 30
-
-[subgraphs.escrow]
-query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/semiotic/tap"
 syncing_interval_secs = 30
 
 [blockchain]

@@ -24,9 +24,7 @@ RUN git clone https://github.com/graphprotocol/contracts && \
   pnpm install --ignore-scripts && pnpm build
 
 # 2. TAP contracts
-RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-contracts && \
-  cd timeline-aggregation-protocol-contracts && git checkout ${TAP_CONTRACTS_COMMIT} && \
-  yarn && forge build
+# Deprecated
 
 # 3. DataEdge contracts (fixed commit, for block-oracle setup)
 RUN git clone https://github.com/graphprotocol/contracts contracts-data-edge && \

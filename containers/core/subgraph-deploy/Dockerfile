@@ -25,8 +25,7 @@ RUN git clone https://github.com/graphprotocol/graph-network-subgraph && \
   pnpm install && pnpm add -D ts-node
 
 # 2. TAP subgraph
-RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph --recursive && \
-  cd timeline-aggregation-protocol-subgraph && git checkout ${TAP_SUBGRAPH_COMMIT} && yarn
+# Deprecated
 
 # 3. Block oracle subgraph
 RUN git clone https://github.com/graphprotocol/block-oracle && \
