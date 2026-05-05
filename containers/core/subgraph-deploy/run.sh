@@ -30,7 +30,6 @@ deploy_network() {
   npx ts-node config/localNetworkAddressScript.ts
   npx mustache ./config/generatedAddresses.json ./config/addresses.template.ts > ./config/addresses.ts
   npx mustache ./config/generatedAddresses.json subgraph.template.yaml > subgraph.yaml
-  cat subgraph.yaml
   npx graph codegen --output-dir src/types/
   npx graph create graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}"
   npx graph deploy graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}" --ipfs="http://ipfs:${IPFS_RPC_PORT}" --version-label=v0.0.1 | tee deploy.txt
