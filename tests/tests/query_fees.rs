@@ -1,14 +1,14 @@
 //! Query Fee Tests (BaselineTestPlan Cycle 5.1, 5.3)
 //!
-//! Tests the TAP (Timeline Aggregation Protocol) query fee pipeline:
-//!   gateway query → TAP receipt → Kafka → aggregation → escrow
+//! Tests the Graph Tally query fee pipeline:
+//!   gateway query → Graph Tally receipt → Kafka → aggregation → escrow
 //!
 //! Mapping to BaselineTestPlan:
-//!   - `gateway_queries_generate_tap_receipts` → Cycle 5.1 (send test queries, verify receipts)
-//!   - `tap_escrow_state_observable` → Cycle 5.3 (verify query fee collection state)
+//!   - `gateway_queries_generate_graph_tally_receipts` → Cycle 5.1 (send test queries, verify receipts)
+//!   - `graph_tally_escrow_state_observable` → Cycle 5.3 (verify query fee collection state)
 //!
-//! The local network runs the full TAP stack: gateway, graph-tally-aggregator,
-//! tap-escrow-manager, tap-agent, and redpanda (Kafka). Query fees are
+//! The local network runs the full Graph Tally stack: gateway, graph_tally_aggregator,
+//! graph_tally_escrow_manager, tap-agent, and redpanda (Kafka). Query fees are
 //! generated automatically when queries pass through the gateway with
 //! an API key.
 
@@ -19,16 +19,16 @@ fn net() -> Result<TestNetwork> {
     TestNetwork::from_default_env()
 }
 
-/// BaselineTestPlan 5.1: Verify gateway queries generate TAP receipts.
+/// BaselineTestPlan 5.1: Verify gateway queries generate Graph Tally receipts.
 ///
 /// Emulates the `query_test.sh` script from the test plan.
 /// Sends queries through the gateway and checks that the indexer-service
-/// receives and validates TAP V2 receipts.
+/// receives and validates Graph Tally receipts.
 #[tokio::test]
-async fn gateway_queries_generate_tap_receipts() -> Result<()> {
+async fn gateway_queries_generate_graph_tally_receipts() -> Result<()> {
     let net = net()?;
 
-    eprintln!("=== TAP Receipt Generation Test ===");
+    eprintln!("=== Graph Tally Receipt Generation Test ===");
 
     // Send a batch of queries through the gateway
     let (ok, fail) = net.send_gateway_queries(20).await?;
@@ -45,22 +45,22 @@ async fn gateway_queries_generate_tap_receipts() -> Result<()> {
 
 /// BaselineTestPlan 5.3: Check query fee collection state.
 ///
-/// Verifies TAP escrow accounts in the TAP subgraph and on-chain via
+/// Verifies Graph Tally escrow accounts in the subgraph and on-chain via
 /// `PaymentsEscrow.getBalance()`. In production, `queryFeesCollected`
 /// in the network subgraph would be non-zero after queries flow through.
 ///
 /// Note: This test observes current state rather than asserting a specific
-/// value, since escrow deposits depend on background TAP processing timing.
+/// value, since escrow deposits depend on background Graph Tally processing timing.
 #[tokio::test]
-async fn tap_escrow_state_observable() -> Result<()> {
+async fn graph_tally_escrow_state_observable() -> Result<()> {
     let net = net()?;
 
-    eprintln!("=== TAP Escrow State Test ===");
+    eprintln!("=== Graph Tally Escrow State Test ===");
 
-    // Check TAP subgraph for escrow accounts
-    let accounts = net.query_tap_escrow_accounts().await?;
+    // Check subgraph for escrow accounts
+    let accounts = net.query_graph_tally_escrow_accounts().await?;
     let count = accounts.as_array().map(|a| a.len()).unwrap_or(0);
-    eprintln!("  TAP escrow accounts: {count}");
+    eprintln!("  Graph Tally escrow accounts: {count}");
 
     if count > 0 {
         for acc in accounts.as_array().unwrap() {
@@ -70,7 +70,7 @@ async fn tap_escrow_state_observable() -> Result<()> {
             eprintln!("    payer={payer} receiver={receiver} balance={balance}");
         }
     } else {
-        eprintln!("  NOTE: No escrow accounts yet — TAP escrow manager may need time to process");
+        eprintln!("  NOTE: No escrow accounts yet — Graph Tally escrow manager may need time to process");
     }
 
     // Check on-chain escrow balance directly
@@ -90,7 +90,7 @@ async fn tap_escrow_state_observable() -> Result<()> {
     }
 
     // This test is observational — it passes regardless of state to document
-    // the TAP system's current behavior. The key assertion is that querying
+    // the Graph Tally system's current behavior. The key assertion is that querying
     // doesn't error out (services are reachable).
     Ok(())
 }

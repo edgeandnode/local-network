@@ -1,22 +1,10 @@
-FROM debian:bookworm-slim
-ARG TAP_ESCROW_MANAGER_COMMIT
-
+# check=skip=InvalidDefaultArgInFrom
+ARG GRAPH_TALLY_ESCROW_MANAGER_VERSION
+FROM ghcr.io/graphprotocol/graph_tally_escrow_manager:${GRAPH_TALLY_ESCROW_MANAGER_VERSION}
 RUN apt-get update \
-    && apt-get install -y clang cmake curl git jq libcurl4-openssl-dev libsasl2-dev libssl-dev pkg-config zip \
+    && apt-get install -y jq \
     && rm -rf /var/lib/apt/lists/*
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
-
-# Install Foundry
-COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
-    /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin/anvil /usr/local/bin/chisel /usr/local/bin/
-
 RUN curl -sLO https://github.com/redpanda-data/redpanda/releases/latest/download/rpk-linux-amd64.zip && unzip rpk-linux-amd64.zip -d /usr/local/bin/
 
-WORKDIR /opt
-RUN git clone https://github.com/edgeandnode/tap-escrow-manager && \
-    cd tap-escrow-manager && git checkout ${TAP_ESCROW_MANAGER_COMMIT} && \
-    . /root/.cargo/env && cargo build -p tap-escrow-manager && \
-    cp target/debug/tap-escrow-manager /usr/local/bin/tap-escrow-manager && cd .. && rm -rf tap-escrow-manager
-
 COPY ./run.sh /opt/run.sh
-ENTRYPOINT ["bash", "/opt/run.sh"]
+ENTRYPOINT ["sh", "/opt/run.sh"]

@@ -6,7 +6,7 @@ This approach is obsolete.
 
 ## Overview
 
-The Indexing Payments Safe payment system replaces TAP (Timeline Aggregation Protocol) for indexing fee payments, using on-chain GRT transfers via Safe Module pattern with asynchronous processing.
+The Indexing Payments Safe payment system replaces Graph Tally for indexing fee payments, using on-chain GRT transfers via Safe Module pattern with asynchronous processing.
 
 ## Documentation Structure
 
@@ -48,7 +48,7 @@ Read the [Architecture Document](./Architecture.md) to understand:
 
 ## Key Concepts
 
-- **Receipt ID**: Replaces TAP receipts, enables async processing
+- **Receipt ID**: Replaces Graph Tally receipts, enables async processing
 - **State Machine**: PENDING → SUBMITTED/FAILED
 - **Safe Module**: Direct execution pattern for GRT transfers
 - **1% Protocol Burn**: Automatic burn on all payments

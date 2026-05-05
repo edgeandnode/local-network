@@ -48,7 +48,7 @@ Run with: `cd tests && cargo nextest run --no-capture`
 - [x] Allocation lifecycle tests (Layer 2)
 - [x] Deterministic eligibility lifecycle tests (Layer 3)
 - [x] Reward collection via `collect(IndexingRewards)` (Layer 3)
-- [x] Query fee / TAP receipt generation tests (Layer 3)
+- [x] Query fee / Graph Tally receipt generation tests (Layer 3)
 - [x] Enabled reward pipeline: curation signal + issuance config in deploy scripts
 - [x] EBO polling interval reduced from 20s to 1s for faster tests
 
@@ -101,13 +101,13 @@ The `collect_indexing_rewards` test directly calls `SubgraphService.collect()` a
 
 Mining ~100 blocks for epoch advancement adds ~1200s of chain time (12s per block). With a 300s eligibility period, the indexer becomes ineligible mid-test. Tests must call `reo_renew_indexer()` before any reward-dependent operation.
 
-### TAP Query Fee Pipeline
+### Graph Tally Query Fee Pipeline
 
-The TAP stack works end-to-end for receipt generation (20/20 gateway queries succeed). However:
+The Graph Tally stack works end-to-end for receipt generation (20/20 gateway queries succeed). However:
 
-- TAP escrow deposits are not observed (escrow balance = 0)
-- TAP subgraph shows 0 escrow accounts
-- This is expected — the TAP escrow manager processes asynchronously and may need longer running time
+- Graph Tally escrow deposits are not observed (escrow balance = 0)
+- Graph Tally subgraph shows 0 escrow accounts
+- This is expected — the Graph Tally escrow manager processes asynchronously and may need longer running time
 
 ## Gaps
 
@@ -176,7 +176,7 @@ Tests assume an already-running network. Full validation from `docker compose do
 - Set `issuancePerBlock = 100 GRT` in `graph-contracts/run.sh` (requires ACCOUNT1_SECRET as Governor)
 - Reduced EBO polling from 20s to 1s — tests 3x faster (allocation_lifecycle 105s→38s, eligibility 277s→91s)
 - Added `reward_collection.rs`: `collect(IndexingRewards)` increases stake by ~12,000 GRT
-- Added `query_fees.rs`: gateway generates TAP receipts (20/20), escrow state observable
+- Added `query_fees.rs`: gateway generates Graph Tally receipts (20/20), escrow state observable
 - Found and fixed eligibility expiry during mining (300s period, ~1200s chain time in 2 epoch advances)
 - Fixed `PaymentsEscrow.getBalance()` signature: 3 args (payer, collector, receiver)
 - All 12 tests passing

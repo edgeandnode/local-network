@@ -36,5 +36,5 @@ cat >config.json <<-EOF
 EOF
 cat config.json
 
-export RUST_LOG="info,tap_escrow_manager=debug"
-tap-escrow-manager config.json
+export RUST_LOG="info,graph_tally_escrow_manager=debug"
+graph_tally_escrow_manager config.json

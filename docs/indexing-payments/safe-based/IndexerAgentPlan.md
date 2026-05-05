@@ -2,7 +2,7 @@
 
 ## Overview
 
-This plan details the changes required to the Indexer Agent to support the new Safe-based Indexing Payments system. The implementation replaces TAP receipt collection with a Receipt ID polling mechanism.
+This plan details the changes required to the Indexer Agent to support the new Safe-based Indexing Payments system. The implementation replaces Graph Tally receipt collection with a Receipt ID polling mechanism.
 
 ## Development Branch
 
@@ -13,8 +13,8 @@ This work will continue on top of the existing `dips-horizon-rebase` branch, whi
 ## Current State
 
 The Indexer Agent currently:
-- Uses payment collector class to collect TAP receipts from the gateway
-- Stores TAP receipts locally for later redemption
+- Uses payment collector class to collect Graph Tally receipts from the gateway
+- Stores Graph Tally receipts locally for later redemption
 - Makes synchronous calls expecting immediate receipt data
 - Has existing database models for tracking receipts
 
@@ -44,11 +44,11 @@ IndexingPaymentReceipt model:
 
 **Location**: `indexer-agent/source/packages/indexer-common/src/indexing-fees/indexing-payments.ts`
 
-#### Remove TAP Dependencies
+#### Remove Graph Tally Dependencies
 
-- Remove all TAP receipt handling code
+- Remove all Graph Tally receipt handling code
 - Remove receipt signature verification
-- Remove TAP-specific imports and types
+- Remove Graph Tally-specific imports and types
 
 #### Implement Receipt ID Collection
 
@@ -161,13 +161,13 @@ Metrics to track:
 
 1. Add GetReceiptById method to RPC client
 2. Update CollectPayment response handling
-3. Remove TAP-specific response parsing
+3. Remove Graph Tally-specific response parsing
 4. Add proper error handling
 
 ### Phase 3: Core Collection Logic
 
 1. Refactor Payment Collector class
-2. Remove all TAP receipt logic
+2. Remove all Graph Tally receipt logic
 3. Implement Receipt ID storage
 4. Add polling mechanism
 5. Handle all status transitions
@@ -252,12 +252,12 @@ indexer-agent start \
 ## Migration Considerations
 
 ### Backward Compatibility
-- Keep TAP code for query fees
+- Keep Graph Tally code for query fees
 - Add feature flag for new payment system
 - Support gradual rollout
 
 ### Data Migration
-- No migration needed for existing TAP receipts
+- No migration needed for existing Graph Tally receipts
 - New receipts use Receipt ID system
 - Clear separation in database
 
@@ -267,7 +267,7 @@ indexer-agent start \
 - All payments create Receipt IDs
 - Status polling works reliably
 - Transactions appear on chain
-- No TAP receipts for indexing fees
+- No Graph Tally receipts for indexing fees
 
 ### Performance Metrics
 - Receipt creation < 1 second
@@ -279,7 +279,7 @@ indexer-agent start \
 
 If issues arise:
 1. Disable new payment flow via feature flag
-2. Revert to TAP receipt collection
+2. Revert to Graph Tally receipt collection
 3. Investigate and fix issues
 4. Re-deploy with fixes
 

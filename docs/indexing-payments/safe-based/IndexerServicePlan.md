@@ -15,7 +15,7 @@ This work will continue on the existing `pcv/ipfs-dips-timeout` branch, which ha
 The Indexer Service currently:
 - Implements gRPC server for indexing payments using protocol buffers
 - Forwards collect payment requests to the gateway
-- Returns TAP receipts in the response
+- Returns Graph Tally receipts in the response
 - Has no business logic for payment processing (pass-through)
 
 ## Required Changes
@@ -53,7 +53,7 @@ CREATE INDEX idx_indexing_receipts_receipt_id ON indexing_receipts(receipt_id);
 
 #### Update CollectPaymentResponse
 
-The main change is to modify the response to return a Receipt ID instead of TAP receipt:
+The main change is to modify the response to return a Receipt ID instead of Graph Tally receipt:
 
 ```protobuf
 // Current definition
@@ -106,9 +106,9 @@ message GetReceiptByIdResponse {
 }
 ```
 
-#### Remove TAP-specific Status Codes
+#### Remove Graph Tally-specific Status Codes
 
-Review and potentially update the `CollectPaymentStatus` enum if any codes are TAP-specific:
+Review and potentially update the `CollectPaymentStatus` enum if any codes are Graph Tally-specific:
 
 ```protobuf
 enum CollectPaymentStatus {
@@ -199,7 +199,7 @@ Consider protocol version handling:
 1. Deploy updated indexer-service
 2. Trigger payment collection from indexer-agent
 3. Verify Receipt ID is returned
-4. Confirm no TAP receipts are generated
+4. Confirm no Graph Tally receipts are generated
 
 ## Configuration
 
@@ -238,7 +238,7 @@ This requires both schema and protocol changes:
 
 - Protocol definitions updated with new fields
 - Generated code compiles without errors
-- No TAP receipt field in responses
+- No Graph Tally receipt field in responses
 - Receipt ID returned successfully
 - Integration tests pass with indexer-agent
 

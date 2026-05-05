@@ -218,12 +218,12 @@ services:
       RUST_BACKTRACE: 1
     restart: on-failure:3
 
-  tap-escrow-manager:
-    container_name: tap-escrow-manager
+  graph-tally-escrow-manager:
+    container_name: graph-tally-escrow-manager
     build:
-      context: containers/query-payments/tap-escrow-manager
+      context: containers/query-payments/graph-tally-escrow-manager
       args:
-        TAP_ESCROW_MANAGER_COMMIT: ${TAP_ESCROW_MANAGER_COMMIT}
+        GRAPH_TALLY_ESCROW_MANAGER_VERSION: ${GRAPH_TALLY_ESCROW_MANAGER_VERSION}
     depends_on:
       subgraph-deploy: { condition: service_completed_successfully }
       redpanda: { condition: service_healthy }
@@ -233,7 +233,7 @@ services:
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     environment:
-      RUST_LOG: info,tap_escrow_manager=trace
+      RUST_LOG: info,graph_tally_escrow_manager=trace
       RUST_BACKTRACE: 1
     restart: on-failure:3
 

@@ -137,14 +137,14 @@ impl TestNetwork {
         Ok(!resp["data"]["networkEpochBlockNumber"].is_null())
     }
 
-    /// Query the TAP subgraph for escrow accounts.
-    pub async fn query_tap_escrow_accounts(&self) -> Result<Value> {
+    /// Query the network subgraph for escrow accounts.
+    pub async fn query_graph_tally_escrow_accounts(&self) -> Result<Value> {
         let query = r#"{ paymentsEscrowAccounts(first: 10) {
             balance
             payer { id }
             receiver { id }
         } }"#;
-        // TAP subgraph may be empty — treat GraphQL errors as empty result
+        // subgraph may be empty — treat GraphQL errors as empty result
         let resp = self.graphql_post(&self.subgraph_url, query, None).await;
         match resp {
             Ok(v) => Ok(v["data"]["paymentsEscrowAccounts"].clone()),

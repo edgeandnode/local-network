@@ -2,12 +2,12 @@
 
 ## Overview
 
-This plan details the changes required to the Dipper service to implement Safe-based GRT payments for Indexing Payments, replacing the current TAP receipt system.
+This plan details the changes required to the Dipper service to implement Safe-based GRT payments for Indexing Payments, replacing the current Graph Tally receipt system.
 
 ## Current State
 
 The Dipper service currently:
-- Generates TAP receipts for payment collection
+- Generates Graph Tally receipts for payment collection
 - Returns receipts synchronously
 - Has worker infrastructure for async tasks
 - Stores receipts in PostgreSQL database
@@ -105,7 +105,7 @@ Safe Module client needs:
 Changes:
 1. Create receipt with PENDING status
 2. Queue PayOnChain worker job
-3. Return Receipt ID instead of TAP receipt in CollectPaymentResponse
+3. Return Receipt ID instead of Graph Tally receipt in CollectPaymentResponse
 4. Include initial status in response
 ```
 
@@ -164,7 +164,7 @@ Safe payment configuration:
 ### Phase 4: RPC Updates
 1. Modify collect_payment flow
 2. Add polling endpoint
-3. Remove TAP generation
+3. Remove Graph Tally generation
 4. Update response types
 
 ### Phase 5: Testing
@@ -256,7 +256,7 @@ Alert conditions:
 
 ## Rollback Plan
 
-1. Keep TAP code available
+1. Keep Graph Tally code available
 2. Feature flag for payment method
 3. Database backups before migration
 4. Manual payment capability
@@ -304,5 +304,5 @@ payment_retry_delay_seconds = 60
 - Payments process within 60 seconds
 - State machine works correctly
 - 1% burn executed properly
-- No TAP receipts for indexing payments
+- No Graph Tally receipts for indexing payments
 - Transactions verifiable on chain
