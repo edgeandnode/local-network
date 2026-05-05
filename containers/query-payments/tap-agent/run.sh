@@ -1,8 +1,21 @@
 #!/bin/sh
 set -eu
+# shellcheck source=/dev/null
 . /opt/config/.env
 
+# shellcheck source=/dev/null
 . /opt/shared/lib.sh
+
+# Allow env var overrides for multi-indexer support
+INDEXER_ADDRESS="${INDEXER_ADDRESS:-$RECEIVER_ADDRESS}"
+INDEXER_OPERATOR_MNEMONIC="${INDEXER_OPERATOR_MNEMONIC:-$INDEXER_MNEMONIC}"
+INDEXER_DB_NAME="${INDEXER_DB_NAME:-indexer_components_1}"
+GRAPH_NODE_HOST="${GRAPH_NODE_HOST:-graph-node}"
+PROTOCOL_GRAPH_NODE_HOST="${PROTOCOL_GRAPH_NODE_HOST:-graph-node}"
+POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
+POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+
+wait_for_rpc
 
 cd /opt
 graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
@@ -14,18 +27,18 @@ EOF
 
 cat >config.toml <<-EOF
 [indexer]
-indexer_address = "${RECEIVER_ADDRESS}"
-operator_mnemonic = "${INDEXER_MNEMONIC}"
+indexer_address = "${INDEXER_ADDRESS}"
+operator_mnemonic = "${INDEXER_OPERATOR_MNEMONIC}"
 
 [database]
-postgres_url = "postgresql://postgres@postgres:${POSTGRES_PORT}/indexer_components_1"
+postgres_url = "postgresql://postgres@${POSTGRES_HOST}:${POSTGRES_PORT}/${INDEXER_DB_NAME}"
 
 [graph_node]
-query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}"
-status_url = "http://graph-node:${GRAPH_NODE_STATUS_PORT}/graphql"
+query_url = "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}"
+status_url = "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_STATUS_PORT}/graphql"
 
 [subgraphs.network]
-query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
+query_url = "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 recently_closed_allocation_buffer_secs = 60
 syncing_interval_secs = 30
 

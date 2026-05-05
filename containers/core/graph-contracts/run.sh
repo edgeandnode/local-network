@@ -1,6 +1,8 @@
 #!/bin/bash
 set -eu
+# shellcheck source=/dev/null
 . /opt/config/.env
+# shellcheck source=/dev/null
 . /opt/shared/lib.sh
 
 # -- Ensure config files exist (empty JSON on first run) --
@@ -67,6 +69,11 @@ fi
 if [ "$phase1_skip" = "false" ]; then
   echo "Deploying new version of the protocol"
   cd /opt/contracts/packages/subgraph-service
+
+  # Clear stale Ignition deployment state (may be baked into the image)
+  rm -rf ./ignition/deployments/chain-1337
+  rm -rf /opt/contracts/packages/horizon/ignition/deployments/chain-1337
+
   npx hardhat deploy:protocol --network localNetwork --subgraph-service-config localNetwork
 
   # Add legacy contract stubs (network subgraph still references them).
@@ -92,6 +99,22 @@ if [ -n "$rewards_manager" ]; then
     cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
       --private-key="${ACCOUNT1_SECRET}" \
       "${rewards_manager}" "setIssuancePerBlock(uint256)" "${target_issuance}"
+  fi
+fi
+
+# -- Ensure SubgraphService is registered as rewards issuer on RewardsManager --
+subgraph_service=$(jq -r '.["1337"].SubgraphService.address // empty' /opt/config/subgraph-service.json)
+if [ -n "$rewards_manager" ] && [ -n "$subgraph_service" ]; then
+  current_service=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+    "${rewards_manager}" "subgraphService()(address)" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+  expected_lower=$(echo "$subgraph_service" | tr '[:upper:]' '[:lower:]')
+  if [ "$current_service" = "$expected_lower" ]; then
+    echo "  SubgraphService already set on RewardsManager: ${subgraph_service}"
+  else
+    echo "  Setting SubgraphService on RewardsManager to ${subgraph_service} (was ${current_service})"
+    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
+      --private-key="${ACCOUNT1_SECRET}" \
+      "${rewards_manager}" "setSubgraphService(address)" "${subgraph_service}"
   fi
 fi
 
@@ -124,7 +147,9 @@ if [ "$phase2_skip" = "false" ]; then
   sed -i "s/localhost/chain/g" hardhat.config.ts
   sed -i "s/myth like bonus scare over problem client lizard pioneer submit female collect/${MNEMONIC}/g" hardhat.config.ts
   export MNEMONIC="${MNEMONIC}"
-  npx hardhat data-edge:deploy --contract EventfulDataEdge --deploy-name EBO --network ganache | tee deploy.txt
+  # Tenderly verification may fail (external API, irrelevant locally) but
+  # the contract deploys fine. Allow non-zero exit from the hardhat command.
+  npx hardhat data-edge:deploy --contract EventfulDataEdge --deploy-name EBO --network ganache | tee deploy.txt || true
   data_edge="$(grep 'contract: ' deploy.txt | awk '{print $3}')"
 
   echo "=== Data edge deployed at: $data_edge ==="
@@ -205,7 +230,7 @@ if [ "$phase3_deploy_skip" = "false" ]; then
       break
     fi
     # Check for pending governance TXs and execute them
-    if ls /opt/contracts/packages/deployment/txs/localNetwork/*.json 2>/dev/null | grep -qv executed; then
+    if find /opt/contracts/packages/deployment/txs/localNetwork/ -name '*.json' ! -name '*executed*' -print -quit 2>/dev/null | grep -q .; then
       echo "  Executing pending governance TXs..."
       npx hardhat deploy:execute-governance --network localNetwork || true
     else

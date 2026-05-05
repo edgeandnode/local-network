@@ -1,12 +1,19 @@
 #!/bin/bash
 set -eu
-# shellcheck source=/dev/null
 . /opt/config/.env
-# shellcheck source=/dev/null
 . /opt/shared/lib.sh
 
+# Build from source
+cd /opt/source
+cargo build --release --bin eligibility-oracle
+BINARY=/opt/source/target/release/eligibility-oracle
+
 # Wait for the REO contract address to be available in issuance.json
-reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address // empty' /opt/config/issuance.json 2>/dev/null || true)
+reo_address=""
+for f in issuance.json; do
+  reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address // empty' "/opt/config/$f" 2>/dev/null || true)
+  [ -n "$reo_address" ] && break
+done
 
 if [ -z "$reo_address" ]; then
   echo "ERROR: RewardsEligibilityOracle address not found in issuance.json"
@@ -19,6 +26,8 @@ echo "  REO contract: ${reo_address}"
 echo "  Chain ID: ${CHAIN_ID}"
 echo "  Redpanda: redpanda:${REDPANDA_KAFKA_PORT}"
 
+cd /tmp
+
 # Create compacted output topic (idempotent)
 rpk topic create indexer_daily_metrics \
   --brokers="redpanda:${REDPANDA_KAFKA_PORT}" \
@@ -26,9 +35,7 @@ rpk topic create indexer_daily_metrics \
   -c retention.ms=7776000000 \
   2>/dev/null || true
 
-# Reset consumer group to the start of the topic. Stale committed offsets
-# survive Redpanda restarts and can cause the oracle to skip new messages
-# when the topic has been repopulated after a network restart.
+# Reset consumer group to the start of the topic
 rpk group seek eligibility-oracle --to start \
   --topics gateway_queries \
   --brokers="redpanda:${REDPANDA_KAFKA_PORT}" \
@@ -38,11 +45,9 @@ rpk group seek eligibility-oracle --to start \
 cat >config.toml <<EOF
 [kafka]
 bootstrap_servers = "redpanda:${REDPANDA_KAFKA_PORT}"
-# Shorter rebuild timeout for local network
 rebuild_timeout_secs = 10
 
 [eligibility]
-# Relaxed thresholds for local testing
 analysis_period_days = 1
 min_online_days = 1
 min_subgraphs = 1
@@ -54,8 +59,6 @@ contract_address = "${reo_address}"
 rpc_urls = ["http://chain:${CHAIN_RPC_PORT}"]
 chain_id = ${CHAIN_ID}
 private_key = "\$BLOCKCHAIN_PRIVATE_KEY"
-# Re-submit before the 300s eligibility period expires.
-# Note that a new block needs to be mined to trigger the oracle node.
 staleness_threshold_secs = 200
 
 EOF
@@ -64,13 +67,9 @@ echo "=== Generated config.toml ===" >&2
 cat config.toml >&2
 echo "=============================" >&2
 
-# Run in one-shot mode on a schedule, mirroring production (K8s CronJob).
-# Each invocation rebuilds state from the compacted Kafka topic, evaluates
-# eligibility, submits on-chain, then exits.
 INTERVAL=10
 CHAIN_RPC="http://chain:${CHAIN_RPC_PORT}"
 
-# Forward SIGTERM/SIGINT to the running child so Docker stop is graceful.
 child=0
 trap 'kill -TERM "$child" 2>/dev/null; wait "$child"; exit 0' SIGTERM SIGINT
 
@@ -102,10 +101,10 @@ while true; do
   fi
 
   echo "--- New block: ${last_block:-none} -> ${current_block}, running oracle ---"
-  eligibility-oracle --config config.toml &
+  "$BINARY" --config config.toml &
   child=$!
   wait "$child" && echo "--- Oracle finished (ok) ---" \
-                || echo "--- Oracle finished (exit $?) ---"
+              || echo "--- Oracle finished (exit $?) ---"
   last_block=$current_block
 
   sleep "$INTERVAL" &

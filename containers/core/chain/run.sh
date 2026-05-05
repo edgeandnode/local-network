@@ -9,4 +9,6 @@ fi
 
 exec anvil --host=0.0.0.0 --chain-id=1337 --base-fee=0 \
   --state /data/anvil-state.json \
+  --disable-code-size-limit \
+  --hardfork cancun \
   $FORK_ARG
