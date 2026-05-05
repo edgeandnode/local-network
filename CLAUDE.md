@@ -29,7 +29,7 @@ The stack has these layers:
 - **DIPs**: dipper (orchestrator), iisa (indexing indexer selection algorithm - subgraph-dips-indexer-selection)
 - **Oracles**: block-oracle, eligibility-oracle-node (REO)
 
-Dev overrides (`compose/dev/dips.yaml`) mount local source for: contracts, indexer-rs, dipper, iisa, eligibility-oracle-node. Everything else uses pinned versions or clones at build time.
+By default the stack runs entirely from pinned commits/images (no local checkouts needed). Per-service `compose/dev/dips-*.yaml` overlays opt individual services into source-mount mode where the container builds from your local checkout at start. `compose/dev/dips.yaml` is a meta-preset that mounts everything (subgraph-deploy, indexer-service, indexer-agent, dipper, iisa+iisa-cronjob, eligibility-oracle-node). See `compose/dev/README.md`.
 
 ### How source-mounted services pick up code changes
 
@@ -43,9 +43,9 @@ All containers (primary and extras) for a given service mount the same source di
 
 ## Key Config
 
-- `.environment` is the canonical config file. `.env` is a symlink to it.
-- `COMPOSE_FILE=docker-compose.yaml:compose/dev/dips.yaml` activates dev overrides.
-- `DOCKER_DEFAULT_PLATFORM=` must prefix docker compose commands to avoid conflicts with per-service `platform: linux/arm64` in dips.yaml. We are testing on MacOS, production on linux.
+- `.env` is the canonical config file (read by docker-compose, host scripts, and containers via volume mount at `/opt/config/.env`).
+- Default `COMPOSE_FILE=docker-compose.yaml` runs all-pinned with no local checkouts. Append per-service `compose/dev/dips-*.yaml` overlays to source-mount specific services, or `compose/dev/dips.yaml` to mount everything.
+- `DOCKER_DEFAULT_PLATFORM=` must prefix docker compose commands to avoid conflicts with per-service `platform: linux/arm64` in the dev overlays. We are testing on MacOS, production on linux.
 
 ## DIPs conditions field
 

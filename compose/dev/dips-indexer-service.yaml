@@ -1,0 +1,49 @@
+# DIPs source mount: indexer-service
+#
+# Mounts local indexer-rs checkout and runs `cargo build` inside the
+# container against your working tree. Slower first build (~3 min),
+# fast restarts after that thanks to the persistent cargo cache.
+#
+# Activate via COMPOSE_FILE in .env:
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/dips-indexer-service.yaml
+#
+# Required env vars: INDEXER_SERVICE_SOURCE_ROOT
+
+services:
+  indexer-service:
+    cap_add:
+      - NET_ADMIN
+    platform: linux/arm64
+    # Reset base deps (indexer-agent, subgraph-deploy) so cargo build starts immediately.
+    # Script waits for config volume and indexer-agent internally.
+    depends_on: !override
+      chain: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    build:
+      target: "wrapper"
+      dockerfile_inline: |
+        FROM rust:1-slim-bookworm AS wrapper
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential curl git jq pkg-config \
+                protobuf-compiler libssl-dev libsasl2-dev \
+            && rm -rf /var/lib/apt/lists/*
+    entrypoint: ["bash", "/opt/run-dips.sh"]
+    volumes:
+      - ${INDEXER_SERVICE_SOURCE_ROOT:?Set INDEXER_SERVICE_SOURCE_ROOT to local indexer-rs checkout}:/opt/source
+      - ./containers/indexer/indexer-service/dev/run-dips.sh:/opt/run-dips.sh:ro
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    ports:
+      - "${INDEXER_SERVICE_PORT}:7601"
+      - "${INDEXER_SERVICE_DIPS_RPC_PORT}:7602"
+    environment:
+      RUST_LOG: info,indexer_service_rs=info,indexer_service_rs::middleware::tap_receipt=error,indexer_monitor=warn,indexer_dips=debug
+      RUST_BACKTRACE: 1
+      SQLX_OFFLINE: "true"
+    restart: on-failure:15
+    healthcheck:
+      interval: 2s
+      retries: 600
+      test: curl -f http://127.0.0.1:7601/

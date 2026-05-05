@@ -1,0 +1,37 @@
+# DIPs source mount: indexer-agent
+#
+# Mounts local indexer (TypeScript monorepo) checkout. tsx runs the agent
+# directly from src/ — no compilation step, code changes pick up on
+# container restart.
+#
+# Activate via COMPOSE_FILE in .env:
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/dips-indexer-agent.yaml
+#
+# Required env vars: INDEXER_AGENT_SOURCE_ROOT
+
+services:
+  indexer-agent:
+    platform: linux/arm64
+    # Reset base deps (graph-contracts) so yarn install starts immediately.
+    # Script waits for config volume and staking internally.
+    depends_on: !override
+      chain: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    build:
+      target: "wrapper"
+      dockerfile_inline: |
+        FROM node:22-slim AS wrapper
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential curl git jq python3 \
+            && rm -rf /var/lib/apt/lists/*
+        COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \
+            /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin/anvil /usr/local/bin/chisel /usr/local/bin/
+        RUN npm install -g tsx nodemon
+    entrypoint: ["bash", "/opt/run-dips.sh"]
+    volumes:
+      - ${INDEXER_AGENT_SOURCE_ROOT:?Set INDEXER_AGENT_SOURCE_ROOT to local indexer checkout}:/opt/indexer-agent-source-root
+      - ./containers/indexer/indexer-agent/dev/run-dips.sh:/opt/run-dips.sh:ro
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro

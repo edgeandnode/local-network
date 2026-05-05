@@ -1,0 +1,15 @@
+# DIPs source mount: subgraph-deploy
+#
+# Mounts local indexing-payments-subgraph checkout so subgraph-deploy reads
+# the subgraph manifest and mappings from the host instead of cloning at
+# image build time.
+#
+# Activate via COMPOSE_FILE in .env:
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/dips-subgraph-deploy.yaml
+#
+# Required env vars: INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT
+
+services:
+  subgraph-deploy:
+    volumes:
+      - ${INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT:?Set INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT to local indexing-payments-subgraph checkout}:/opt/indexing-payments-subgraph

@@ -1,0 +1,39 @@
+# DIPs source mount: dipper
+#
+# Mounts local dipper checkout and runs `cargo build` inside the container.
+# Dipper compiles against indexer-rs as a workspace dep, so the indexer-rs
+# source root is also mounted (read-only).
+#
+# Activate via COMPOSE_FILE in .env:
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/dips-dipper.yaml
+#
+# Required env vars: DIPPER_SOURCE_ROOT, INDEXER_SERVICE_SOURCE_ROOT
+
+services:
+  dipper:
+    profiles: []
+    platform: linux/arm64
+    environment:
+      RUST_LOG: info,dipper_service=debug,dipper_rpc=debug,dipper_pgregistry=debug,dipper_service::network=info,sqlx::query=warn
+    build:
+      dockerfile_inline: |
+        FROM rust:1-slim-bookworm
+        RUN apt-get update \
+            && apt-get install -y --no-install-recommends \
+                build-essential ca-certificates clang cmake curl git jq lld \
+                pkg-config libssl-dev protobuf-compiler \
+            && rm -rf /var/lib/apt/lists/*
+        ENV CC=clang CXX=clang++ RUSTFLAGS="-C link-arg=-fuse-ld=lld"
+    entrypoint: ["bash", "/opt/run.sh"]
+    # Reset base deps (block-oracle, gateway) so cargo build starts immediately.
+    # Script waits for config volume, gateway, and iisa internally.
+    depends_on: !override
+      chain: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    volumes:
+      - ${DIPPER_SOURCE_ROOT:?Set DIPPER_SOURCE_ROOT to local dipper checkout}:/opt/source
+      - ${INDEXER_SERVICE_SOURCE_ROOT:?Set INDEXER_SERVICE_SOURCE_ROOT to local indexer-rs checkout}:/opt/source-indexer-rs:ro
+      - ./containers/indexing-payments/dipper/run.sh:/opt/run.sh:ro
+      - ./containers/shared:/opt/shared:ro
+      - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro

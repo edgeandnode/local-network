@@ -1,30 +1,21 @@
-# DIPs Development Override
+# DIPs Development Override — mount-everything preset
 #
-# DIPs stack with local source mounts for development components.
+# Equivalent to layering all six dips-*.yaml per-service overlays plus a
+# chain entrypoint mount. Use this for full source-mount development of
+# the DIPs flow.
 #
-# Services overridden:
-#   - graph-contracts: uses local contracts source (with Ignition fix)
-#   - indexer-agent: built from local source with DIPs config
-#   - indexer-service: built from local source with [dips] config
-#   - dipper: built from local source
-#   - iisa-cronjob: scoring pipeline from local source with /dips/info fetching
-#   - iisa: built from local source (replaces GHCR image)
-#   - eligibility-oracle-node: built from local source
-#
-# Prerequisites:
-#   - Local checkouts at ~/Documents/github/:
-#     contracts, indexer, indexer-rs, dipper, subgraph-dips-indexer-selection, eligibility-oracle-node
+# For granular control (mount only some services, pin the rest), list
+# the per-service overlays directly in COMPOSE_FILE instead. See
+# compose/dev/README.md for the available overlays.
 #
 # Activate via .env:
 #   COMPOSE_PROFILES=indexing-payments,block-oracle,rewards-eligibility
 #   COMPOSE_FILE=docker-compose.yaml:compose/dev/dips.yaml
-#   CONTRACTS_SOURCE_ROOT=~/Documents/github/contracts
-#   INDEXER_AGENT_SOURCE_ROOT=~/Documents/github/indexer
-#   INDEXER_SERVICE_SOURCE_ROOT=~/Documents/github/indexer-rs
-#   DIPPER_SOURCE_ROOT=~/Documents/github/dipper
-#   IISA_SOURCE_ROOT=~/Documents/github/subgraph-dips-indexer-selection
-#   REO_SOURCE_ROOT=~/Documents/github/eligibility-oracle-node
-#   INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT=~/Documents/github/indexing-payments-subgraph
+#
+# Required env vars (one per mounted service):
+#   INDEXER_AGENT_SOURCE_ROOT, INDEXER_SERVICE_SOURCE_ROOT,
+#   DIPPER_SOURCE_ROOT, IISA_SOURCE_ROOT, REO_SOURCE_ROOT,
+#   INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT
 
 services:
   chain:
@@ -34,15 +25,6 @@ services:
   subgraph-deploy:
     volumes:
       - ${INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT:?Set INDEXING_PAYMENTS_SUBGRAPH_SOURCE_ROOT to local indexing-payments-subgraph checkout}:/opt/indexing-payments-subgraph
-
-  # graph-contracts: volume mount temporarily disabled — image builds from
-  # CONTRACTS_COMMIT (fix/horizon-staking-ignition-dependency) which includes
-  # acceptIndexingAgreement. The local mount's build artifacts had a different
-  # directory layout that caused Ignition to deploy without the function.
-  # TODO: re-enable once local build artifacts are aligned with the image.
-  # graph-contracts:
-  #   volumes:
-  #     - ${CONTRACTS_SOURCE_ROOT:?Set CONTRACTS_SOURCE_ROOT to local contracts repo}:/opt/contracts
 
   indexer-service:
     cap_add:
