@@ -1,6 +1,7 @@
 # IDEs
 .vscode
-.claude
+.claude/*
+!.claude/skills/
 .idea
 
 # Environment overrides
@@ -20,8 +21,14 @@ Thumbs.db
 # Rust build artifacts
 tests/target/
 
+# Generated compose overrides
+compose/extra-indexers.yaml
+
 # Legacy local config directory (now uses config-local Docker volume)
 config/local/
 
 # js
 node_modules/
+
+/.playwright-mcp
+/pr-reviews
