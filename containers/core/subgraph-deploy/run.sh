@@ -32,7 +32,11 @@ deploy_network() {
   npx mustache ./config/generatedAddresses.json subgraph.template.yaml > subgraph.yaml
   npx graph codegen --output-dir src/types/
   npx graph create graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}"
-  npx graph deploy graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}" --ipfs="http://ipfs:${IPFS_RPC_PORT}" --version-label=v0.0.1
+  npx graph deploy graph-network --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}" --ipfs="http://ipfs:${IPFS_RPC_PORT}" --version-label=v0.0.1 | tee deploy.txt
+  deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
+  curl -s "http://graph-node:${GRAPH_NODE_ADMIN_PORT}" \
+    -H 'content-type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"subgraph_reassign\",\"params\":{\"node_id\":\"default\",\"ipfs_hash\":\"${deployment_id}\"}}"
   echo "==== Network subgraph done ===="
 }
 
