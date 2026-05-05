@@ -1,8 +1,8 @@
 # Eligibility Oracle Dev Override
-# Mounts a locally-built binary for WIP development (skip image rebuild).
+# Uses a minimal runtime image with locally-built binary (skips private repo clone).
 #
 # Set REO_BINARY to the path of the locally-built binary, e.g.:
-#   REO_BINARY=/git/local/eligibility-oracle-node/eligibility-oracle-node/target/release/eligibility-oracle
+#   REO_BINARY=/git/local/eligibility-oracle-node/target/release/eligibility-oracle
 #
 # Build the binary locally first:
 #   cargo build --release -p eligibility-oracle
@@ -13,5 +13,8 @@
 
 services:
   eligibility-oracle-node:
+    build:
+      context: containers/oracles/eligibility-oracle-node/dev
     volumes:
       - ${REO_BINARY:?Set REO_BINARY to locally-built eligibility-oracle binary}:/usr/local/bin/eligibility-oracle:ro
+      - ./containers/oracles/eligibility-oracle-node/run.sh:/opt/run.sh:ro
