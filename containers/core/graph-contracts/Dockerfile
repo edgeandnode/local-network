@@ -12,8 +12,7 @@ RUN apt-get update \
 
 # Corepack resolves pnpm per-directory from each project's `packageManager`
 # field (pnpm 10.x for the contracts repo — downloaded on demand).
-# Strict mode off because TAP contracts (yarn-based) has no packageManager field.
-ENV COREPACK_ENABLE_STRICT=0
+ENV COREPACK_ENABLE_STRICT=1
 RUN corepack enable
 
 # Foundry

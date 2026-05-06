@@ -43,7 +43,7 @@ max_amount_willing_to_lose_grt = 1
 timestamp_buffer_secs = 15
 
 [tap.sender_aggregator_endpoints]
-${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR_PORT}"
+${ACCOUNT0_ADDRESS} = "http://graph-tally-aggregator:${GRAPH_TALLY_AGGREGATOR_PORT}"
 
 EOF
 cat config.toml

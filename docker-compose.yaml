@@ -93,7 +93,6 @@ services:
       context: containers/core/graph-contracts
       args:
         CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
-        TAP_CONTRACTS_COMMIT: ${TAP_CONTRACTS_COMMIT}
     depends_on:
       chain: { condition: service_healthy }
     volumes:
@@ -152,7 +151,6 @@ services:
       context: containers/core/subgraph-deploy
       args:
         NETWORK_SUBGRAPH_COMMIT: ${NETWORK_SUBGRAPH_COMMIT}
-        TAP_SUBGRAPH_COMMIT: ${TAP_SUBGRAPH_COMMIT}
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
@@ -201,31 +199,31 @@ services:
       }
     restart: on-failure:3
 
-  tap-aggregator:
-    container_name: tap-aggregator
+  graph-tally-aggregator:
+    container_name: graph-tally-aggregator
     build:
-      context: containers/query-payments/tap-aggregator
+      context: containers/query-payments/graph-tally-aggregator
       args:
-        TAP_AGGREGATOR_VERSION: ${TAP_AGGREGATOR_VERSION}
+        GRAPH_TALLY_AGGREGATOR_VERSION: ${GRAPH_TALLY_AGGREGATOR_VERSION}
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
-    ports: ["${TAP_AGGREGATOR_PORT}:7610"]
+    ports: ["${GRAPH_TALLY_AGGREGATOR_PORT}:7610"]
     stop_signal: SIGKILL
     volumes:
       - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     environment:
-      RUST_LOG: info,tap_aggregator=trace
+      RUST_LOG: info,graph_tally_aggregator=trace
       RUST_BACKTRACE: 1
     restart: on-failure:3
 
-  tap-escrow-manager:
-    container_name: tap-escrow-manager
+  graph-tally-escrow-manager:
+    container_name: graph-tally-escrow-manager
     build:
-      context: containers/query-payments/tap-escrow-manager
+      context: containers/query-payments/graph-tally-escrow-manager
       args:
-        TAP_ESCROW_MANAGER_COMMIT: ${TAP_ESCROW_MANAGER_COMMIT}
+        GRAPH_TALLY_ESCROW_MANAGER_VERSION: ${GRAPH_TALLY_ESCROW_MANAGER_VERSION}
     depends_on:
       subgraph-deploy: { condition: service_completed_successfully }
       redpanda: { condition: service_healthy }
@@ -235,7 +233,7 @@ services:
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     environment:
-      RUST_LOG: info,tap_escrow_manager=trace
+      RUST_LOG: info,graph_tally_escrow_manager=trace
       RUST_BACKTRACE: 1
     restart: on-failure:3
 

@@ -4,15 +4,15 @@
 
 ## TL;DR
 
-- **Default:** TAP for query fees (no change)
-- **With Override:** TAP + Indexing Payments (dipper service added)
+- **Default:** Graph Tally for query fees (no change)
+- **With Override:** Graph Tally + Indexing Payments (dipper service added)
 - **Enable:** Set `COMPOSE_PROFILES=indexing-payments` in `.env`, then `docker compose up`
 
 ## Key Differences
 
 ### Payment Methods
 
-| Aspect       | TAP (Default)          | Indexing Payments (Override)  |
+| Aspect       | Graph Tally (Default)          | Indexing Payments (Override)  |
 | ------------ | ---------------------- | ----------------------------- |
 | **Use Case** | Query fees             | Indexing fees                 |
 | **Method**   | Allocations + receipts | GRT transfers                 |
@@ -41,13 +41,13 @@
 ### What Stays the Same
 
 - All default services run unchanged
-- TAP query fees continue working
+- Graph Tally query fees continue working
 - Graph node, gateway, indexer-agent unaffected
 - Can switch back to default by stopping override
 
 ## Usage Comparison
 
-**Default (TAP Only):**
+**Default (Graph Tally Only):**
 
 ```bash
 docker compose up

@@ -9,7 +9,7 @@ graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 
 cat >endpoints.yaml <<-EOF
-${ACCOUNT0_ADDRESS}: "http://tap-aggregator:${TAP_AGGREGATOR_PORT}"
+${ACCOUNT0_ADDRESS}: "http://graph-tally-aggregator:${GRAPH_TALLY_AGGREGATOR_PORT}"
 EOF
 
 cat >config.toml <<-EOF
@@ -47,7 +47,7 @@ max_amount_willing_to_lose_grt = 1
 timestamp_buffer_secs = 15
 
 [tap.sender_aggregator_endpoints]
-${ACCOUNT0_ADDRESS} = "http://tap-aggregator:${TAP_AGGREGATOR_PORT}"
+${ACCOUNT0_ADDRESS} = "http://graph-tally-aggregator:${GRAPH_TALLY_AGGREGATOR_PORT}"
 
 EOF
 cat config.toml

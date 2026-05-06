@@ -39,9 +39,9 @@ All tests share a single blockchain and run serially (configured in
 | 4.3   | Create via actions queue    | Indexer CLI workflow                                                                         | —                                                              |
 | 4.4   | Create via deployment rules | Indexer CLI workflow                                                                         | —                                                              |
 | 4.5   | Reallocate                  | Indexer CLI workflow                                                                         | —                                                              |
-| 5.1   | Gateway query serving       | `gateway_serves_queries` + `gateway_query_serving` + `gateway_queries_generate_tap_receipts` | `network_state.rs`, `allocation_lifecycle.rs`, `query_fees.rs` |
+| 5.1   | Gateway query serving       | `gateway_serves_queries` + `gateway_query_serving` + `gateway_queries_generate_graph_tally_receipts` | `network_state.rs`, `allocation_lifecycle.rs`, `query_fees.rs` |
 | 5.2   | Close allocation + rewards  | `close_and_recreate_allocation` + `close_allocation_collects_rewards`                        | `allocation_lifecycle.rs`                                      |
-| 5.3   | TAP escrow state            | `tap_escrow_state_observable` (observational only, no assertions)                            | `query_fees.rs`                                                |
+| 5.3   | Graph Tally escrow state            | `graph_tally_escrow_state_observable` (observational only, no assertions)                            | `query_fees.rs`                                                |
 | 5.4   | Close with explicit POI     | Indexer CLI workflow                                                                         | —                                                              |
 | 6.1   | Indexer health metrics      | `indexer_health_metrics`                                                                     | `network_state.rs`                                             |
 | 6.2   | Epoch progression           | `epoch_progressing`                                                                          | `network_state.rs`                                             |
@@ -161,7 +161,7 @@ All tests share a single blockchain and run serially (configured in
 | `stake_management.rs`     | Stake add/remove (Cycle 2)                                                              | 2      |
 | `provision_management.rs` | Provision add/thaw/deprovision (Cycle 3)                                                | 1      |
 | `allocation_lifecycle.rs` | Allocation create/close + gateway queries (Cycles 4-5, 7)                               | 3      |
-| `query_fees.rs`           | TAP receipt generation + escrow state (Cycle 5)                                         | 2      |
+| `query_fees.rs`           | Graph Tally receipt generation + escrow state (Cycle 5)                                         | 2      |
 | `reward_collection.rs`    | Direct reward collection contract call                                                  | 1      |
 | `eligibility.rs`          | REO eligibility lifecycle (IndexerTestGuide Sets 2-4, ReoTestPlan 6.1-6.4/6.6)          | 1      |
 | `reo_governance.rs`       | REO governance operations (ReoTestPlan Cycles 1, 3, 4, 5, 6.5, 7)                       | 15     |
@@ -193,7 +193,7 @@ These items cannot be tested on the local network and must be verified on Arbitr
 - **ReoTestPlan Cycle 6 (multi-indexer)**: Multi-indexer reward cycling (requires 3+ indexers)
 - **BaselineTestPlan 4.3-4.5**: Actions queue, deployment rules, reallocate (indexer CLI workflows)
 - **BaselineTestPlan 5.4**: Close with explicit POI (indexer CLI workflow)
-- **BaselineTestPlan 5.3**: TAP escrow state test is observational only (verifies services are reachable but makes no assertions on escrow balances or `queryFeesCollected`)
+- **BaselineTestPlan 5.3**: Graph Tally escrow state test is observational only (verifies services are reachable but makes no assertions on escrow balances or `queryFeesCollected`)
 - **BaselineTestPlan 6.3**: Log review across indexer components
 - **RewardsConditionsTestPlan 4.2**: STALE_POI requires waiting beyond maxPOIStaleness
 - **RewardsConditionsTestPlan 4.3**: ZERO_POI requires explicit POI parameter not exposed by management API

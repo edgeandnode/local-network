@@ -2,16 +2,16 @@
 
 ## Overview
 
-This document describes the architecture for implementing Safe-based on-chain payments for Indexing Payments in The Graph Protocol. This implementation replaces TAP (Timeline Aggregation Protocol) for indexing fees due to impractical allocation requirements.
+This document describes the architecture for implementing Safe-based on-chain payments for Indexing Payments in The Graph Protocol. This implementation replaces Graph Tally for indexing fees due to impractical allocation requirements.
 
 ## Background
 
-TAP has the following critical issues for Indexing Payments:
+Graph Tally has the following critical issues for Indexing Payments:
 
 - **High Capital Requirements**: $50-$1000 allocations needed for $5-$100 monthly payments
 - **Complex Allocation Management**: Variable allocation amounts create operational complexity
 - **Capital Inefficiency**: Large amounts of stake must be kept free for indexing payments
-- **Missing Infrastructure**: TAP escrow management functionality not yet implemented
+- **Missing Infrastructure**: Graph Tally escrow management functionality not yet implemented
 
 ## Architecture Overview
 
@@ -21,7 +21,7 @@ TAP has the following critical issues for Indexing Payments:
 2. **Safe Module Pattern**: Direct execution via `execTransactionFromModule` without multi-sig complexity
 3. **State Machine**: Clear PENDING → SUBMITTED/FAILED status tracking
 4. **Protocol Compliance**: 1% burn on all payments
-5. **Clear Separation**: Indexing payments use Safe payments, query fees continue using TAP
+5. **Clear Separation**: Indexing payments use Safe payments, query fees continue using Graph Tally
 
 ### System Components
 
@@ -198,7 +198,7 @@ message CollectPaymentRequest {
 ```protobuf
 message CollectPaymentResponse {
   uint64 version = 1;
-  string receipt_id = 2;        // Receipt ID for polling (replaces tap_receipt)
+  string receipt_id = 2;        // Receipt ID for polling (replaces graph_tally_receipt)
   string amount = 3;            // Total amount including burn
   string status = 4;            // Initial status: "PENDING"
 }
@@ -255,13 +255,13 @@ The dipper service requires the most significant changes as it manages the payme
 - **Receipt Registry**: Add payment status tracking (PENDING/SUBMITTED/FAILED)
 - **Worker System**: Add PayOnChain message handler for async payment processing
 - **Safe Module Client**: Implement GRT transfers with 1% burn via execTransactionFromModule
-- **RPC Interface**: Return Receipt IDs instead of TAP receipts, add polling endpoint
+- **RPC Interface**: Return Receipt IDs instead of Graph Tally receipts, add polling endpoint
 
 ### 2. Indexer Agent
 
 The indexer agent needs updates to handle the new async payment pattern:
 
-- **Payment Collector**: Replace TAP receipt storage with Receipt ID tracking
+- **Payment Collector**: Replace Graph Tally receipt storage with Receipt ID tracking
 - **Polling Mechanism**: Add background task to poll for payment status
 - **Database Models**: Update to store Receipt IDs and payment status
 - **RPC Client**: Update to handle new response format and polling endpoint
@@ -283,4 +283,4 @@ The implementation succeeds when:
 - ✅ 1% protocol burn on all payments
 - ✅ Clear state machine transitions
 - ✅ Indexers can verify payments on-chain
-- ✅ Complete separation from TAP for indexing fees
+- ✅ Complete separation from Graph Tally for indexing fees

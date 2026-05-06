@@ -39,7 +39,7 @@ line 76-80:  Set indexing rules
 
 ### Steps
 
-For each deployed subgraph (network, tap, block_oracle):
+For each deployed subgraph (network, block_oracle):
 
 1. **Convert deployment IPFS hash to bytes32** (already done for GNS publishing — reuse `dep_hex`)
 
