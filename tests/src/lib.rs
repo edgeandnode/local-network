@@ -23,7 +23,6 @@ pub struct TestNetwork {
     pub rpc_url: String,
     pub subgraph_url: String,
     pub block_oracle_subgraph_url: String,
-    pub tap_subgraph_url: String,
     pub gateway_url: String,
     pub management_url: String,
     pub gateway_api_key: String,
@@ -98,8 +97,6 @@ impl TestNetwork {
         let subgraph_url = format!("http://{graph_host}:{graph_port}/subgraphs/name/graph-network");
         let block_oracle_subgraph_url =
             format!("http://{graph_host}:{graph_port}/subgraphs/name/block-oracle");
-        let tap_subgraph_url =
-            format!("http://{graph_host}:{graph_port}/subgraphs/name/semiotic/tap");
         let gateway_url = format!("http://{gateway_host}:{gateway_port}");
         let management_url = format!("http://{mgmt_host}:{mgmt_port}");
 
@@ -143,7 +140,6 @@ impl TestNetwork {
             rpc_url,
             subgraph_url,
             block_oracle_subgraph_url,
-            tap_subgraph_url,
             gateway_url,
             management_url,
             gateway_api_key,

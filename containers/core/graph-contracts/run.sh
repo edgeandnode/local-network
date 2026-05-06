@@ -4,7 +4,7 @@ set -eu
 . /opt/shared/lib.sh
 
 # -- Ensure config files exist (empty JSON on first run) --
-for f in horizon.json subgraph-service.json issuance.json tap-contracts.json block-oracle.json; do
+for f in horizon.json subgraph-service.json issuance.json block-oracle.json; do
   [ -f "/opt/config/$f" ] || echo '{}' > "/opt/config/$f"
 done
 
@@ -98,79 +98,25 @@ fi
 echo "==== Phase 1 complete ===="
 
 # ============================================================
-# Phase 2: TAP contracts
+# Phase 2: DataEdge contract
 # ============================================================
-echo "==== Phase 2: TAP contracts ===="
+echo "==== Phase 2: DataEdge contract ===="
 
 # -- Idempotency check --
 phase2_skip=false
-escrow_address=$(jq -r '."1337".Escrow // empty' /opt/config/tap-contracts.json 2>/dev/null || true)
-if [ -n "$escrow_address" ]; then
-  code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$escrow_address" 2>/dev/null || echo "0x")
-  if [ "$code_check" != "0x" ]; then
-    echo "TAP contracts already deployed (Escrow at $escrow_address)"
-    echo "SKIP: Phase 2"
-    phase2_skip=true
-  else
-    echo "TAP contract addresses are stale (no code at Escrow $escrow_address), redeploying..."
-  fi
-fi
-
-if [ "$phase2_skip" = "false" ]; then
-  cd /opt/timeline-aggregation-protocol-contracts
-
-  staking=$(contract_addr HorizonStaking.address horizon)
-  graph_token=$(contract_addr L2GraphToken.address horizon)
-
-  # Note: forge may output alloy log lines to stdout after the JSON; sed extracts only the JSON object
-  forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC_PORT}" --mnemonic="${MNEMONIC}" \
-    src/AllocationIDTracker.sol:AllocationIDTracker \
-    | tee allocation_tracker.json
-  allocation_tracker="$(sed -n '/^{/,/^}/p' allocation_tracker.json | jq -r '.deployedTo')"
-
-  forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC_PORT}" --mnemonic="${MNEMONIC}" \
-    src/TAPVerifier.sol:TAPVerifier --constructor-args 'TAP' '1' \
-    | tee verifier.json
-  verifier="$(sed -n '/^{/,/^}/p' verifier.json | jq -r '.deployedTo')"
-
-  forge create --broadcast --json --rpc-url="http://chain:${CHAIN_RPC_PORT}" --mnemonic="${MNEMONIC}" \
-    src/Escrow.sol:Escrow --constructor-args "${graph_token}" "${staking}" "${verifier}" "${allocation_tracker}" 10 15 \
-    | tee escrow.json
-  escrow="$(sed -n '/^{/,/^}/p' escrow.json | jq -r '.deployedTo')"
-
-  cat <<EOF > /opt/config/tap-contracts.json
-{
-  "1337": {
-    "AllocationIDTracker": "$allocation_tracker",
-    "TAPVerifier": "$verifier",
-    "Escrow": "$escrow"
-  }
-}
-EOF
-fi
-
-echo "==== Phase 2 complete ===="
-
-# ============================================================
-# Phase 3: DataEdge contract
-# ============================================================
-echo "==== Phase 3: DataEdge contract ===="
-
-# -- Idempotency check --
-phase3_skip=false
 data_edge=$(jq -r '."1337".DataEdge // empty' /opt/config/block-oracle.json 2>/dev/null || true)
 if [ -n "$data_edge" ]; then
   code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$data_edge" 2>/dev/null || echo "0x")
   if [ "$code_check" != "0x" ]; then
     echo "DataEdge contract already deployed at $data_edge"
-    echo "SKIP: Phase 3"
-    phase3_skip=true
+    echo "SKIP: Phase 2"
+    phase2_skip=true
   else
     echo "DataEdge address stale (no code at $data_edge), redeploying..."
   fi
 fi
 
-if [ "$phase3_skip" = "false" ]; then
+if [ "$phase2_skip" = "false" ]; then
   cd /opt/contracts/packages/data-edge
   # hardhat.config.ts hardcodes `localhost:8545` for the ganache network and
   # the standard test mnemonic; patch both for the local-network stack.
@@ -203,15 +149,15 @@ ADDR_EOF
   fi
 fi
 
-echo "==== Phase 3 complete ===="
+echo "==== Phase 2 complete ===="
 
 # ============================================================
-# Phase 4: Rewards Eligibility Oracle (REO)
+# Phase 3: Rewards Eligibility Oracle (REO)
 # ============================================================
 if [ "${REO_ENABLED:-0}" != "1" ]; then
-  echo "==== Phase 4: Rewards Eligibility Oracle (SKIPPED — REO_ENABLED not set) ===="
+  echo "==== Phase 3: Rewards Eligibility Oracle (SKIPPED — REO_ENABLED not set) ===="
 else
-echo "==== Phase 4: Rewards Eligibility Oracle ===="
+echo "==== Phase 3: Rewards Eligibility Oracle ===="
 
 # Ensure NetworkOperator in issuance address book (required by configure step)
 TEMP_JSON=$(jq --arg op "${ACCOUNT0_ADDRESS}" \
@@ -225,20 +171,20 @@ printf '%s\n' "$TEMP_JSON" > /opt/config/issuance.json
 # (OPERATOR). So we only run hardhat deploy for initial deployment; on
 # re-runs where the REO proxy already exists on-chain, skip straight to
 # the idempotent configuration below.
-phase4_deploy_skip=false
+phase3_deploy_skip=false
 reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address // empty' /opt/config/issuance.json 2>/dev/null || true)
 if [ -n "$reo_address" ]; then
   code_check=$(cast code --rpc-url="http://chain:${CHAIN_RPC_PORT}" "$reo_address" 2>/dev/null || echo "0x")
   if [ "$code_check" != "0x" ]; then
     echo "REO already deployed at $reo_address"
     echo "SKIP: hardhat deploy (configuration handled below)"
-    phase4_deploy_skip=true
+    phase3_deploy_skip=true
   else
     echo "REO address stale (no code at $reo_address), redeploying..."
   fi
 fi
 
-if [ "$phase4_deploy_skip" = "false" ]; then
+if [ "$phase3_deploy_skip" = "false" ]; then
   cd /opt/contracts/packages/deployment
 
   # Clean any stale governance TX batches from partial runs
@@ -344,7 +290,7 @@ for ab in horizon.json subgraph-service.json; do
   fi
 done
 
-echo "==== Phase 4 complete ===="
+echo "==== Phase 3 complete ===="
 fi  # REO_ENABLED
 echo "==== All contract deployments complete ===="
 

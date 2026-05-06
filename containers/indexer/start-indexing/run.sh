@@ -22,7 +22,7 @@ then
   signal_per_dep="1000000000000000000000"  # 1000 GRT per deployment
   added=0
 
-  for subgraph_name in graph-network block-oracle semiotic/tap; do
+  for subgraph_name in graph-network block-oracle; do
     dep_id="$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/${subgraph_name}" \
       -H 'content-type: application/json' \
       -d '{"query": "{ _meta { deployment } }" }' | jq -r '.data._meta.deployment')"
@@ -77,11 +77,9 @@ get_deployment() {
 
 network_deployment="$(get_deployment graph-network)"
 block_oracle_deployment="$(get_deployment block-oracle)"
-tap_deployment="$(get_deployment semiotic/tap)"
 
 elapsed "network_deployment=${network_deployment}"
 elapsed "block_oracle_deployment=${block_oracle_deployment}"
-elapsed "tap_deployment=${tap_deployment}"
 
 # -- Publish subgraphs to GNS (required for allocations) --
 subgraph_count=$(curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network" \
@@ -92,7 +90,7 @@ if [ "${subgraph_count:-0}" -ge 3 ]; then
 else
   gns=$(contract_addr L2GNS.address subgraph-service)
   all_dep_hexes=""
-  for dep_name in network tap block_oracle; do
+  for dep_name in network block_oracle; do
     eval dep_id=\$${dep_name}_deployment
     dep_hex="$(curl -s -X POST "http://ipfs:${IPFS_RPC_PORT}/api/v0/cid/format?arg=${dep_id}&b=base16" | jq -r '.Formatted')"
     dep_hex="${dep_hex#f01701220}"
@@ -128,11 +126,10 @@ fi
 graph-indexer indexer connect "http://indexer-agent:${INDEXER_MANAGEMENT_PORT}"
 graph-indexer indexer --network=hardhat rules set "${network_deployment}" decisionBasis always -o json
 graph-indexer indexer --network=hardhat rules set "${block_oracle_deployment}" decisionBasis always -o json
-graph-indexer indexer --network=hardhat rules set "${tap_deployment}" decisionBasis always -o json
 
 # -- Resume subgraphs that may have been paused by indexer-agent --
 elapsed "Resuming subgraphs..."
-for dep in "${network_deployment}" "${block_oracle_deployment}" "${tap_deployment}"; do
+for dep in "${network_deployment}" "${block_oracle_deployment}"; do
   curl -s -X POST "http://graph-node:${GRAPH_NODE_ADMIN_PORT}/" -H 'content-type: application/json' \
     -d "{\"jsonrpc\": \"2.0\", \"method\": \"subgraph_resume\", \"params\": {\"deployment\": \"${dep}\"}, \"id\": 1}"
 done

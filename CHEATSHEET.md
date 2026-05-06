@@ -130,26 +130,3 @@ curl "http://localhost:7700/api/subgraphs/id/BFr2mx7FgkJ36Y6pE5BiXs1KmNUmVDCnL82
 docker exec -it redpanda rpk topic consume gateway_client_query_results --brokers="localhost:9092"
 ```
 
-### TAP subgraph
-
-- subgraph: http://localhost:8000/subgraphs/name/semiotic/tap
-
-  ```graphql
-  {
-    escrowAccounts {
-      balance
-      sender {
-        id
-      }
-      receiver {
-        id
-      }
-    }
-    _meta {
-      block {
-        number
-      }
-      deployment
-    }
-  }
-  ```

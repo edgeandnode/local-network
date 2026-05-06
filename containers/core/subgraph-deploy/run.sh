@@ -40,34 +40,6 @@ deploy_network() {
   echo "==== Network subgraph done ===="
 }
 
-deploy_tap() {
-  echo "==== TAP subgraph ===="
-  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/semiotic/tap" \
-    -H 'content-type: application/json' \
-    -d '{"query": "{ _meta { deployment } }" }' | grep -q "_meta"
-  then
-    echo "SKIP: TAP subgraph already deployed"
-    return
-  fi
-
-  escrow=$(contract_addr Escrow tap-contracts)
-
-  cd /opt/timeline-aggregation-protocol-subgraph
-  sed -i "s/127.0.0.1:5001/ipfs:${IPFS_RPC_PORT}/g" package.json
-  sed -i "s/127.0.0.1:8020/graph-node:${GRAPH_NODE_ADMIN_PORT}/g" package.json
-  yq ".dataSources[].source.address=\"${escrow}\"" -i subgraph.yaml
-  yq ".dataSources[].network |= \"hardhat\"" -i subgraph.yaml
-  yarn codegen
-  yarn build
-  yarn create-local
-  yarn deploy-local | tee deploy.txt
-  deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
-  curl -s "http://graph-node:${GRAPH_NODE_ADMIN_PORT}" \
-    -H 'content-type: application/json' \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"subgraph_reassign\",\"params\":{\"node_id\":\"default\",\"ipfs_hash\":\"${deployment_id}\"}}"
-  echo "==== TAP subgraph done ===="
-}
-
 deploy_block_oracle() {
   echo "==== Block-oracle subgraph ===="
   if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/block-oracle" \
@@ -102,18 +74,15 @@ deploy_block_oracle() {
   echo "==== Block-oracle subgraph done ===="
 }
 
-# Launch all three in parallel
+# Launch in parallel
 deploy_network &
 pid_network=$!
-deploy_tap &
-pid_tap=$!
 deploy_block_oracle &
 pid_oracle=$!
 
 # Wait for all, fail if any fails
 failed=0
 wait $pid_network || { echo "FAILED: Network subgraph"; failed=1; }
-wait $pid_tap || { echo "FAILED: TAP subgraph"; failed=1; }
 wait $pid_oracle || { echo "FAILED: Block-oracle subgraph"; failed=1; }
 
 if [ "$failed" -ne 0 ]; then

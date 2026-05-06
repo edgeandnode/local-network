@@ -1,6 +1,5 @@
 FROM node:23.11-bookworm-slim
 ARG NETWORK_SUBGRAPH_COMMIT
-ARG TAP_SUBGRAPH_COMMIT
 ARG BLOCK_ORACLE_COMMIT
 
 RUN apt-get update \
@@ -24,11 +23,7 @@ RUN git clone https://github.com/graphprotocol/graph-network-subgraph && \
   cd graph-network-subgraph && git checkout ${NETWORK_SUBGRAPH_COMMIT} && \
   pnpm install && pnpm add -D ts-node
 
-# 2. TAP subgraph
-RUN git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-subgraph --recursive && \
-  cd timeline-aggregation-protocol-subgraph && git checkout ${TAP_SUBGRAPH_COMMIT} && yarn
-
-# 3. Block oracle subgraph
+# 2. Block oracle subgraph
 RUN git clone https://github.com/graphprotocol/block-oracle && \
   cd block-oracle && git checkout ${BLOCK_ORACLE_COMMIT} && \
   cd packages/subgraph && yarn

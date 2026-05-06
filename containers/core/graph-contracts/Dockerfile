@@ -2,7 +2,6 @@
 # (see .github/actions/setup/action.yml in the contracts repo).
 FROM node:24-bookworm-slim
 ARG CONTRACTS_COMMIT
-ARG TAP_CONTRACTS_COMMIT
 
 # libudev-dev / libusb-1.0-0-dev: required by contracts repo's pnpm install
 # (native deps of hardhat-secure-accounts / ledger toolchain). Upstream CI
@@ -30,14 +29,12 @@ RUN git clone https://github.com/graphprotocol/contracts && \
   cd contracts && git checkout ${CONTRACTS_COMMIT} && \
   pnpm install --frozen-lockfile && pnpm build
 
-# 2. TAP contracts (separate repo, yarn-based — pin yarn here, not globally)
-RUN corepack prepare yarn@1.22.22 --activate && \
-  git clone https://github.com/semiotic-ai/timeline-aggregation-protocol-contracts && \
-  cd timeline-aggregation-protocol-contracts && git checkout ${TAP_CONTRACTS_COMMIT} && \
-  yarn && forge build
-
-# DataEdge (packages/data-edge in the contracts workspace) is built by the
-# Phase 1 `pnpm build` above; deploy happens at runtime from /opt/contracts.
+# 2. DataEdge contracts (fixed commit, for block-oracle setup)
+RUN git clone https://github.com/graphprotocol/contracts contracts-data-edge && \
+  cd contracts-data-edge && git checkout bdc66135e7700e9a4dcd6a4beac585337fdb9c21 && \
+  cd packages/data-edge && pnpm install && \
+  sed -i "s/localhost/chain/g" hardhat.config.ts && \
+  pnpm build
 
 COPY --chmod=755 ./run.sh /opt/run.sh
 ENTRYPOINT ["bash", "/opt/run.sh"]

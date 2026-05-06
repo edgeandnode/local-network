@@ -206,7 +206,7 @@ impl TestNetwork {
             .subgraph_url
             .replace(":8000/subgraphs/name/graph-network", ":8020/");
         let client = reqwest::Client::new();
-        for name in ["graph-network", "block-oracle", "semiotic/tap"] {
+        for name in ["graph-network", "block-oracle"] {
             // Get the deployment ID for this subgraph
             let meta_url = self.subgraph_url.replace("graph-network", name);
             let meta_resp = client

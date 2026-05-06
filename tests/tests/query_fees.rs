@@ -64,10 +64,10 @@ async fn tap_escrow_state_observable() -> Result<()> {
 
     if count > 0 {
         for acc in accounts.as_array().unwrap() {
-            let sender = acc["sender"]["id"].as_str().unwrap_or("?");
+            let payer = acc["payer"]["id"].as_str().unwrap_or("?");
             let receiver = acc["receiver"]["id"].as_str().unwrap_or("?");
             let balance = acc["balance"].as_str().unwrap_or("0");
-            eprintln!("    sender={sender} receiver={receiver} balance={balance}");
+            eprintln!("    payer={payer} receiver={receiver} balance={balance}");
         }
     } else {
         eprintln!("  NOTE: No escrow accounts yet — TAP escrow manager may need time to process");
