@@ -110,8 +110,8 @@ encode_rca() {
 
   local signed_rca
   signed_rca=$(cast abi-encode \
-    "f(((uint64,uint64,address,address,address,uint256,uint256,uint32,uint32,uint256,bytes),bytes))" \
-    "((1900000000,2000000000,${ACCOUNT0_ADDRESS},${RECEIVER_ADDRESS},${RECEIVER_ADDRESS},10000,100,3600,86400,42,$metadata),0xaabbccdd)")
+    "f(((uint64,uint64,address,address,address,uint256,uint256,uint32,uint32,uint16,uint256,bytes),bytes))" \
+    "((1900000000,2000000000,${ACCOUNT0_ADDRESS},${RECEIVER_ADDRESS},${RECEIVER_ADDRESS},10000,100,3600,86400,0,42,$metadata),0xaabbccdd)")
 
   echo "$signed_rca"
 }
@@ -213,7 +213,7 @@ encode_signed_rca() {
 
   # 1. ABI-encode metadata (same pattern as encode_rca)
   local terms
-  terms=$(cast abi-encode "f((uint256,uint256))" "(50,10)")
+  terms=$(cast abi-encode "f((uint256,uint256))" "(50,1)")
   local metadata
   metadata=$(cast abi-encode "f((bytes32,uint8,bytes))" "($deployment_bytes32,0,$terms)")
 
@@ -259,6 +259,7 @@ encode_signed_rca() {
       {"name": "maxOngoingTokensPerSecond", "type": "uint256"},
       {"name": "minSecondsPerCollection", "type": "uint32"},
       {"name": "maxSecondsPerCollection", "type": "uint32"},
+      {"name": "conditions", "type": "uint16"},
       {"name": "nonce", "type": "uint256"},
       {"name": "metadata", "type": "bytes"}
     ]
@@ -280,6 +281,7 @@ encode_signed_rca() {
     "maxOngoingTokensPerSecond": "100",
     "minSecondsPerCollection": 3600,
     "maxSecondsPerCollection": 7200,
+    "conditions": 0,
     "nonce": "$nonce",
     "metadata": "$metadata"
   }
@@ -293,8 +295,8 @@ EOFJSON
 
   # 5. ABI-encode the full SignedRCA tuple
   cast abi-encode \
-    "f(((uint64,uint64,address,address,address,uint256,uint256,uint32,uint32,uint256,bytes),bytes))" \
-    "(($deadline,$ends_at,${ACCOUNT0_ADDRESS},${SUBGRAPH_SERVICE_ADDRESS},${RECEIVER_ADDRESS},10000,100,3600,7200,$nonce,$metadata),$signature)"
+    "f(((uint64,uint64,address,address,address,uint256,uint256,uint32,uint32,uint16,uint256,bytes),bytes))" \
+    "(($deadline,$ends_at,${ACCOUNT0_ADDRESS},${SUBGRAPH_SERVICE_ADDRESS},${RECEIVER_ADDRESS},10000,100,3600,7200,0,$nonce,$metadata),$signature)"
 }
 
 # Poll for a proposal's status to change.
@@ -538,7 +540,7 @@ get_last_collection_at() {
   local result
   result=$(cast call --rpc-url "$HARDHAT_RPC" \
     "$RECURRING_COLLECTOR_ADDRESS" \
-    "getAgreement(bytes16)(address,address,address,uint64,uint64,uint64,uint256,uint256,uint32,uint32,uint32,uint64,uint8)" \
+    "getAgreement(bytes16)(address,uint64,uint32,address,uint64,uint32,address,uint64,uint32,uint256,uint256,bytes32,uint64,uint16,uint8)" \
     "$agreement_id")
 
   # lastCollectionAt is the 5th value (0-indexed: field index 4)
@@ -554,11 +556,11 @@ get_agreement_state() {
   local result
   result=$(cast call --rpc-url "$HARDHAT_RPC" \
     "$RECURRING_COLLECTOR_ADDRESS" \
-    "getAgreement(bytes16)(address,address,address,uint64,uint64,uint64,uint256,uint256,uint32,uint32,uint32,uint64,uint8)" \
+    "getAgreement(bytes16)(address,uint64,uint32,address,uint64,uint32,address,uint64,uint32,uint256,uint256,bytes32,uint64,uint16,uint8)" \
     "$agreement_id")
 
-  # state is the 13th value (last field)
-  echo "$result" | sed -n '13p'
+  # state is the 15th value (last field)
+  echo "$result" | sed -n '15p'
 }
 
 # Cancel an agreement as the payer via SubgraphService.
@@ -933,8 +935,8 @@ run_rejection_batch() {
   s7_terms=$(cast abi-encode "f((uint256,uint256))" "(1000,50)")
   s7_metadata=$(cast abi-encode "f((bytes32,uint8,bytes))" "($s7_deployment,1,$s7_terms)")
   insert_proposal "$s7_uuid" "$(cast abi-encode \
-    "f(((uint64,uint64,address,address,address,uint256,uint256,uint32,uint32,uint256,bytes),bytes))" \
-    "(($s7_expired,2000000000,${ACCOUNT0_ADDRESS},${RECEIVER_ADDRESS},${RECEIVER_ADDRESS},10000,100,3600,86400,42,$s7_metadata),0xaabbccdd)")"
+    "f(((uint64,uint64,address,address,address,uint256,uint256,uint32,uint32,uint16,uint256,bytes),bytes))" \
+    "(($s7_expired,2000000000,${ACCOUNT0_ADDRESS},${RECEIVER_ADDRESS},${RECEIVER_ADDRESS},10000,100,3600,86400,0,42,$s7_metadata),0xaabbccdd)")"
 
   # S9: fake sig, future deadline
   local s9_deadline=$(( $(date +%s) + 7200 ))
@@ -942,8 +944,8 @@ run_rejection_batch() {
   s9_terms=$(cast abi-encode "f((uint256,uint256))" "(1000,50)")
   s9_metadata=$(cast abi-encode "f((bytes32,uint8,bytes))" "($s9_deployment,1,$s9_terms)")
   insert_proposal "$s9_uuid" "$(cast abi-encode \
-    "f(((uint64,uint64,address,address,address,uint256,uint256,uint32,uint32,uint256,bytes),bytes))" \
-    "(($s9_deadline,2000000000,${ACCOUNT0_ADDRESS},${RECEIVER_ADDRESS},${RECEIVER_ADDRESS},10000,100,3600,86400,42,$s9_metadata),0xaabbccdd)")"
+    "f(((uint64,uint64,address,address,address,uint256,uint256,uint32,uint32,uint16,uint256,bytes),bytes))" \
+    "(($s9_deadline,2000000000,${ACCOUNT0_ADDRESS},${RECEIVER_ADDRESS},${RECEIVER_ADDRESS},10000,100,3600,86400,0,42,$s9_metadata),0xaabbccdd)")"
 
   echo "  All proposals inserted, waiting for agent cycle..."
 
