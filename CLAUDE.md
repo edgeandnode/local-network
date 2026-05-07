@@ -29,23 +29,12 @@ The stack has these layers:
 - **DIPs**: dipper (orchestrator), iisa (indexing indexer selection algorithm - subgraph-dips-indexer-selection)
 - **Oracles**: block-oracle, eligibility-oracle-node (REO)
 
-By default the stack runs entirely from pinned commits/images (no local checkouts needed). Per-service `compose/dev/dips-*.yaml` overlays opt individual services into source-mount mode where the container builds from your local checkout at start. `compose/dev/dips.yaml` is a meta-preset that mounts everything (subgraph-deploy, indexer-service, indexer-agent, dipper, iisa+iisa-cronjob, eligibility-oracle-node). See `compose/dev/README.md`.
-
-### How source-mounted services pick up code changes
-
-The dev overrides volume-mount local repo checkouts into containers (e.g. `INDEXER_AGENT_SOURCE_ROOT` -> `/opt/indexer-agent-source-root`). Each service's `run.sh` or `run-dips.sh` entrypoint runs the code from this mount at container startup. The mechanism differs by language:
-
-- **TypeScript (indexer-agent)**: `run-dips.sh` runs `tsx packages/indexer-agent/src/index.ts start`, which transpiles TypeScript to JavaScript on the fly. There is a `dist/` directory with pre-compiled JS but `tsx` ignores it -- it reads directly from `src/`. Editing `.ts` files locally and restarting the container is sufficient; no `yarn build` or image rebuild needed.
-- **Rust (indexer-service, dipper, tap-agent)**: `run.sh` runs `cargo build --release` inside the container using the mounted source, then executes the compiled binary. Changes require a container restart which triggers a rebuild (~2-3 min cached, longer if dependencies changed). Extra indexer-services share a `flock`-serialized build so only one compiles at a time.
-- **Python (IISA)**: Source is mounted and run directly via `python`. Changes are picked up on container restart with no build step.
-
-All containers (primary and extras) for a given service mount the same source directory. Switching branches locally, editing code, or rebasing affects every container on the next restart or fresh deploy. No image rebuild (`--build`) is needed unless Dockerfiles, build args, or base images change -- `--no-build` is the default for speed.
+The stack runs entirely from pinned commits and images. The `graph-contracts` and `subgraph-deploy` images clone their respective sources at image-build time using the commit hashes pinned in `.env` (`CONTRACTS_COMMIT`, `NETWORK_SUBGRAPH_COMMIT`, `INDEXING_PAYMENTS_SUBGRAPH_COMMIT`); everything else pulls a tagged image from a registry.
 
 ## Key Config
 
 - `.env` is the canonical config file (read by docker-compose, host scripts, and containers via volume mount at `/opt/config/.env`).
-- Default `COMPOSE_FILE=docker-compose.yaml` runs all-pinned with no local checkouts. Append per-service `compose/dev/dips-*.yaml` overlays to source-mount specific services, or `compose/dev/dips.yaml` to mount everything.
-- `DOCKER_DEFAULT_PLATFORM=` must prefix docker compose commands to avoid conflicts with per-service `platform: linux/arm64` in the dev overlays. We are testing on MacOS, production on linux.
+- `DOCKER_DEFAULT_PLATFORM=` must prefix docker compose commands on machines whose host arch differs from images (e.g. macOS arm64 hosts pulling linux/amd64 images).
 
 ## DIPs conditions field
 
@@ -73,4 +62,3 @@ To distinguish a DIPs acceptance from a regular allocation: check the agent log 
 - Never apply hack fixes to unblock testing. If something is broken, find the root cause and document it properly in bugs.
 - Every fix that touches another repo (dipper, indexer-rs, contracts, iisa, etc.) needs a PR to that repo.
 - Fixes to local-network config/scripts should be committed to this repo.
-- When restarting containers that build from source, expect cargo build time. Don't assume instant restarts.

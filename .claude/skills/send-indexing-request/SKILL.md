@@ -26,7 +26,7 @@ Never `cd` to the dipper repo for docker compose commands -- it will look for do
 cargo build --manifest-path /Users/samuel/Documents/github/dipper/Cargo.toml --bin dipper-cli --release
 ```
 
-The path comes from `DIPPER_SOURCE_ROOT` in `.environment`. Always use absolute paths to the dipper binary -- never `cd` to the dipper repo, as it breaks subsequent docker compose commands that expect to be in the local-network directory.
+Always use absolute paths to the dipper binary -- never `cd` to the dipper repo, as it breaks subsequent docker compose commands that expect to be in the local-network directory. Set `DIPPER_SOURCE_ROOT` in `.env.local` (gitignored) if you want a local override for the binary path.
 
 ### 2. Verify dipper is healthy
 

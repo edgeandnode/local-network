@@ -234,5 +234,5 @@ Show a summary including:
 - The `start-indexing-extra` container handles on-chain GRT staking, operator authorization, and PaymentsEscrow deposits
 - Agents poll for on-chain staking automatically (up to 450s), so `start-indexing-extra` can run in parallel with container startup
 - Agents retry automatically (30 attempts, 10s delay) -- don't manually restart unless the error is persistent and non-transient
-- `gen-extra-indexers.py` idempotently manages the `compose/extra-indexers.yaml` entry in `.environment`'s `COMPOSE_FILE` — adding it when the count is non-zero, removing it when called with N=0. No manual edits needed.
+- `gen-extra-indexers.py` idempotently manages the `compose/extra-indexers.yaml` entry in `.env`'s `COMPOSE_FILE` — adding it when the count is non-zero, removing it when called with N=0. No manual edits needed.
 - The `/fresh-deploy` skill must include `compose/extra-indexers.yaml` in its `down -v` command, otherwise extra indexer postgres volumes survive and agents have stale state on the next deploy

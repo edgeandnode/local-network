@@ -23,7 +23,7 @@ All commands in this skill must run from the local-network project root. The she
 cd /Users/samuel/Documents/github/local-network
 ```
 
-The `.environment` file (symlinked as `.env`) sets `COMPOSE_FILE` which Docker Compose auto-reads. Most `docker compose` commands need no `-f` flags — they inherit from the env. Override with explicit `-f` flags only when you need a different set of compose files (e.g. excluding extra-indexers for the initial deploy).
+The `.env` file sets `COMPOSE_FILE` which Docker Compose auto-reads. Most `docker compose` commands need no `-f` flags — they inherit from the env. Override with explicit `-f` flags only when you need a different set of compose files (e.g. excluding extra-indexers for the initial deploy).
 
 ## Steps
 
