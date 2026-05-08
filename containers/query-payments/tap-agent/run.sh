@@ -42,6 +42,15 @@ query_url = "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgr
 recently_closed_allocation_buffer_secs = 60
 syncing_interval_secs = 30
 
+# The escrow subgraph (legacy semiotic/tap) is not deployed on this branch;
+# TAP signer authorizations live in Horizon contracts. The binary still
+# requires this section as a hard-required TOML field. Stale URL satisfies
+# the schema; queries against it fail gracefully and the DIPs flow does not
+# exercise this path.
+[subgraphs.escrow]
+query_url = "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/semiotic/tap"
+syncing_interval_secs = 30
+
 [blockchain]
 chain_id = 1337
 receipts_verifier_address_v2 = "${graph_tally_verifier}"
