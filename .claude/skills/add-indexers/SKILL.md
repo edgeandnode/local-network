@@ -184,16 +184,25 @@ python3 scripts/set-offchain-rule.py indexing-payments
 # briefly pause primary so gateway routes to extras
 docker pause indexer-service
 
-# 200 queries through gateway — these go to extras while primary is paused
+# 200 queries through gateway — these go to extras while primary is paused.
+# Trailing `|| true` is load-bearing: a curl --max-time timeout returns exit 28,
+# which would abort the heredoc under set -e and leave the primary stuck paused.
+SUCCESS=0
+FAIL=0
 for i in $(seq 1 200); do
-  curl -s --max-time 5 \
-    "http://localhost:7700/api/deadbeefdeadbeefdeadbeefdeadbeef/deployments/id/$NETWORK_DEPLOYMENT" \
-    -H 'content-type: application/json' \
-    -d '{"query":"{ _meta { block { number } } }"}' >/dev/null 2>&1
+  if curl -s --max-time 5 \
+       "http://localhost:7700/api/deadbeefdeadbeefdeadbeefdeadbeef/deployments/id/$NETWORK_DEPLOYMENT" \
+       -H 'content-type: application/json' \
+       -d '{"query":"{ _meta { block { number } } }"}' >/dev/null 2>&1; then
+    SUCCESS=$((SUCCESS + 1))
+  else
+    FAIL=$((FAIL + 1))
+  fi
 done
+echo "queries: $SUCCESS succeeded, $FAIL failed"
 
-# unpause + resume + verify
-docker unpause indexer-service
+# unpause + resume + verify — runs unconditionally even if some queries failed
+docker unpause indexer-service || true
 python3 scripts/check-subgraph-sync.py --resume indexing-payments
 python3 scripts/check-subgraph-sync.py
 REMOTE
