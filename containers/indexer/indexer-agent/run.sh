@@ -1,7 +1,9 @@
 #!/bin/sh
 set -eu
+# shellcheck source=/dev/null
 . /opt/config/.env
 
+# shellcheck source=/dev/null
 . /opt/shared/lib.sh
 
 token_address=$(contract_addr L2GraphToken.address horizon)
@@ -51,6 +53,14 @@ export INDEXER_AGENT_INDEX_NODE_IDS=default
 export INDEXER_AGENT_INDEXER_GEO_COORDINATES="1 1"
 export INDEXER_AGENT_VOUCHER_REDEMPTION_THRESHOLD=0.01
 export INDEXER_AGENT_NETWORK_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
+# indexing-payments subgraph is deployed by subgraph-deploy.
+export INDEXER_AGENT_INDEXING_PAYMENTS_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
+# TAP subgraph is no longer deployed on this branch (TAP escrow consolidated
+# into Horizon). The agent still has unconditional code paths for TapSubgraph
+# that crash when the URL is undefined, so we point at a stale endpoint that
+# returns 404. The agent starts; TAP query-fee paths return errors gracefully.
+# DIPs end-to-end testing does not exercise this path.
+export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/semiotic/tap"
 export INDEXER_AGENT_NETWORK_PROVIDER="http://chain:${CHAIN_RPC_PORT}"
 export INDEXER_AGENT_MNEMONIC="${INDEXER_MNEMONIC}"
 export INDEXER_AGENT_POSTGRES_DATABASE=indexer_components_1
