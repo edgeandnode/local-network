@@ -342,11 +342,8 @@ services:
   iisa-cronjob:
     container_name: iisa-cronjob
     profiles: [indexing-payments]
-    build:
-      context: containers/indexing-payments/iisa
-      args:
-        IISA_COMMIT: ${IISA_COMMIT:-main}
-        MAXMIND_LICENSE_KEY: "skip"
+    image: ghcr.io/edgeandnode/subgraph-dips-indexer-selection-cronjob:${IISA_CRONJOB_VERSION:-latest}
+    pull_policy: if_not_present
     environment:
       REDPANDA_BOOTSTRAP_SERVERS: "redpanda:${REDPANDA_KAFKA_PORT}"
       REDPANDA_TOPIC: gateway_queries
