@@ -1,6 +1,6 @@
 ---
 name: add-indexers
-description: "Add extra indexers to the local Graph protocol network. Use when the user asks to add indexers, spin up another indexer, get more indexers up, bring up new indexers, or wants extra indexers for testing. Also trigger when user says a number followed by 'indexers' (e.g. 'add 3 indexers', 'spin up 2 more')."
+description: Add N extra indexers to the running local-network stack. Use when the user asks to add indexers, spin up another indexer, get more indexers up, bring up new indexers, or wants extra indexers for testing. Also trigger when the user says a number followed by 'indexers' (e.g. 'add 3 indexers', 'spin up 2 more').
 argument-hint: "[count]"
 allowed-tools:
   - Bash
@@ -10,23 +10,25 @@ allowed-tools:
 
 # Add Extra Indexers
 
-Add N extra indexers to the running local network. Each extra indexer gets a fully isolated stack: postgres, graph-node, indexer-agent, indexer-service, and tap-agent. Protocol subgraphs (network, epoch, TAP) are read from the primary graph-node -- extra graph-nodes only handle actual indexing work.
+Add N extra indexers to the running local network. Each extra gets a fully isolated stack (its own postgres, graph-node, indexer-agent, indexer-service, tap-agent) and uses the **same Docker image as the primary** for every service — built from the same `containers/...` Dockerfile contexts, parameterized at runtime via per-extra `environment:` overrides for indexer identity and hostnames. Protocol subgraphs (network, epoch, indexing-payments) are read from the primary graph-node; extras only handle their own indexing work.
 
 The argument is the number of NEW indexers to add (defaults to 1).
 
-## Working directory
+## Targets
 
-All commands must run from the local-network project root. Always cd first:
+This skill assumes the docker stack runs on a remote VM (`lnet-test` here) and Claude executes from the Mac. Concretely:
 
-```bash
-cd /Users/samuel/Documents/github/local-network
-```
+- The generator script (`scripts/gen-extra-indexers.py`) runs on the **Mac**, because it imports `eth_account` / `mnemonic` and the VM's stripped-down system Python lacks both pip and those packages.
+- The generator writes `compose/extra-indexers.yaml` and updates `.env`'s `COMPOSE_FILE` entry on the **Mac**. Both must be `scp`'d to the VM before any `docker compose` command runs there.
+- Every `docker compose ...`, `docker ps`, `docker pause/unpause`, and any `curl http://localhost:...` against a stack service must run on the **VM** via `ssh lnet-test '...'`.
+
+For a local-only docker setup (everything on Mac), drop the `ssh lnet-test` wrappers and skip the `scp` steps. Everything else is identical.
+
+Mac path: `/Users/samuel/Documents/github/local-network`. VM path: `/home/mainuser/local-network`. Adjust both if your layout differs.
 
 ## Accounts
 
-Extra indexers use hardhat "junk" mnemonic accounts starting at index 2. Maximum 18 extra (indices 2-19).
-
-Each indexer gets a unique operator derived from a mnemonic of the form `test test test ... test {bip39_word}` (11 "test" + 1 valid checksum word). The generator handles mnemonic validation, operator address derivation, ETH funding, on-chain `setOperator` authorization for both SubgraphService and HorizonStaking, and PaymentsEscrow deposits for DIPs signer validation.
+Extras use hardhat "junk" mnemonic accounts starting at index 2. Maximum 18 extra (indices 2–19). Each indexer also gets a unique operator derived from a mnemonic of the form `test test test ... test {bip39_word}` (11 "test" + 1 valid checksum word). The generator handles mnemonic validation, operator derivation, ETH funding, on-chain `setOperator` for both `SubgraphService` and `HorizonStaking`, and `PaymentsEscrow` deposits.
 
 | Suffix | Mnemonic Index | Address |
 |--------|---------------|---------|
@@ -37,78 +39,84 @@ Each indexer gets a unique operator derived from a mnemonic of the form `test te
 
 ## Steps
 
-### 1. Determine current extra indexer count
+### 1. Determine current extra count (on the VM)
 
 ```bash
-docker ps --format '{{.Names}}' | grep 'indexer-agent-' | sed 's/indexer-agent-//' | sort -n | tail -1
+ssh lnet-test 'docker ps --format "{{.Names}}" | grep "indexer-agent-" | sed "s/indexer-agent-//" | sort -n | tail -1'
 ```
 
-If no matches, current extra count is 0. Otherwise the highest suffix minus 1 gives the count (suffix 2 = 1 extra, suffix 3 = 2 extras, etc.).
+Empty output → current extras = 0. Otherwise the highest suffix minus 1 is the count (suffix 2 = 1 extra, suffix 3 = 2 extras, etc.).
 
 ### 2. Calculate new total
 
-New total = current extra count + number requested by user.
+`new_total = current_count + requested`. Cap at 18; warn if the user asks for more than the available slots.
 
-Cap at 18. If the user asks for more than available slots, warn and cap.
-
-### 3. Regenerate compose file
+### 3. Generate compose yaml on the Mac, sync to VM
 
 ```bash
+cd /Users/samuel/Documents/github/local-network
 python3 scripts/gen-extra-indexers.py <NEW_TOTAL>
 ```
 
-This regenerates the full compose file for ALL extras (existing + new). It's idempotent -- running it with the same number produces the same file.
-
-### 4. Bring up new containers
-
-Two-step process to avoid bouncing shared services.
-
-First, run `start-indexing-extra` to register new indexers on-chain (stake, operator auth, escrow deposits):
+This (re)generates `compose/extra-indexers.yaml` for **all** extras (existing + new — idempotent) and updates the `COMPOSE_FILE` line in `.env` to include the path. Both files then need to land on the VM:
 
 ```bash
-DOCKER_DEFAULT_PLATFORM= docker compose \
-  -f docker-compose.yaml \
-  -f compose/extra-indexers.yaml \
-  run --rm start-indexing-extra
+scp /Users/samuel/Documents/github/local-network/compose/extra-indexers.yaml \
+    lnet-test:/home/mainuser/local-network/compose/extra-indexers.yaml
+scp /Users/samuel/Documents/github/local-network/.env \
+    lnet-test:/home/mainuser/local-network/.env
 ```
 
-Then start all new containers in a single command with `--no-deps --no-recreate`. List all new service names space-separated:
+After the scp, `ssh lnet-test 'cd /home/mainuser/local-network && docker compose config --services'` should list the new `*-N` services alongside the primary ones.
+
+### 4. Register new indexers on-chain
+
+The `start-indexing-extra` one-shot stakes GRT, authorizes operators, and deposits to `PaymentsEscrow` for every extra in the YAML.
 
 ```bash
-DOCKER_DEFAULT_PLATFORM= docker compose \
-  -f docker-compose.yaml \
-  -f compose/extra-indexers.yaml \
-  up -d --no-deps --no-recreate postgres-2 graph-node-2 indexer-agent-2 indexer-service-2 tap-agent-2 [... all suffixes ...]
+ssh lnet-test 'cd /home/mainuser/local-network && docker compose run --rm start-indexing-extra'
 ```
 
-`--no-deps` prevents compose from walking the dependency tree and bouncing shared services. `--no-recreate` prevents touching already-running containers.
+Watch for `All escrow deposits complete` near the end of the output — that's the success signal. The container exits 0.
 
-### 5. Verify container health
+### 5. Bring up the new containers
 
-Indexer-services share a `flock`-serialized cargo build, so they come up sequentially. The first service to start builds the binary (~2-3 minutes if not cached); subsequent services acquire the lock, find the binary already built, and start immediately.
-
-Poll every 5 seconds until all agents and services are healthy (do NOT use a fixed sleep):
+`--no-deps` prevents compose from walking the dependency tree (which would bounce shared services like `chain` or `gateway`). `--no-recreate` leaves already-running containers alone. Pass every new service explicitly so compose doesn't accidentally start something else.
 
 ```bash
-EXPECTED=N  # number of extras
+ssh lnet-test 'cd /home/mainuser/local-network && docker compose up -d --no-deps --no-recreate \
+  postgres-2 graph-node-2 indexer-agent-2 indexer-service-2 tap-agent-2 \
+  postgres-3 graph-node-3 indexer-agent-3 indexer-service-3 tap-agent-3 \
+  ...'
+```
+
+Substitute the actual service names for the suffixes you're adding.
+
+### 6. Wait for the new containers to be healthy
+
+Each extra's image is the same as the primary's — built once, reused by all extras of that role. After step 5, only the postgres / graph-node / indexer-agent / indexer-service / tap-agent containers themselves need to start (no Rust compile, no source mount, no flock build pass). They typically reach `healthy` within ~30 seconds.
+
+```bash
+EXPECTED=N  # number of total extras (existing + new)
 while true; do
-  HEALTHY=$(docker ps --format '{{.Names}} {{.Status}}' | grep -E '(indexer-agent|indexer-service)-[0-9]' | grep -c healthy || true)
-  echo "$HEALTHY / $((EXPECTED * 2)) healthy"
+  HEALTHY=$(ssh lnet-test 'docker ps --format "{{.Names}} {{.Status}}"' \
+    | grep -E '(indexer-agent|indexer-service)-[0-9]' | grep -c healthy)
+  echo "$HEALTHY / $((EXPECTED * 2)) agent+service healthy"
   [ "$HEALTHY" -ge "$((EXPECTED * 2))" ] && break
   sleep 5
 done
 ```
 
-### 6. Wait for network subgraph to index URL registrations
+### 7. Wait for the network subgraph to index URL registrations
 
-After agents start, they call `subgraphService.register(url, geo)` on-chain. The network subgraph must index these events before IISA or dipper can see the new indexers. Poll every 5 seconds until all indexers have URLs (do NOT use a fixed sleep):
+When each new indexer-agent starts, it calls `subgraphService.register(url, geo)` on-chain. The primary's network subgraph must index that event before IISA or dipper can see the new indexer. Curls hit the primary graph-node on the VM:
 
 ```bash
-TOTAL_EXPECTED=$((1 + N))  # primary + extras
+TOTAL_EXPECTED=$((1 + N))   # primary + extras
 while true; do
-  COUNT=$(curl -s -X POST -H "Content-Type: application/json" \
-    -d '{"query":"{ indexers(where: { url_not: \"\" }) { id } }"}' \
-    http://localhost:8000/subgraphs/name/graph-network \
+  COUNT=$(ssh lnet-test 'curl -s -X POST -H "Content-Type: application/json" \
+    -d "{\"query\":\"{ indexers(where: { url_not: \\\"\\\" }) { id } }\"}" \
+    http://localhost:8000/subgraphs/name/graph-network' \
     | python3 -c "import json,sys; print(len(json.load(sys.stdin)['data']['indexers']))")
   echo "$COUNT / $TOTAL_EXPECTED indexers with URLs"
   [ "$COUNT" -ge "$TOTAL_EXPECTED" ] && break
@@ -116,120 +124,108 @@ while true; do
 done
 ```
 
-### 7. Set indexing rules on extra agents
+### 8. Set `always` indexing rules on each extra agent
 
-Extra agents start with only the global rule and no subgraph-specific allocations. Without allocations, the gateway won't route queries to them, so they'll never build query history in Redpanda, and the IISA cronjob will exclude them from scoring (chicken-and-egg).
+Without an explicit rule, extras allocate to nothing, so the gateway never routes queries to them, the IISA cronjob excludes them from scoring (no Redpanda history), and indexer-2+ become invisible to the rest of the stack. Fix it by setting an `always` rule on each extra's indexer-management API.
 
-Fetch the current network-subgraph deployment ID dynamically — it changes whenever the subgraph schema or mappings change, and a stale ID causes extras to hang retrying a `subgraph_deploy` for a manifest that isn't in local IPFS:
+Each extra's management port maps to host `17600 + suffix * 10` (suffix 2 → 17620, suffix 3 → 17630, etc.). The indexer-management API listens on `7600` inside the container.
+
+Fetch the network-subgraph deployment ID (it changes whenever the schema does), then mutate the rule on each extra:
 
 ```bash
+ssh lnet-test bash <<'REMOTE'
 NETWORK_DEPLOYMENT=$(curl -s http://localhost:8000/subgraphs/name/graph-network \
   -H 'content-type: application/json' \
-  -d '{"query":"{ _meta { deployment } }"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])")
-echo "Network deployment: $NETWORK_DEPLOYMENT"
-```
+  -d '{"query":"{ _meta { deployment } }"}' \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])")
+echo "network deployment: $NETWORK_DEPLOYMENT"
 
-Set an `always` rule on each extra agent so they allocate and start serving queries:
-
-```bash
-for port in 17620 17630 17640 17650; do
-  curl -s http://localhost:$port/ -H 'content-type: application/json' -d "{
-    \"query\": \"mutation setIndexingRule(\$rule: IndexingRuleInput!) { setIndexingRule(identifier: \\\"${NETWORK_DEPLOYMENT}\\\", rule: \$rule) { identifier decisionBasis } }\",
-    \"variables\": {
-      \"rule\": {
-        \"identifier\": \"${NETWORK_DEPLOYMENT}\",
-        \"identifierType\": \"deployment\",
-        \"allocationAmount\": \"1000000000000000000\",
-        \"decisionBasis\": \"always\",
-        \"protocolNetwork\": \"eip155:1337\"
-      }
-    }
-  }"
+for port in 17620 17630 17640 17650; do  # adjust to the actual suffixes you brought up
+  curl -s "http://localhost:$port/" \
+    -H 'content-type: application/json' \
+    -d "{\"query\":\"mutation setIndexingRule(\$rule: IndexingRuleInput!) { setIndexingRule(identifier: \\\"$NETWORK_DEPLOYMENT\\\", rule: \$rule) { identifier decisionBasis } }\",
+         \"variables\": { \"rule\": { \"identifier\": \"$NETWORK_DEPLOYMENT\", \"identifierType\": \"deployment\", \"allocationAmount\": \"1000000000000000000\", \"decisionBasis\": \"always\", \"protocolNetwork\": \"eip155:1337\" } }}"
+  echo
 done
+REMOTE
 ```
 
-The port mapping is `17600 + (suffix * 10)` — suffix 2 = 17620, suffix 3 = 17630, etc. Only hit ports for the actual extras that exist.
+Each agent's reconciliation loop fires roughly every 15 seconds in local-dev mode, so allocations land within ~30 seconds.
 
-After setting rules, agents will allocate within their next reconciliation cycle (~15s with the local dev polling interval). The gateway will then route queries to all indexers, building Redpanda history for IISA scoring.
+### 9. Poll for allocations, then drive query traffic to the extras
 
-### 8. Poll for allocations, then send gateway queries
+The gateway's candidate-selection algorithm strongly favors the highest-staked indexer (= primary). Without intervention, extras get no queries and IISA scores them with no data. Workaround: pause the primary's `indexer-service` briefly so gateway routes to extras, then unpause.
 
-Poll the network subgraph for allocations every 5 seconds until extras have allocated (do NOT use a fixed sleep).
-
-**Important:** The `subgraphDeployment` field is a relationship, not a string. Use `subgraphDeployment_: { ipfsHash: "..." }` for filtering, not `subgraphDeployment: "..."`.
+Before pausing, set an offchain rule on the primary's agent to protect the `indexing-payments` subgraph (BUG-014 — without this the agent will mark indexing-payments unhealthy when it sees the paused service and pause the subgraph; reconciliation re-pauses it on resume because there's no offchain rule to override).
 
 ```bash
+ssh lnet-test bash <<'REMOTE'
 NETWORK_DEPLOYMENT=$(curl -s http://localhost:8000/subgraphs/name/graph-network \
   -H 'content-type: application/json' \
-  -d '{"query":"{ _meta { deployment } }"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])")
+  -d '{"query":"{ _meta { deployment } }"}' \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])")
 
-TOTAL_EXPECTED=$((1 + N))  # primary + extras
+# wait for allocations
+TOTAL_EXPECTED=$((1 + N))
 while true; do
   ALLOC_COUNT=$(curl -s -X POST -H "Content-Type: application/json" \
     -d '{"query":"{ allocations(where: { status: Active }) { subgraphDeployment { ipfsHash } } }"}' \
     http://localhost:8000/subgraphs/name/graph-network \
-    | python3 -c "import json,sys; print(sum(1 for a in json.load(sys.stdin)['data']['allocations'] if a['subgraphDeployment']['ipfsHash'] == '${NETWORK_DEPLOYMENT}'))")
+    | python3 -c "import json,sys,os; d=os.environ['ND']; print(sum(1 for a in json.load(sys.stdin)['data']['allocations'] if a['subgraphDeployment']['ipfsHash']==d))" ND="$NETWORK_DEPLOYMENT")
   echo "$ALLOC_COUNT / $TOTAL_EXPECTED allocations"
   [ "$ALLOC_COUNT" -ge "$TOTAL_EXPECTED" ] && break
   sleep 5
 done
-```
 
-Once allocations exist, build Redpanda history for ALL indexers. The gateway's candidate-selection algorithm heavily favors the primary indexer (highest stake), so extras never get queries naturally. Temporarily pause the primary to force the gateway to route to extras.
-
-Before pausing, protect the indexing-payments subgraph by setting an offchain indexing rule on the primary agent. Without this, the agent detects the paused service as unhealthy and pauses all subgraphs without allocations -- including indexing-payments. The reconciliation loop then re-pauses it even after `subgraph_resume` because there is no offchain rule to override the automatic behavior (BUG-014).
-
-```bash
-# Protect indexing-payments subgraph before pausing the primary service
+# protect indexing-payments subgraph on the primary
+cd /home/mainuser/local-network
 python3 scripts/set-offchain-rule.py indexing-payments
 
-# Pause primary so gateway routes to extras
+# briefly pause primary so gateway routes to extras
 docker pause indexer-service
 
-# Send queries -- these will be served by extra indexers
+# 200 queries through gateway — these go to extras while primary is paused
 for i in $(seq 1 200); do
-  curl -s --max-time 5 "http://localhost:7700/api/deadbeefdeadbeefdeadbeefdeadbeef/deployments/id/${NETWORK_DEPLOYMENT}" \
+  curl -s --max-time 5 \
+    "http://localhost:7700/api/deadbeefdeadbeefdeadbeefdeadbeef/deployments/id/$NETWORK_DEPLOYMENT" \
     -H 'content-type: application/json' \
-    -d '{"query":"{ _meta { block { number } } }"}' > /dev/null 2>&1
+    -d '{"query":"{ _meta { block { number } } }"}' >/dev/null 2>&1
 done
 
-# Unpause primary
+# unpause + resume + verify
 docker unpause indexer-service
-
-# Resume any paused subgraphs and verify sync
-# The offchain rule set above prevents the agent from re-pausing indexing-payments.
 python3 scripts/check-subgraph-sync.py --resume indexing-payments
 python3 scripts/check-subgraph-sync.py
+REMOTE
 ```
 
-### 9. Trigger IISA score refresh
+The `set-offchain-rule.py` script and `check-subgraph-sync.py` are part of the local-network repo and run from `/home/mainuser/local-network` on the VM.
 
-The cronjob container runs scoring once and exits. A fresh run is a one-off `docker compose run`:
+Replace `N` in `TOTAL_EXPECTED=$((1 + N))` with the actual extras count before running the heredoc, since the heredoc is `'REMOTE'`-quoted (no local interpolation).
+
+### 10. Trigger an IISA score refresh
+
+The cronjob image runs scoring once and exits. After populating Redpanda with query history above, run a fresh scoring pass:
 
 ```bash
-DOCKER_DEFAULT_PLATFORM= docker compose \
-  -f docker-compose.yaml \
-  -f compose/extra-indexers.yaml \
-  run --rm iisa-cronjob
+ssh lnet-test 'cd /home/mainuser/local-network && docker compose run --rm iisa-cronjob' 2>&1 | tail -10
 ```
 
-The command blocks until scoring finishes and returns the container's exit code: `0` success, `1` scoring/push failure, `2` missing push token. The final log line (`Scoring complete: mode=..., indexers=N, ...`) is emitted on stdout before exit.
+Look at the last log line — `Scoring complete: mode=..., indexers=N, ...` — to confirm. Exit codes: `0` success, `1` scoring/push failure, `2` missing push token. The `indexers=N` count should equal `1 + extras`. If it's lower, the gateway hasn't routed to all indexers yet — send more queries (step 9) and retry.
 
-### 10. Report
+### 11. Report
 
-Show a summary including:
-- All running indexers (primary + extras) with container names, addresses, and health status
-- Number of indexers visible in the network subgraph (with URLs)
-- Number of indexers scored by IISA (from the cronjob `Scoring complete: N indexers` log line)
+Summarize for the user:
+
+- All running indexers with container names, addresses, and health (`ssh lnet-test 'docker ps --format "{{.Names}}\t{{.Status}}" | grep -E "indexer-(agent|service)"'`).
+- Indexers visible in the network subgraph with URLs (output of step 7).
+- IISA score count (last log line of step 10).
 
 ## Constraints
 
-- Always prefix docker compose with `DOCKER_DEFAULT_PLATFORM=`
-- Use both compose files: `-f docker-compose.yaml -f compose/extra-indexers.yaml`. The `compose/extra-indexers.yaml` path is added to `COMPOSE_FILE` in `.env` automatically by `gen-extra-indexers.py`, so most invocations can omit `-f` entirely.
-- Never use `--force-recreate` when adding indexers to a running stack
-- The generator script is at `scripts/gen-extra-indexers.py`
-- The `start-indexing-extra` container handles on-chain GRT staking, operator authorization, and PaymentsEscrow deposits
-- Agents poll for on-chain staking automatically (up to 450s), so `start-indexing-extra` can run in parallel with container startup
-- Agents retry automatically (30 attempts, 10s delay) -- don't manually restart unless the error is persistent and non-transient
-- `gen-extra-indexers.py` idempotently manages the `compose/extra-indexers.yaml` entry in `.env`'s `COMPOSE_FILE` — adding it when the count is non-zero, removing it when called with N=0. No manual edits needed.
-- The `/fresh-deploy` skill must include `compose/extra-indexers.yaml` in its `down -v` command, otherwise extra indexer postgres volumes survive and agents have stale state on the next deploy
+- Always use the explicit service-name list with `--no-deps --no-recreate` in step 5; never `--force-recreate` against a running stack — it bounces shared services and reverts contract state.
+- The `compose/extra-indexers.yaml` path is added to `COMPOSE_FILE` in `.env` automatically by `gen-extra-indexers.py`. After the scp in step 3, no `-f compose/extra-indexers.yaml` flag is needed for subsequent `docker compose` calls; compose reads it from `.env` directly.
+- Agents poll for on-chain staking automatically (up to 450s), so step 4 (`start-indexing-extra`) and step 5 (`up -d`) can be issued back-to-back; the agents wait for the on-chain state internally.
+- Agents retry transient errors automatically (30 attempts, 10s delay). Don't manually restart unless the error is persistent and non-transient.
+- Each extra service uses the **same Dockerfile context as the primary** (this branch's alignment with `gen-extra-indexers.py`'s rewrite). If you bump `${INDEXER_AGENT_VERSION}` or any other version pin in `.env`, the next `up -d` of extras picks up the new image automatically — no separate generator step needed.
+- The pause/unpause trick in step 9 only routes traffic for queries issued during the pause window. Don't leave `indexer-service` paused — gateway will reject everything else with 5xx.
