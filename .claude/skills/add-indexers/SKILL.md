@@ -68,7 +68,6 @@ First, run `start-indexing-extra` to register new indexers on-chain (stake, oper
 ```bash
 DOCKER_DEFAULT_PLATFORM= docker compose \
   -f docker-compose.yaml \
-  -f compose/dev/dips.yaml \
   -f compose/extra-indexers.yaml \
   run --rm start-indexing-extra
 ```
@@ -78,7 +77,6 @@ Then start all new containers in a single command with `--no-deps --no-recreate`
 ```bash
 DOCKER_DEFAULT_PLATFORM= docker compose \
   -f docker-compose.yaml \
-  -f compose/dev/dips.yaml \
   -f compose/extra-indexers.yaml \
   up -d --no-deps --no-recreate postgres-2 graph-node-2 indexer-agent-2 indexer-service-2 tap-agent-2 [... all suffixes ...]
 ```
@@ -211,7 +209,6 @@ The cronjob container runs scoring once and exits. A fresh run is a one-off `doc
 ```bash
 DOCKER_DEFAULT_PLATFORM= docker compose \
   -f docker-compose.yaml \
-  -f compose/dev/dips.yaml \
   -f compose/extra-indexers.yaml \
   run --rm iisa-cronjob
 ```
@@ -228,7 +225,7 @@ Show a summary including:
 ## Constraints
 
 - Always prefix docker compose with `DOCKER_DEFAULT_PLATFORM=`
-- Always use all three compose files: `-f docker-compose.yaml -f compose/dev/dips.yaml -f compose/extra-indexers.yaml`
+- Use both compose files: `-f docker-compose.yaml -f compose/extra-indexers.yaml`. The `compose/extra-indexers.yaml` path is added to `COMPOSE_FILE` in `.env` automatically by `gen-extra-indexers.py`, so most invocations can omit `-f` entirely.
 - Never use `--force-recreate` when adding indexers to a running stack
 - The generator script is at `scripts/gen-extra-indexers.py`
 - The `start-indexing-extra` container handles on-chain GRT staking, operator authorization, and PaymentsEscrow deposits
