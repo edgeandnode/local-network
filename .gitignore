@@ -30,5 +30,8 @@ config/local/
 # js
 node_modules/
 
+# Pre-cloned source for builds without git auth (eligibility-oracle-node is private)
+containers/oracles/eligibility-oracle-node/source/
+
 /.playwright-mcp
 /pr-reviews

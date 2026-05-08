@@ -325,8 +325,6 @@ services:
     profiles: [rewards-eligibility]
     build:
       context: containers/oracles/eligibility-oracle-node
-      args:
-        ELIGIBILITY_ORACLE_COMMIT: ${ELIGIBILITY_ORACLE_COMMIT}
     depends_on:
       redpanda: { condition: service_healthy }
       gateway: { condition: service_healthy }
