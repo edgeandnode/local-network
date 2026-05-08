@@ -21,6 +21,12 @@ PROTOCOL_GRAPH_NODE_HOST="${PROTOCOL_GRAPH_NODE_HOST:-graph-node}"
 graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 
+# RecurringCollector gates the [dips] block. If the contract isn't deployed
+# (older contracts branches, partial bring-up), we skip [dips] entirely so the
+# binary still starts and serves TAP traffic. With it present, the indexer
+# advertises pricing via /dips/info and accepts DIPs proposals.
+recurring_collector=$(contract_addr RecurringCollector.address horizon 2>/dev/null) || recurring_collector=""
+
 cat >config.toml <<-EOF
 [indexer]
 indexer_address = "${INDEXER_ADDRESS}"
@@ -69,6 +75,31 @@ timestamp_buffer_secs = 15
 ${ACCOUNT0_ADDRESS} = "http://graph-tally-aggregator:${GRAPH_TALLY_AGGREGATOR_PORT}"
 
 EOF
+
+# DIPs section is appended only when RecurringCollector is on-chain.
+# Presence of [dips] makes indexer-service register the /dips/info HTTP route
+# and the DIPs gRPC server on INDEXER_SERVICE_DIPS_RPC_PORT. IISA's scoring
+# cronjob probes /dips/info to learn each indexer's supported networks and
+# pricing floor; without it, IISA returns no candidates for any deployment.
+if [ -n "$recurring_collector" ]; then
+cat >>config.toml <<-EOF
+[dips]
+host = "0.0.0.0"
+port = "${INDEXER_SERVICE_DIPS_RPC_PORT}"
+recurring_collector = "${recurring_collector}"
+supported_networks = ["hardhat"]
+min_grt_per_billion_entities_per_30_days = "${DIPS_MIN_GRT_PER_BILLION_ENTITIES_PER_30_DAYS}"
+
+[dips.min_grt_per_30_days]
+"hardhat" = "${DIPS_MIN_GRT_PER_30_DAYS}"
+
+[dips.additional_networks]
+"hardhat" = "eip155:1337"
+EOF
+else
+  echo "WARNING: RecurringCollector not in horizon.json — DIPs disabled (TAP-only mode)"
+fi
+
 cat config.toml
 
 indexer-service-rs --config=config.toml
