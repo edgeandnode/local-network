@@ -8,66 +8,71 @@ argument-hint: "[deployment_id]"
 
 Register an indexing request with dipper and monitor the full DIPs pipeline: IISA candidate selection, RCA proposal signing, indexer-service accept/reject, and on-chain acceptance via the chain_listener.
 
-## Working directory
+## Targets
 
-All docker compose commands and local scripts must run from the local-network project root. Always cd first:
+The dipper stack runs on the `lnet-test` VM. The `dipper-cli` Rust binary is built on the Mac (where the dipper repo lives) and stays Mac-side — no cross-compile or scp. To reach dipper's admin RPC at `:9000` from the Mac, open an SSH local-forward to the VM (it's exposed externally by compose, but a tunnel is the cleanest portable approach). Helper scripts in the local-network repo run on the VM via SSH.
 
-```bash
-cd /Users/samuel/Documents/github/local-network
-```
-
-Never `cd` to the dipper repo for docker compose commands -- it will look for docker-compose.yaml in the wrong directory.
+For a local-only docker setup, drop the SSH wrappers and tunnel; everything else is identical.
 
 ## Steps
 
-### 1. Build the dipper CLI (if not already built)
+### 1. Build the dipper CLI (Mac)
+
+Builds for the Mac's native arch — used as a client only, doesn't need to match the VM's arch.
 
 ```bash
 cargo build --manifest-path /Users/samuel/Documents/github/dipper/Cargo.toml --bin dipper-cli --release
 ```
 
-Always use absolute paths to the dipper binary -- never `cd` to the dipper repo, as it breaks subsequent docker compose commands that expect to be in the local-network directory. Set `DIPPER_SOURCE_ROOT` in `.env.local` (gitignored) if you want a local override for the binary path.
+Always use the absolute path to the dipper repo and binary; never `cd` to the dipper repo, since later commands run from `/Users/samuel/Documents/github/local-network`.
 
-### 2. Verify dipper is healthy
+### 2. Open an SSH tunnel to dipper's admin RPC
+
+`dipper-cli` defaults to `http://localhost:9000`. The tunnel lets the Mac binary reach the VM's dipper without changing flags or hostnames. Idempotent — if it's already up, the second invocation is a no-op (port in use).
 
 ```bash
-DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml ps dipper --format '{{.Status}}'
+ssh -L 9000:localhost:9000 -fN lnet-test 2>/dev/null || true
 ```
 
-Should show `Up ... (healthy)`. If not, use the `fresh-deploy` skill first.
+Tear it down at the end of the session (or leave it; harmless idle).
 
-### 3. Ensure all indexers have Redpanda query history
-
-The IISA cronjob only scores indexers that have query history in Redpanda. Without this, `compute_all_scores()` succeeds with a subset (only indexers the gateway has routed to), and the degraded fallback (which includes all indexers) never runs.
-
-Send queries through the gateway to populate Redpanda for all indexers with allocations:
-
-The gateway requires the API key in the URL path and uses deployment IDs, not subgraph names:
+### 3. Verify dipper is healthy (on the VM)
 
 ```bash
+ssh lnet-test 'docker compose -f /home/mainuser/local-network/docker-compose.yaml ps dipper --format "{{.Status}}"'
+```
+
+Expect `Up ... (healthy)`. If not, run the `fresh-deploy` skill.
+
+### 4. Ensure indexers have Redpanda query history
+
+The IISA cronjob only scores indexers that have query history. Without it, scoring runs in degraded mode or excludes indexers the gateway hasn't routed to. Send queries through the gateway (which lives on the VM) to populate Redpanda for every indexer with allocations:
+
+```bash
+ssh lnet-test bash <<'REMOTE'
 NETWORK_DEPLOYMENT=$(curl -s http://localhost:8000/subgraphs/name/graph-network \
   -H 'content-type: application/json' \
-  -d '{"query":"{ _meta { deployment } }"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])")
-
+  -d '{"query":"{ _meta { deployment } }"}' \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])")
 for i in $(seq 1 20); do
   curl -s "http://localhost:7700/api/deadbeefdeadbeefdeadbeefdeadbeef/deployments/id/${NETWORK_DEPLOYMENT}" \
     -H 'content-type: application/json' \
-    -d '{"query":"{ _meta { block { number } } }"}' > /dev/null
+    -d '{"query":"{ _meta { block { number } } }"}' >/dev/null
 done
+REMOTE
 ```
 
-Then trigger a fresh IISA scoring run:
+Then trigger a fresh IISA scoring run on the VM:
 
 ```bash
-DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml -f compose/extra-indexers.yaml \
-  run --rm iisa-cronjob
+ssh lnet-test 'cd /home/mainuser/local-network && docker compose run --rm iisa-cronjob' 2>&1 | tail -10
 ```
 
-The container runs scoring once and exits. Exit codes: `0` success, `1` scoring/push failure, `2` missing push token. The final log line (`Scoring complete: mode=..., indexers=N, ...`) reports the outcome. The indexer count should match the total number of indexers with allocations. If it shows fewer, the gateway hasn't routed to all indexers yet -- send more queries and retry.
+The cronjob runs once and exits. Exit codes: `0` success, `1` scoring/push failure, `2` missing push token. The last log line `Scoring complete: mode=..., indexers=N, ...` reports the outcome. The `indexers` count should equal the total number of indexers with allocations. If it's lower, send more queries and retry.
 
-### 4. Send the indexing request
+### 5. Send the indexing request (Mac binary, tunnelled to VM dipper)
 
-If this skill was invoked with an argument (e.g., `/send-indexing-request QmSQq...`), use that value as the deployment ID. Otherwise default to `QmPdbQaRCMhgouSZSW3sHZxU3M8KwcngWASvreAexzmmrh` (the graph-network subgraph).
+If the skill was invoked with an argument (e.g. `/send-indexing-request QmSQq...`), use that as the deployment ID. Otherwise default to `QmPdbQaRCMhgouSZSW3sHZxU3M8KwcngWASvreAexzmmrh` (the graph-network subgraph).
 
 ```bash
 /Users/samuel/Documents/github/dipper/target/release/dipper-cli indexings register \
@@ -77,38 +82,38 @@ If this skill was invoked with an argument (e.g., `/send-indexing-request QmSQq.
   1337
 ```
 
-The signing key belongs to RECEIVER (`0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3`). The admin RPC allowlist only accepts this address. ACCOUNT0's key will return 403.
+The signing key belongs to RECEIVER (`0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3`). Dipper's admin RPC allowlist only accepts this address; ACCOUNT0's key returns 403.
 
-On success, the CLI prints a UUID -- the indexing request ID.
+On success, the CLI prints a UUID — the indexing request ID.
 
-To use a different deployment, query graph-node for available ones:
+To list available deployments to use a different one, query graph-node's status endpoint (also tunnel-friendly, but easier to ask graph-node directly via its container):
 
 ```bash
-DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml exec graph-node \
+ssh lnet-test 'docker compose -f /home/mainuser/local-network/docker-compose.yaml exec graph-node \
   curl -s -X POST -H "Content-Type: application/json" \
-  -d '{"query":"{ indexingStatuses { subgraph chains { network } } }"}' \
-  http://localhost:8030/graphql
+  -d "{\"query\":\"{ indexingStatuses { subgraph chains { network } } }\"}" \
+  http://localhost:8030/graphql'
 ```
 
-### 5. Monitor the pipeline
+### 6. Monitor the pipeline (on the VM)
 
 ```bash
-python3 scripts/monitor-dips-pipeline.py <REQUEST_ID>
+ssh lnet-test 'cd /home/mainuser/local-network && python3 scripts/monitor-dips-pipeline.py <REQUEST_ID>'
 ```
 
-This polls dipper's database for agreement status changes, checks indexing-payments subgraph health proactively, and exits when all agreements reach a terminal state. Expected runtime: 30-120 seconds.
+Polls dipper's postgres for status changes, checks the indexing-payments subgraph proactively, exits when all agreements reach a terminal state. Runtime: 30–120 s.
 
-The script tracks the full lifecycle: IISA candidate selection, RCA proposal delivery, indexer-service accept/reject, and on-chain acceptance via dipper's chain_listener. If agreements stay in `CREATED` for >60 seconds, it checks the indexing-payments subgraph and warns if it is lagging or paused (BUG-014).
+Tracks the full lifecycle: IISA candidate selection, RCA proposal delivery, indexer-service accept/reject, on-chain acceptance. If agreements stay in `CREATED` for >60 s, the script warns about the indexing-payments subgraph and may report it lagging or paused.
 
-If the script warns about the indexing-payments subgraph, resume it:
+If the subgraph is paused (per the warning), resume it:
 
 ```bash
-python3 scripts/check-subgraph-sync.py --resume indexing-payments
+ssh lnet-test 'cd /home/mainuser/local-network && python3 scripts/check-subgraph-sync.py --resume indexing-payments'
 ```
 
 Then re-run the monitor.
 
-### 6. Check request status
+### 7. Check request status (Mac binary, tunnelled)
 
 ```bash
 /Users/samuel/Documents/github/dipper/target/release/dipper-cli indexings status \
@@ -117,11 +122,20 @@ Then re-run the monitor.
   <REQUEST_ID>
 ```
 
+### 8. (Optional) Tear down the SSH tunnel
+
+```bash
+pkill -f "ssh -L 9000:localhost:9000.*lnet-test" 2>/dev/null || true
+```
+
+Leaving the tunnel open is also fine — it's a quiet idle connection.
+
 ## Reference
 
 | Detail | Value |
 |--------|-------|
-| Admin RPC port | 9000 |
+| Admin RPC port | 9000 (tunnelled to localhost) |
+| Indexer RPC port | 9001 (also exposed, not used by this skill) |
 | Signing key | RECEIVER: `0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573` |
 | Signing address | `0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3` |
 | Chain ID | 1337 (hardhat) |
@@ -129,5 +143,5 @@ Then re-run the monitor.
 
 ## Common rejection reasons
 
-- **SIGNER_NOT_AUTHORISED**: The payer (ACCOUNT0) isn't authorized as a signer on the RecurringCollector contract. The escrow manager authorizes signers on PaymentsEscrow (for TAP) but not on RecurringCollector.
-- **PRICE_TOO_LOW**: Dipper's pricing config doesn't meet indexer-service's minimum. Compare `pricing_table` in dipper's run.sh with `min_grt_per_30_days` in indexer-service's config.
+- **OFFER_NOT_FOUND / OFFER_MISMATCH**: dipper successfully signed an RCA but the indexer-service can't find a matching on-chain offer. Most often means the indexing-payments subgraph hasn't indexed the offer yet. Wait a few seconds and re-monitor; if it persists, check the subgraph sync state.
+- **PRICE_TOO_LOW**: dipper's pricing config doesn't meet the indexer-service's minimum. Compare `pricing_table` in `containers/indexing-payments/dipper/run.sh` with `min_grt_per_30_days` in the indexer-service config.
