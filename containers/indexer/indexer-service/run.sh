@@ -64,6 +64,13 @@ host_and_port = "0.0.0.0:${INDEXER_SERVICE_PORT}"
 url_prefix = "/"
 serve_network_subgraph = false
 serve_escrow_subgraph = false
+# Without this, ipfs_url falls back to the public Graph IPFS gateway via
+# default_values.toml in the indexer-rs config crate. The DIPs flow fetches
+# subgraph manifests from IPFS to validate proposals — the public gateway
+# can't serve manifests we only published to the local IPFS node, so DIPs
+# proposals get rejected with SUBGRAPH_MANIFEST_UNAVAILABLE. Point at the
+# stack's IPFS so the manifests resolve.
+ipfs_url = "http://ipfs:${IPFS_RPC_PORT}"
 
 [tap]
 max_amount_willing_to_lose_grt = 1
