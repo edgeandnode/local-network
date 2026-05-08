@@ -118,6 +118,26 @@ if [ -n "$rewards_manager" ] && [ -n "$subgraph_service" ]; then
   fi
 fi
 
+# Write a stub tap-contracts.json mapping the legacy TAP contract names to
+# their Horizon equivalents. The indexer-agent's @semiotic-labs/tap-contracts-
+# bindings library hardcodes per-chain TAP addresses for known networks but has
+# no entry for chain 1337, so it requires this address book at startup. We
+# don't deploy the legacy TAP contracts on this branch — TAP receipts are
+# verified by GraphTallyCollector and escrowed in PaymentsEscrow under
+# Horizon. AllocationIDTracker has no Horizon equivalent and is unused on the
+# DIPs testing path; the zero address is a safe stub.
+graph_tally_collector=$(jq -r '."1337".GraphTallyCollector.address' /opt/config/horizon.json)
+payments_escrow=$(jq -r '."1337".PaymentsEscrow.address' /opt/config/horizon.json)
+cat > /opt/config/tap-contracts.json <<EOF
+{
+  "1337": {
+    "TAPVerifier": "${graph_tally_collector}",
+    "AllocationIDTracker": "0x0000000000000000000000000000000000000000",
+    "Escrow": "${payments_escrow}"
+  }
+}
+EOF
+
 echo "==== Phase 1 complete ===="
 
 # ============================================================

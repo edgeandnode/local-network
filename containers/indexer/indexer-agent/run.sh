@@ -41,6 +41,9 @@ fi
 
 export INDEXER_AGENT_HORIZON_ADDRESS_BOOK=/opt/config/horizon.json
 export INDEXER_AGENT_SUBGRAPH_SERVICE_ADDRESS_BOOK=/opt/config/subgraph-service.json
+# Stub address book — see graph-contracts/run.sh for shape rationale. Required
+# by @semiotic-labs/tap-contracts-bindings, which has no chainId 1337 baked in.
+export INDEXER_AGENT_TAP_ADDRESS_BOOK=/opt/config/tap-contracts.json
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/block-oracle"
 export INDEXER_AGENT_GATEWAY_ENDPOINT="http://gateway:${GATEWAY_PORT}"
 export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}"
