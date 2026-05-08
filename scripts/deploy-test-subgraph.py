@@ -18,7 +18,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 IPFS_API = "http://localhost:5001"
 CHAIN_RPC = "http://localhost:8545"
@@ -69,8 +69,7 @@ def ipfs_add(content: str | bytes) -> str:
     body = (
         b"--" + boundary + b"\r\n"
         b'Content-Disposition: form-data; name="file"; filename="file"\r\n'
-        b"Content-Type: application/octet-stream\r\n\r\n"
-        + content + b"\r\n"
+        b"Content-Type: application/octet-stream\r\n\r\n" + content + b"\r\n"
         b"--" + boundary + b"--\r\n"
     )
     req = Request(
@@ -95,8 +94,8 @@ def run(cmd: str, cwd: str = None) -> str:
 def get_contract_address(contract_path: str, config_file: str) -> str:
     repo_root = Path(__file__).resolve().parent.parent
     output = run(
-        f'DOCKER_DEFAULT_PLATFORM= docker compose -f docker-compose.yaml -f compose/dev/dips.yaml '
-        f'exec -T indexer-agent jq -r \'.["1337"].{contract_path}\' /opt/config/{config_file}',
+        f"docker compose exec -T indexer-agent "
+        f"jq -r '.[\"1337\"].{contract_path}' /opt/config/{config_file}",
         cwd=str(repo_root),
     )
     if not output or output == "null":
@@ -107,8 +106,10 @@ def get_contract_address(contract_path: str, config_file: str) -> str:
 
 def cid_to_hex(cid: str) -> str:
     """Convert an IPFS CIDv0 (Qm...) to the 32-byte hex used by GNS."""
-    output = json.loads(run(f'curl -s -X POST "{IPFS_API}/api/v0/cid/format?arg={cid}&b=base16"'))
-    return output["Formatted"][len("f01701220"):]
+    output = json.loads(
+        run(f'curl -s -X POST "{IPFS_API}/api/v0/cid/format?arg={cid}&b=base16"')
+    )
+    return output["Formatted"][len("f01701220") :]
 
 
 def build_once(source_address: str) -> tuple[str, str, str]:
@@ -139,9 +140,11 @@ def build_once(source_address: str) -> tuple[str, str, str]:
         # Upload the three shared artifacts to IPFS
         schema_cid = ipfs_add(SCHEMA)
         abi_cid = ipfs_add("[]")
-        wasm_path = Path(tmpdir, "build", next(
-            p.name for p in Path(tmpdir, "build").iterdir() if p.is_dir()
-        ))
+        wasm_path = Path(
+            tmpdir,
+            "build",
+            next(p.name for p in Path(tmpdir, "build").iterdir() if p.is_dir()),
+        )
         wasm_file = next(wasm_path.glob("*.wasm"))
         wasm_cid = ipfs_add(wasm_file.read_bytes())
 
@@ -178,40 +181,50 @@ dataSources:
 
 
 def make_ipfs_manifest(
-    name: str, source_address: str, start_block: int,
-    schema_cid: str, abi_cid: str, wasm_cid: str,
+    name: str,
+    source_address: str,
+    start_block: int,
+    schema_cid: str,
+    abi_cid: str,
+    wasm_cid: str,
 ) -> str:
     """Produce the resolved manifest that graph-node expects from IPFS.
 
     File references become IPFS links: {/: /ipfs/CID}
     """
-    return json.dumps({
-        "specVersion": "0.0.4",
-        "schema": {"file": {"/": f"/ipfs/{schema_cid}"}},
-        "dataSources": [{
-            "kind": "ethereum",
-            "name": name,
-            "network": "hardhat",
-            "source": {
-                "abi": "Dummy",
-                "address": source_address,
-                "startBlock": start_block,
-            },
-            "mapping": {
-                "apiVersion": "0.0.6",
-                "language": "wasm/assemblyscript",
-                "kind": "ethereum/events",
-                "entities": ["Block"],
-                "abis": [{"name": "Dummy", "file": {"/": f"/ipfs/{abi_cid}"}}],
-                "blockHandlers": [{"handler": "handleBlock"}],
-                "file": {"/": f"/ipfs/{wasm_cid}"},
-            },
-        }],
-    })
+    return json.dumps(
+        {
+            "specVersion": "0.0.4",
+            "schema": {"file": {"/": f"/ipfs/{schema_cid}"}},
+            "dataSources": [
+                {
+                    "kind": "ethereum",
+                    "name": name,
+                    "network": "hardhat",
+                    "source": {
+                        "abi": "Dummy",
+                        "address": source_address,
+                        "startBlock": start_block,
+                    },
+                    "mapping": {
+                        "apiVersion": "0.0.6",
+                        "language": "wasm/assemblyscript",
+                        "kind": "ethereum/events",
+                        "entities": ["Block"],
+                        "abis": [{"name": "Dummy", "file": {"/": f"/ipfs/{abi_cid}"}}],
+                        "blockHandlers": [{"handler": "handleBlock"}],
+                        "file": {"/": f"/ipfs/{wasm_cid}"},
+                    },
+                }
+            ],
+        }
+    )
 
 
 def get_nonce() -> int:
-    output = run(f'cast nonce 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --rpc-url "{CHAIN_RPC}"')
+    output = run(
+        f'cast nonce 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --rpc-url "{CHAIN_RPC}"'
+    )
     return int(output)
 
 
@@ -224,7 +237,7 @@ def publish_to_gns(deployment_hex: str, gns_address: str, nonce: int) -> str:
         f'"0x0000000000000000000000000000000000000000000000000000000000000000" '
         f'"0x0000000000000000000000000000000000000000000000000000000000000000" '
         f'--rpc-url "{CHAIN_RPC}" --async '
-        f'--nonce {nonce} '
+        f"--nonce {nonce} "
         f'--mnemonic "{MNEMONIC}"'
     )
     return tx_hash
