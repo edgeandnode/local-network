@@ -6,23 +6,35 @@ set -eu
 # shellcheck source=/dev/null
 . /opt/shared/lib.sh
 
+# Per-indexer overrides. The primary indexer leaves these unset and inherits
+# the default identity (RECEIVER_*) and service hostnames; extras inject their
+# own values via compose `environment:`. Names match the indexer-agent and
+# tap-agent run.sh files so a single set of overrides drives all three.
+INDEXER_ADDRESS="${INDEXER_ADDRESS:-$RECEIVER_ADDRESS}"
+INDEXER_OPERATOR_MNEMONIC="${INDEXER_OPERATOR_MNEMONIC:-$INDEXER_MNEMONIC}"
+INDEXER_DB_NAME="${INDEXER_DB_NAME:-indexer_components_1}"
+POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
+GRAPH_NODE_HOST="${GRAPH_NODE_HOST:-graph-node}"
+PROTOCOL_GRAPH_NODE_HOST="${PROTOCOL_GRAPH_NODE_HOST:-graph-node}"
+
 graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 
 cat >config.toml <<-EOF
 [indexer]
-indexer_address = "${RECEIVER_ADDRESS}"
-operator_mnemonic = "${INDEXER_MNEMONIC}"
+indexer_address = "${INDEXER_ADDRESS}"
+operator_mnemonic = "${INDEXER_OPERATOR_MNEMONIC}"
 
 [database]
-postgres_url = "postgresql://postgres@postgres:${POSTGRES_PORT}/indexer_components_1"
+postgres_url = "postgresql://postgres@${POSTGRES_HOST}:${POSTGRES_PORT}/${INDEXER_DB_NAME}"
 
 [graph_node]
-query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}"
-status_url = "http://graph-node:${GRAPH_NODE_STATUS_PORT}/graphql"
+query_url = "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}"
+status_url = "http://${GRAPH_NODE_HOST}:${GRAPH_NODE_STATUS_PORT}/graphql"
 
 [subgraphs.network]
-query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
+query_url = "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 recently_closed_allocation_buffer_secs = 60
 syncing_interval_secs = 30
 
@@ -32,7 +44,7 @@ syncing_interval_secs = 30
 # the schema; queries against it fail gracefully and the DIPs flow does not
 # exercise this path.
 [subgraphs.escrow]
-query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/semiotic/tap"
+query_url = "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/semiotic/tap"
 syncing_interval_secs = 30
 
 [blockchain]

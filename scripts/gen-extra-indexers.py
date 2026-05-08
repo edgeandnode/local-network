@@ -125,12 +125,12 @@ for _word in _bip39.wordlist:
         OPERATOR_MNEMONICS.append((_candidate, _addr))
 
 OUTPUT_FILE = Path(__file__).resolve().parent.parent / "compose" / "extra-indexers.yaml"
-ENV_FILE = Path(__file__).resolve().parent.parent / ".environment"
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 COMPOSE_OVERLAY_PATH = "compose/extra-indexers.yaml"
 
 
 def update_compose_file(add: bool) -> None:
-    """Add or remove the extra-indexers overlay from COMPOSE_FILE in .environment.
+    """Add or remove the extra-indexers overlay from COMPOSE_FILE in .env.
 
     Idempotent: running with the same `add` value is a no-op. Other entries
     in COMPOSE_FILE are preserved in their original order.
@@ -170,7 +170,7 @@ def postgres_service(n: int) -> str:
   postgres-{n}:
     container_name: postgres-{n}
     image: postgres:17-alpine
-    command: postgres -c 'max_connections=200' -c 'shared_buffers=64MB'
+    command: postgres -c 'max_connections=1000' -c 'shared_preload_libraries=pg_stat_statements'
     volumes:
       - postgres-{n}-data:/var/lib/postgresql/data
       - ./containers/core/postgres/setup.sql:/docker-entrypoint-initdb.d/setup.sql:ro
@@ -179,11 +179,8 @@ def postgres_service(n: int) -> str:
       POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_USER: postgres
     healthcheck:
-      interval: 1s
-      retries: 20
-      test: pg_isready -U postgres
-    mem_limit: 256m
-    restart: unless-stopped
+      {{ interval: 1s, retries: 20, test: pg_isready -U postgres }}
+    restart: on-failure:3
 """
 
 
@@ -196,12 +193,9 @@ def graph_node_service(n: int) -> str:
       args:
         GRAPH_NODE_VERSION: ${{GRAPH_NODE_VERSION}}
     depends_on:
-      chain:
-        condition: service_healthy
-      ipfs:
-        condition: service_healthy
-      postgres-{n}:
-        condition: service_healthy
+      chain: {{ condition: service_healthy }}
+      ipfs: {{ condition: service_healthy }}
+      postgres-{n}: {{ condition: service_healthy }}
     stop_signal: SIGKILL
     volumes:
       - ./shared:/opt/shared:ro
@@ -210,15 +204,11 @@ def graph_node_service(n: int) -> str:
     environment:
       POSTGRES_HOST: "postgres-{n}"
     healthcheck:
-      interval: 2s
-      retries: 60
-      start_period: 10s
-      test: curl -f http://127.0.0.1:8030
+      {{ interval: 1s, retries: 20, test: curl -f http://127.0.0.1:8030 }}
     dns_opt:
       - timeout:2
       - attempts:5
-    mem_limit: 256m
-    restart: unless-stopped
+    restart: on-failure:3
 """
 
 
@@ -226,28 +216,17 @@ def agent_service(n: int, address: str, secret: str, operator_mnemonic: str) -> 
     return f"""\
   indexer-agent-{n}:
     container_name: indexer-agent-{n}
-    platform: linux/arm64
     build:
-      target: "wrapper"
-      dockerfile_inline: |
-        FROM node:22-slim AS wrapper
-        RUN apt-get update \\
-            && apt-get install -y --no-install-recommends \\
-                build-essential curl git jq python3 \\
-            && rm -rf /var/lib/apt/lists/*
-        COPY --from=ghcr.io/foundry-rs/foundry:v1.0.0 \\
-            /usr/local/bin/forge /usr/local/bin/cast /usr/local/bin/anvil /usr/local/bin/chisel /usr/local/bin/
-        RUN npm install -g tsx nodemon
-    entrypoint: ["bash", "/opt/run-dips.sh"]
+      context: containers/indexer/indexer-agent
+      args:
+        INDEXER_AGENT_VERSION: ${{INDEXER_AGENT_VERSION}}
+    platform: linux/amd64
     depends_on:
-      graph-node-{n}:
-        condition: service_healthy
-    ports:
-      - "{17600 + n * 10}:7600"
+      graph-contracts: {{ condition: service_completed_successfully }}
+      graph-node-{n}: {{ condition: service_healthy }}
+    ports: ["{17600 + n * 10}:7600"]
     stop_signal: SIGKILL
     volumes:
-      - ${{INDEXER_AGENT_SOURCE_ROOT:?Set INDEXER_AGENT_SOURCE_ROOT}}:/opt/indexer-agent-source-root
-      - ./containers/indexer/indexer-agent/dev/run-dips.sh:/opt/run-dips.sh:ro
       - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
@@ -260,17 +239,12 @@ def agent_service(n: int, address: str, secret: str, operator_mnemonic: str) -> 
       GRAPH_NODE_HOST: "graph-node-{n}"
       PROTOCOL_GRAPH_NODE_HOST: "graph-node"
       POSTGRES_HOST: "postgres-{n}"
-      INDEXER_MANAGEMENT_PORT: "7600"
     healthcheck:
-      interval: 10s
-      retries: 600
-      start_period: 30s
-      test: curl -f http://127.0.0.1:7600/
+      {{ interval: 2s, retries: 600, test: curl -f http://127.0.0.1:7600/ }}
     dns_opt:
       - timeout:2
       - attempts:5
-    mem_limit: 512m
-    restart: unless-stopped
+    restart: on-failure:3
 """
 
 
@@ -278,29 +252,17 @@ def service_service(n: int, address: str, secret: str, operator_mnemonic: str) -
     return f"""\
   indexer-service-{n}:
     container_name: indexer-service-{n}
-    cap_add:
-      - NET_ADMIN
-    platform: linux/arm64
     build:
-      target: "wrapper"
-      dockerfile_inline: |
-        FROM rust:1-slim-bookworm AS wrapper
-        RUN apt-get update \\
-            && apt-get install -y --no-install-recommends \\
-                build-essential curl git jq pkg-config \\
-                protobuf-compiler libssl-dev libsasl2-dev \\
-            && rm -rf /var/lib/apt/lists/*
-    entrypoint: ["bash", "/opt/run-dips.sh"]
+      context: containers/indexer/indexer-service
+      args:
+        INDEXER_SERVICE_RS_VERSION: ${{INDEXER_SERVICE_RS_VERSION}}
     depends_on:
-      indexer-agent-{n}:
-        condition: service_healthy
+      indexer-agent-{n}: {{ condition: service_healthy }}
+      subgraph-deploy: {{ condition: service_completed_successfully }}
     ports:
       - "{17601 + n * 10}:7601"
-      - "{17602 + n * 10}:7602"
     stop_signal: SIGKILL
     volumes:
-      - ${{INDEXER_SERVICE_SOURCE_ROOT:?Set INDEXER_SERVICE_SOURCE_ROOT}}:/opt/source
-      - ./containers/indexer/indexer-service/dev/run-dips.sh:/opt/run-dips.sh:ro
       - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
@@ -312,18 +274,14 @@ def service_service(n: int, address: str, secret: str, operator_mnemonic: str) -
       GRAPH_NODE_HOST: "graph-node-{n}"
       PROTOCOL_GRAPH_NODE_HOST: "graph-node"
       POSTGRES_HOST: "postgres-{n}"
-      RUST_LOG: info,indexer_service_rs=info,indexer_monitor=warn,indexer_dips=debug
-      RUST_BACKTRACE: "1"
-      SQLX_OFFLINE: "true"
+      RUST_LOG: info,indexer_service_rs=trace
+      RUST_BACKTRACE: 1
     healthcheck:
-      interval: 10s
-      retries: 600
-      test: curl -f http://127.0.0.1:7601/
+      {{ interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }}
     dns_opt:
       - timeout:2
       - attempts:5
-    mem_limit: 192m
-    restart: unless-stopped
+    restart: on-failure:3
 """
 
 
@@ -336,8 +294,8 @@ def tap_service(n: int, address: str, secret: str, operator_mnemonic: str) -> st
       args:
         INDEXER_TAP_AGENT_VERSION: ${{INDEXER_TAP_AGENT_VERSION}}
     depends_on:
-      indexer-agent-{n}:
-        condition: service_healthy
+      indexer-agent-{n}: {{ condition: service_healthy }}
+      subgraph-deploy: {{ condition: service_completed_successfully }}
     stop_signal: SIGKILL
     volumes:
       - ./shared:/opt/shared:ro
@@ -352,12 +310,11 @@ def tap_service(n: int, address: str, secret: str, operator_mnemonic: str) -> st
       PROTOCOL_GRAPH_NODE_HOST: "graph-node"
       POSTGRES_HOST: "postgres-{n}"
       RUST_LOG: info,indexer_tap_agent=trace
-      RUST_BACKTRACE: "1"
+      RUST_BACKTRACE: 1
     dns_opt:
       - timeout:2
       - attempts:5
-    mem_limit: 128m
-    restart: unless-stopped
+    restart: on-failure:3
 """
 
 
@@ -519,7 +476,7 @@ def generate(count: int) -> str:
 #
 # Usage:
 #   python3 scripts/gen-extra-indexers.py N
-#   COMPOSE_FILE=docker-compose.yaml:compose/dev/dips.yaml:compose/extra-indexers.yaml
+#   COMPOSE_FILE=docker-compose.yaml:compose/extra-indexers.yaml
 
 """
 

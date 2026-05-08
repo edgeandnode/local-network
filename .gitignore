@@ -35,3 +35,6 @@ containers/oracles/eligibility-oracle-node/source/
 
 /.playwright-mcp
 /pr-reviews
+
+# Python
+__pycache__/
