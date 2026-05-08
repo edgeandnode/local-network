@@ -149,7 +149,6 @@ wait_for_config() {
   echo "Waiting for contract config..." >&2
   while [ "$_wfc_elapsed" -lt "$_wfc_timeout" ]; do
     if [ -f /opt/config/horizon.json ] && jq -e '.["1337"]' /opt/config/horizon.json > /dev/null 2>&1 \
-       && [ -f /opt/config/tap-contracts.json ] \
        && [ -f /opt/config/subgraph-service.json ]; then
       echo "Contract config available" >&2
       return 0

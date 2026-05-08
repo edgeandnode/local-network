@@ -29,7 +29,7 @@ network_subgraph_deployment=$(wait_for_gql \
   ".data._meta.deployment" \
   600)
 
-tap_verifier=$(contract_addr TAPVerifier tap-contracts)
+tap_verifier=$(contract_addr GraphTallyCollector.address horizon)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 recurring_collector=$(contract_addr RecurringCollector.address horizon)
 
