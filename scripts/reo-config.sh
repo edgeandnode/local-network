@@ -92,7 +92,7 @@ set_param() {
 
   echo "Setting $param_name: $(format_duration "$current") -> $(format_duration "$new_value")"
   cast send --rpc-url="$RPC_URL" --confirmations=0 \
-    --private-key="$ACCOUNT0_SECRET" \
+    --private-key="$DEPLOYER_SECRET" \
     "$REO_ADDRESS" "${setter}(uint256)" "$new_value"
   echo "Done."
 }

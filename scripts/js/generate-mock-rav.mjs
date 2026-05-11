@@ -67,9 +67,9 @@ function stripHexPrefix(hex) {
 async function main() {
   const args = parseCliArgs();
 
-  const payer = getEnvVar("ACCOUNT0_ADDRESS");
-  const serviceProvider = getEnvVar("RECEIVER_ADDRESS");
-  const signerPrivateKey = getEnvVar("ACCOUNT1_SECRET");
+  const payer = getEnvVar("DEPLOYER_ADDRESS");
+  const serviceProvider = getEnvVar("INDEXER_ADDRESS");
+  const signerPrivateKey = getEnvVar("GOVERNOR_SECRET");
   const chainId = parseInt(getEnvVar("CHAIN_ID"), 10);
 
   const allocationId = args["allocation-id"];

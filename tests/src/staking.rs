@@ -43,7 +43,7 @@ impl TestNetwork {
     /// Emulates Explorer "Unstake" (BaselineTestPlan 2.2).
     ///
     /// Only works on idle stake (not provisioned or allocated).
-    /// Called as the indexer (RECEIVER_SECRET).
+    /// Called as the indexer (INDEXER_SECRET).
     pub fn unstake_tokens(&self, amount_wei: &str) -> Result<()> {
         self.cast_send_as_indexer(
             &self.contracts.horizon_staking,
@@ -71,7 +71,7 @@ impl TestNetwork {
     /// Emulates `graph indexer provisions add` (BaselineTestPlan 3.2).
     ///
     /// Moves tokens from idle stake into the provision for SubgraphService.
-    /// Called as the indexer (RECEIVER_SECRET).
+    /// Called as the indexer (INDEXER_SECRET).
     pub fn provision_add(&self, amount_wei: &str) -> Result<()> {
         self.cast_send_as_indexer(
             &self.contracts.horizon_staking,
@@ -90,7 +90,7 @@ impl TestNetwork {
     ///
     /// Starts the thawing process. Tokens remain locked until the thawing
     /// period expires, then `provision_deprovision()` completes the removal.
-    /// Called as the indexer (RECEIVER_SECRET).
+    /// Called as the indexer (INDEXER_SECRET).
     pub fn provision_thaw(&self, amount_wei: &str) -> Result<()> {
         self.cast_send_as_indexer(
             &self.contracts.horizon_staking,
@@ -109,7 +109,7 @@ impl TestNetwork {
     ///
     /// Can only succeed after the thawing period has elapsed.
     /// `n_thaw_requests` is typically 1 (one thaw request to process).
-    /// Called as the indexer (RECEIVER_SECRET).
+    /// Called as the indexer (INDEXER_SECRET).
     pub fn provision_deprovision(&self, n_thaw_requests: u64) -> Result<()> {
         self.cast_send_as_indexer(
             &self.contracts.horizon_staking,
