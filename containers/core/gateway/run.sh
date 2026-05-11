@@ -28,6 +28,7 @@ cat >config.json <<-EOF
   ],
   "exchange_rate_provider": 1.0,
   "graph_env_id": "local",
+  "kafka_topic_environment": "${KAFKA_TOPIC_ENVIRONMENT:-}",
   "indexer_selection_retry_limit": 2,
   "kafka": {
     "bootstrap.servers": "redpanda:9092"
@@ -48,17 +49,11 @@ cat >config.json <<-EOF
   "query_fees_target": 40e-6,
   "receipts": {
     "chain_id": "1337",
-    "payer": "${ACCOUNT0_ADDRESS}",
-    "signer": "${ACCOUNT1_SECRET}",
+    "payer": "${DEPLOYER_ADDRESS}",
+    "signer": "${GOVERNOR_SECRET}",
     "verifier": "${graph_tally_verifier}"
   },
-  "subgraph_service": "${subgraph_service}",
-  "x402": {
-    "facilitator_url": "https://x402.org/facilitator",
-    "receiver_address": "${ACCOUNT_X402_ADDRESS}",
-    "chain": "base_sepolia",
-    "price": 42e-6
-  }
+  "subgraph_service": "${subgraph_service}"
 }
 EOF
 cat config.json

@@ -26,7 +26,7 @@ export PATH="$HOME/.foundry/bin:$PATH"
 
 SUBGRAPH_URL="http://${GRAPH_NODE_HOST:-localhost}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 RPC_URL="http://${CHAIN_HOST:-localhost}:${CHAIN_RPC_PORT}"
-INDEXER=$(echo "$RECEIVER_ADDRESS" | tr '[:upper:]' '[:lower:]')
+INDEXER=$(echo "$INDEXER_ADDRESS" | tr '[:upper:]' '[:lower:]')
 
 pass=0
 fail=0

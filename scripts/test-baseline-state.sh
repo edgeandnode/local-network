@@ -30,7 +30,7 @@ SUBGRAPH_URL="http://${GRAPH_NODE_HOST:-localhost}:${GRAPH_NODE_GRAPHQL_PORT}/su
 AGENT_URL="http://${INDEXER_AGENT_HOST:-localhost}:${INDEXER_MANAGEMENT_PORT}"
 GATEWAY_URL="http://${GATEWAY_HOST:-localhost}:${GATEWAY_PORT}"
 RPC_URL="http://${CHAIN_HOST:-localhost}:${CHAIN_RPC_PORT}"
-INDEXER=$(echo "$RECEIVER_ADDRESS" | tr '[:upper:]' '[:lower:]')
+INDEXER=$(echo "$INDEXER_ADDRESS" | tr '[:upper:]' '[:lower:]')
 
 export PATH="$HOME/.foundry/bin:$PATH"
 
@@ -237,7 +237,7 @@ if [ -n "$REO_ADDRESS" ]; then
     "[ \"$validation\" = \"true\" ] || [ \"$validation\" = \"false\" ]" || true
   echo "       (validation=$validation)"
 
-  eligible=$(cast call --rpc-url="$RPC_URL" "$REO_ADDRESS" "isEligible(address)(bool)" "$RECEIVER_ADDRESS" 2>/dev/null || echo "error")
+  eligible=$(cast call --rpc-url="$RPC_URL" "$REO_ADDRESS" "isEligible(address)(bool)" "$INDEXER_ADDRESS" 2>/dev/null || echo "error")
   check "Indexer eligibility queryable" \
     "[ \"$eligible\" = \"true\" ] || [ \"$eligible\" = \"false\" ]" || true
   echo "       (eligible=$eligible)"

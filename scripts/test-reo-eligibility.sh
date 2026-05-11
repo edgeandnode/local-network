@@ -26,7 +26,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RPC_URL="http://${CHAIN_HOST:-localhost}:${CHAIN_RPC_PORT}"
 GATEWAY_URL="http://${GATEWAY_HOST:-localhost}:${GATEWAY_PORT}"
 QUERY_COUNT="${1:-10}"
-INDEXER="${RECEIVER_ADDRESS}"
+INDEXER="${INDEXER_ADDRESS}"
 REO_POLL_TIMEOUT=150  # Max wait: 2.5 cycles (worst case: just missed a cycle)
 REO_POLL_INTERVAL=10  # Check every 10s
 
@@ -75,7 +75,7 @@ if [ "$validation" != "true" ]; then
   echo "  ERROR: Eligibility validation is not enabled on the REO contract."
   echo "  This should be enabled during deployment (Phase 4 in graph-contracts)."
   echo "  Re-run graph-contracts or enable manually:"
-  echo "    cast send --rpc-url=$RPC_URL --private-key=\$ACCOUNT0_SECRET $REO_ADDRESS 'setEligibilityValidation(bool)' true"
+  echo "    cast send --rpc-url=$RPC_URL --private-key=\$DEPLOYER_SECRET $REO_ADDRESS 'setEligibilityValidation(bool)' true"
   exit 1
 fi
 
@@ -84,11 +84,11 @@ echo "  Last oracle update time: $last_update"
 
 # Seed lastOracleUpdateTime if it's 0 (prevents fail-safe from making everyone eligible).
 # Call renewIndexerEligibility with an empty array — this sets the timestamp without
-# marking any indexer eligible. Requires ORACLE_ROLE (ACCOUNT0).
+# marking any indexer eligible. Requires ORACLE_ROLE (DEPLOYER).
 if [ "$last_update" = "0" ]; then
   echo "  Seeding lastOracleUpdateTime (empty oracle update)..."
   cast send --rpc-url="$RPC_URL" --confirmations=0 \
-    --private-key="$ACCOUNT0_SECRET" \
+    --private-key="$DEPLOYER_SECRET" \
     "$REO_ADDRESS" "renewIndexerEligibility(address[],bytes)" "[]" "0x" > /dev/null
   echo "  Last oracle update time: $(get_last_oracle_update)"
 fi

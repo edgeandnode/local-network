@@ -7,19 +7,19 @@ set -xeu
 token_address=$(contract_addr L2GraphToken.address horizon)
 staking_address=$(contract_addr HorizonStaking.address horizon)
 indexer_staked="$(cast call "--rpc-url=http://chain:${CHAIN_RPC_PORT}" \
-  "${staking_address}" 'hasStake(address) (bool)' "${RECEIVER_ADDRESS}")"
+  "${staking_address}" 'hasStake(address) (bool)' "${INDEXER_ADDRESS}")"
 echo "indexer_staked=${indexer_staked}"
 if [ "${indexer_staked}" = "false" ]; then
   # transfer ETH to receiver
   cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--mnemonic=${MNEMONIC}" \
-    --value=1ether "${RECEIVER_ADDRESS}"
+    --value=1ether "${INDEXER_ADDRESS}"
   # transfer 100,000 GRT to receiver
   cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--mnemonic=${MNEMONIC}" \
-    "${token_address}" 'transfer(address,uint256)' "${RECEIVER_ADDRESS}" '100000000000000000000000'
+    "${token_address}" 'transfer(address,uint256)' "${INDEXER_ADDRESS}" '100000000000000000000000'
   # stake required GRT for indexer registration
-  cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--private-key=${RECEIVER_SECRET}" \
+  cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--private-key=${INDEXER_SECRET}" \
     "${token_address}" 'approve(address,uint256)' "${staking_address}" '100000000000000000000000'
-  cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--private-key=${RECEIVER_SECRET}" \
+  cast send "--rpc-url=http://chain:${CHAIN_RPC_PORT}" --confirmations=0 "--private-key=${INDEXER_SECRET}" \
     "${staking_address}" 'stake(uint256)' '100000000000000000000000'
 fi
 
@@ -31,7 +31,7 @@ export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://graph-node:${GRAPH_NODE_G
 export INDEXER_AGENT_GRAPH_NODE_ADMIN_ENDPOINT="http://graph-node:${GRAPH_NODE_ADMIN_PORT}"
 export INDEXER_AGENT_GRAPH_NODE_STATUS_ENDPOINT="http://graph-node:${GRAPH_NODE_STATUS_PORT}/graphql"
 export INDEXER_AGENT_IPFS_ENDPOINT="http://ipfs:${IPFS_RPC_PORT}"
-export INDEXER_AGENT_INDEXER_ADDRESS="${RECEIVER_ADDRESS}"
+export INDEXER_AGENT_INDEXER_ADDRESS="${INDEXER_ADDRESS}"
 export INDEXER_AGENT_INDEXER_MANAGEMENT_PORT="${INDEXER_MANAGEMENT_PORT}"
 export INDEXER_AGENT_INDEX_NODE_IDS=default
 export INDEXER_AGENT_INDEXER_GEO_COORDINATES="1 1"
