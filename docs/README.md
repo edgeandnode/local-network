@@ -1,76 +1,33 @@
 # Documentation
 
-This directory contains detailed documentation for the local-network project.
+This directory contains supplementary documentation for the local-network
+project. The README at the repository root covers the recipe flow and is the
+right starting point.
 
-## Indexing Payments
+## Testing flows
 
-**[Start Here: indexing-payments/safe-based/README.md](./indexing-payments/safe-based/README.md)**
+Step-by-step guides in [flows/](./flows/):
 
-**Implementation Documentation:**
+- [IndexerAgentTesting.md](./flows/IndexerAgentTesting.md) — running the
+  indexer-agent test suite against a local-network-hosted Postgres.
 
-- [Architecture.md](./indexing-payments/safe-based/Architecture.md) - Technical architecture
-- [DipperServicePlan.md](./indexing-payments/safe-based/DipperServicePlan.md) - Dipper service implementation
-- [IndexerAgentPlan.md](./indexing-payments/safe-based/IndexerAgentPlan.md) - Agent modifications
-- [IndexerServicePlan.md](./indexing-payments/safe-based/IndexerServicePlan.md) - Service updates
-
-**Planning Summaries:** [archive/](./indexing-payments/archive/)
-
-- [IntegrationSummary.md](./indexing-payments/archive/IntegrationSummary.md) - Implementation status & quick start
-- [UserExperience.md](./indexing-payments/archive/UserExperience.md) - What changes with override
-- [TestingStatus.md](./indexing-payments/archive/TestingStatus.md) - Current testing status
-
-## Eligibility Oracle
-
-**[Start Here: eligibility-oracle/Goal.md](./eligibility-oracle/Goal.md)**
-
-- [Goal.md](./eligibility-oracle/Goal.md) - Objective and scope
-- [Status.md](./eligibility-oracle/Status.md) - Implementation progress and log
-
-## Test Plan Automation
-
-**[Start Here: testing/reo/Goal.md](./testing/reo/Goal.md)**
-
-- [Goal.md](./testing/reo/Goal.md) - Layered automation approach and workflow sequence
-- [Status.md](./testing/reo/Status.md) - Progress, bugs found, and gaps
-- [CurationSignal.md](./testing/reo/CurationSignal.md) - Task: add curation signal to local network setup
-- [TestFramework.md](./testing/TestFramework.md) - Task: test framework evaluation (bash + Rust)
-
-**Scripts:**
-
-- `scripts/test-baseline-queries.sh` - Layer 0: Validate BaselineTestPlan GraphQL queries
-- `scripts/test-indexer-guide-queries.sh` - Layer 0: Validate IndexerTestGuide queries and cast commands
-- `scripts/test-baseline-state.sh` - Layer 1: Verify network state matches baseline expectations
-
-## Graph Explorer
-
-**[Start Here: explorer/Goal.md](./explorer/Goal.md)**
-
-- [Goal.md](./explorer/Goal.md) - Task: integrate Graph Explorer with local network
-
-## Testing Flows
-
-Step-by-step testing guides: [flows/](./flows/)
-
-- [EligibilityOracleTesting.md](./flows/EligibilityOracleTesting.md) - REO eligibility cycle
-- [IndexingPaymentsTesting.md](./flows/IndexingPaymentsTesting.md) - Dipper indexing payments
-- [IndexerAgentTesting.md](./flows/IndexerAgentTesting.md) - Indexer agent behavior
+The Rust integration tests under [`tests/`](../tests/) cover the network's
+own behaviour (allocations, eligibility, rewards, denial, REO governance) —
+see [tests/README.md](../tests/README.md) for the test map.
 
 ## Usage
 
-**Service profiles** are enabled by default in `.env`. To customize, edit `COMPOSE_PROFILES`:
+The set of services and pinned image versions is selected by a **recipe** in
+[../recipes/](../recipes/). `just resolve <recipe>` (or `just up <recipe>`)
+materialises the chosen recipe into `.env`, which `docker compose` picks up
+automatically. See the project [README](../README.md#recipes) for the recipe
+list.
 
-```bash
-COMPOSE_PROFILES=rewards-eligibility,indexing-payments,block-oracle,explorer  # all (default)
-COMPOSE_PROFILES=rewards-eligibility                                          # REO only
-```
+## Documentation guidelines
 
-Then `docker compose up -d` applies the active profiles automatically.
+See [CLAUDE.md](../CLAUDE.md) for documentation standards:
 
-## Documentation Guidelines
-
-See [CLAUDE.md](../CLAUDE.md) for documentation standards including:
-
-- File naming conventions (TitleCase for markdown)
-- Directory organization (use subdirectories by topic)
-- Linking and navigation (relative paths, cross-references)
-- Content maintenance (update with code, archive or delete obsolete docs)
+- File naming: TitleCase for markdown
+- Directory organization: subdirectories by topic
+- Linking: relative paths, cross-references
+- Maintenance: update with code; delete obsolete docs by default
