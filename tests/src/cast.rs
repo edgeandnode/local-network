@@ -21,13 +21,13 @@ impl TestNetwork {
     }
 
     /// State-changing transaction via `cast send`.
-    /// Uses `account0_secret` as the signer. Returns stdout.
+    /// Uses `deployer_secret` as the signer. Returns stdout.
     pub fn cast_send(&self, to: &str, sig: &str, args: &[&str]) -> Result<String> {
         let mut cmd = Command::new("cast");
         cmd.arg("send")
             .arg(format!("--rpc-url={}", self.rpc_url))
             .arg("--confirmations=0")
-            .arg(format!("--private-key={}", self.account0_secret))
+            .arg(format!("--private-key={}", self.deployer_secret))
             .arg(to)
             .arg(sig);
         for arg in args {
@@ -45,6 +45,32 @@ impl TestNetwork {
             .context("REO contract not deployed")?;
         let output = self.cast_call(reo, "isEligible(address)(bool)", &[address])?;
         Ok(output.trim() == "true")
+    }
+
+    /// Live RewardsManager.providerEligibilityOracle. Returns the mock address
+    /// when REO_MOCK=1 has wired the mock, otherwise REO-A. Tests that
+    /// exercise REO-A's renewal/period mechanics should `return Ok(())` early
+    /// when the live oracle isn't REO-A.
+    pub fn rm_provider_eligibility_oracle(&self) -> Result<String> {
+        let output = self.cast_call(
+            &self.contracts.rewards_manager,
+            "getProviderEligibilityOracle()(address)",
+            &[],
+        )?;
+        Ok(output.trim().to_string())
+    }
+
+    /// True when MockRewardsEligibilityOracle is the currently-wired oracle on
+    /// RewardsManager. Read at runtime so tests pick up `REO_MOCK` toggles
+    /// without re-loading.
+    pub fn is_mock_reo_live(&self) -> Result<bool> {
+        let live = self.rm_provider_eligibility_oracle()?.to_lowercase();
+        Ok(self
+            .contracts
+            .reo_mock
+            .as_deref()
+            .map(|m| m.to_lowercase() == live)
+            .unwrap_or(false))
     }
 
     /// Check if eligibility validation is enabled on the REO contract.
@@ -72,7 +98,7 @@ impl TestNetwork {
     }
 
     /// Seed the REO lastOracleUpdateTime by calling renewIndexerEligibility with
-    /// an empty array. Requires ORACLE_ROLE (account0).
+    /// an empty array. Requires ORACLE_ROLE — signs with `oracle_secret`.
     pub fn reo_seed_oracle_timestamp(&self) -> Result<()> {
         let reo = self
             .contracts
@@ -80,7 +106,7 @@ impl TestNetwork {
             .as_deref()
             .context("REO contract not deployed")?
             .to_string();
-        self.cast_send(
+        self.cast_send_as_oracle(
             &reo,
             "renewIndexerEligibility(address[],bytes)",
             &["[]", "0x"],
@@ -88,7 +114,8 @@ impl TestNetwork {
         Ok(())
     }
 
-    /// Renew eligibility for a specific indexer. Requires ORACLE_ROLE (account0).
+    /// Renew eligibility for a specific indexer. Requires ORACLE_ROLE — signs
+    /// with `oracle_secret`.
     pub fn reo_renew_indexer(&self, address: &str) -> Result<()> {
         let reo = self
             .contracts
@@ -97,7 +124,7 @@ impl TestNetwork {
             .context("REO contract not deployed")?
             .to_string();
         let array = format!("[{address}]");
-        self.cast_send(
+        self.cast_send_as_oracle(
             &reo,
             "renewIndexerEligibility(address[],bytes)",
             &[&array, "0x"],
@@ -154,14 +181,14 @@ impl TestNetwork {
         }
     }
 
-    /// State-changing transaction via `cast send`, signed by `receiver_secret` (the indexer).
+    /// State-changing transaction via `cast send`, signed by `indexer_secret` (the indexer).
     /// Needed for operations that require `onlyAuthorizedForProvision`.
     pub fn cast_send_as_indexer(&self, to: &str, sig: &str, args: &[&str]) -> Result<String> {
         let mut cmd = Command::new("cast");
         cmd.arg("send")
             .arg(format!("--rpc-url={}", self.rpc_url))
             .arg("--confirmations=0")
-            .arg(format!("--private-key={}", self.receiver_secret))
+            .arg(format!("--private-key={}", self.indexer_secret))
             .arg(to)
             .arg(sig);
         for arg in args {
@@ -177,7 +204,7 @@ impl TestNetwork {
     /// which calls `takeRewards()` and mints GRT to the indexer's stake.
     ///
     /// Must be called BEFORE closing the allocation.
-    /// Requires calling as the indexer (RECEIVER_SECRET) due to `onlyAuthorizedForProvision`.
+    /// Requires calling as the indexer (INDEXER_SECRET) due to `onlyAuthorizedForProvision`.
     pub fn collect_indexing_rewards(&self, allocation_id: &str) -> Result<String> {
         let ss = &self.contracts.subgraph_service;
         // PaymentTypes.IndexingRewards = 2
@@ -191,7 +218,7 @@ impl TestNetwork {
              {ss} 'collect(address,uint8,bytes)' '{indexer}' 2 \
              $(cast abi-encode 'f(address,bytes32,bytes)' '{alloc}' '{poi}' '0x')",
             rpc = self.rpc_url,
-            key = self.receiver_secret,
+            key = self.indexer_secret,
             ss = ss,
             indexer = self.indexer_address,
             alloc = allocation_id,
@@ -214,8 +241,8 @@ impl TestNetwork {
 
     // --- REO Governance Operations (ReoTestPlan Cycles 3-5, 7) ---
 
-    /// Set eligibility validation on/off. Requires OPERATOR_ROLE (account0).
-    /// ReoTestPlan 4.1 (enable) / 7.2 (disable).
+    /// Set eligibility validation on/off. Requires OPERATOR_ROLE — signs with
+    /// `operator_secret`. ReoTestPlan 4.1 (enable) / 7.2 (disable).
     pub fn reo_set_validation(&self, enabled: bool) -> Result<()> {
         let reo = self
             .contracts
@@ -223,7 +250,7 @@ impl TestNetwork {
             .as_deref()
             .context("REO contract not deployed")?
             .to_string();
-        self.cast_send(
+        self.cast_send_as_operator(
             &reo,
             "setEligibilityValidation(bool)",
             &[if enabled { "true" } else { "false" }],
@@ -231,8 +258,8 @@ impl TestNetwork {
         Ok(())
     }
 
-    /// Set the eligibility period (seconds). Requires OPERATOR_ROLE (account0).
-    /// ReoTestPlan 4.4.
+    /// Set the eligibility period (seconds). Requires OPERATOR_ROLE — signs
+    /// with `operator_secret`. ReoTestPlan 4.4.
     pub fn reo_set_eligibility_period(&self, seconds: u64) -> Result<()> {
         let reo = self
             .contracts
@@ -240,7 +267,7 @@ impl TestNetwork {
             .as_deref()
             .context("REO contract not deployed")?
             .to_string();
-        self.cast_send(
+        self.cast_send_as_operator(
             &reo,
             "setEligibilityPeriod(uint256)",
             &[&seconds.to_string()],
@@ -261,8 +288,8 @@ impl TestNetwork {
             .context("parsing oracleUpdateTimeout")
     }
 
-    /// Set the oracle update timeout (seconds). Requires OPERATOR_ROLE (account0).
-    /// ReoTestPlan 5.1.
+    /// Set the oracle update timeout (seconds). Requires OPERATOR_ROLE — signs
+    /// with `operator_secret`. ReoTestPlan 5.1.
     pub fn reo_set_oracle_timeout(&self, seconds: u64) -> Result<()> {
         let reo = self
             .contracts
@@ -270,7 +297,7 @@ impl TestNetwork {
             .as_deref()
             .context("REO contract not deployed")?
             .to_string();
-        self.cast_send(
+        self.cast_send_as_operator(
             &reo,
             "setOracleUpdateTimeout(uint256)",
             &[&seconds.to_string()],
@@ -278,8 +305,8 @@ impl TestNetwork {
         Ok(())
     }
 
-    /// Pause the REO contract. Requires PAUSE_ROLE (account0 on local network).
-    /// ReoTestPlan 7.1.
+    /// Pause the REO contract. Requires PAUSE_ROLE — signs with
+    /// `pause_admin_secret`. ReoTestPlan 7.1.
     pub fn reo_pause(&self) -> Result<()> {
         let reo = self
             .contracts
@@ -287,12 +314,12 @@ impl TestNetwork {
             .as_deref()
             .context("REO contract not deployed")?
             .to_string();
-        self.cast_send(&reo, "pause()", &[])?;
+        self.cast_send_as_pause_admin(&reo, "pause()", &[])?;
         Ok(())
     }
 
-    /// Unpause the REO contract. Requires PAUSE_ROLE.
-    /// ReoTestPlan 7.1.
+    /// Unpause the REO contract. Requires PAUSE_ROLE — signs with
+    /// `pause_admin_secret`. ReoTestPlan 7.1.
     pub fn reo_unpause(&self) -> Result<()> {
         let reo = self
             .contracts
@@ -300,7 +327,7 @@ impl TestNetwork {
             .as_deref()
             .context("REO contract not deployed")?
             .to_string();
-        self.cast_send(&reo, "unpause()", &[])?;
+        self.cast_send_as_pause_admin(&reo, "unpause()", &[])?;
         Ok(())
     }
 
@@ -315,7 +342,8 @@ impl TestNetwork {
         Ok(output.trim() == "true")
     }
 
-    /// Renew eligibility for multiple indexers in a batch. ReoTestPlan 3.3.
+    /// Renew eligibility for multiple indexers in a batch. Requires ORACLE_ROLE
+    /// — signs with `oracle_secret`. ReoTestPlan 3.3.
     pub fn reo_renew_batch(&self, addresses: &[&str]) -> Result<()> {
         let reo = self
             .contracts
@@ -324,7 +352,7 @@ impl TestNetwork {
             .context("REO contract not deployed")?
             .to_string();
         let array = format!("[{}]", addresses.join(","));
-        self.cast_send(
+        self.cast_send_as_oracle(
             &reo,
             "renewIndexerEligibility(address[],bytes)",
             &[&array, "0x"],
@@ -353,7 +381,7 @@ impl TestNetwork {
     pub fn rewards_manager_reo_address(&self) -> Result<String> {
         let output = self.cast_call(
             &self.contracts.rewards_manager,
-            "getRewardsEligibilityOracle()(address)",
+            "getProviderEligibilityOracle()(address)",
             &[],
         )?;
         Ok(output.trim().to_string())
@@ -388,13 +416,32 @@ impl TestNetwork {
             .context("parsing pending rewards")
     }
 
-    // --- Governor Operations ---
-    // On local network, ACCOUNT1_SECRET is the Governor key.
+    // --- Role-named send helpers ---
+    // Each admin role gets its own signing key so concurrent tests don't
+    // share a nonce queue. See `.env` "Wallet" comment for the role-to-key map.
 
-    /// State-changing transaction via `cast send`, signed by the governor (account1).
-    /// Needed for RewardsManager governance (setReclaimAddress, setMinimumSubgraphSignal, etc.).
+    /// Signed by GOVERNOR_SECRET. RewardsManager governance (setReclaimAddress,
+    /// setMinimumSubgraphSignal, etc.) and admin of REO PAUSE/OPERATOR roles.
     pub fn cast_send_as_governor(&self, to: &str, sig: &str, args: &[&str]) -> Result<String> {
-        self.cast_send_as(&self.account1_secret, to, sig, args)
+        self.cast_send_as(&self.governor_secret, to, sig, args)
+    }
+
+    /// Signed by OPERATOR_SECRET. Holds REO OPERATOR_ROLE: setEligibilityPeriod,
+    /// setEligibilityValidation, setOracleUpdateTimeout, manages ORACLE_ROLE
+    /// admin. Also used for the permissionless rewards_on_subgraph_*_update
+    /// calls so they don't share a nonce queue with other admin operations.
+    pub fn cast_send_as_operator(&self, to: &str, sig: &str, args: &[&str]) -> Result<String> {
+        self.cast_send_as(&self.operator_secret, to, sig, args)
+    }
+
+    /// Signed by ORACLE_SECRET. Holds REO ORACLE_ROLE — renewIndexerEligibility.
+    pub fn cast_send_as_oracle(&self, to: &str, sig: &str, args: &[&str]) -> Result<String> {
+        self.cast_send_as(&self.oracle_secret, to, sig, args)
+    }
+
+    /// Signed by PAUSE_ADMIN_SECRET. Holds REO PAUSE_ROLE — pause()/unpause().
+    pub fn cast_send_as_pause_admin(&self, to: &str, sig: &str, args: &[&str]) -> Result<String> {
+        self.cast_send_as(&self.pause_admin_secret, to, sig, args)
     }
 
     // --- Rewards Conditions Operations (RewardsConditionsTestPlan) ---
@@ -496,10 +543,11 @@ impl TestNetwork {
             .context("parsing accRewardsPerAllocatedToken")
     }
 
-    /// Trigger accumulator update for a subgraph's signal.
-    /// RewardsConditionsTestPlan 2.2-2.4, SubgraphDenialTestPlan 3.3.
+    /// Trigger accumulator update for a subgraph's signal. Permissionless —
+    /// signs with `operator_secret` to keep the call off the deployer's nonce
+    /// queue. RewardsConditionsTestPlan 2.2-2.4, SubgraphDenialTestPlan 3.3.
     pub fn rewards_on_subgraph_signal_update(&self, deployment_id: &str) -> Result<()> {
-        self.cast_send(
+        self.cast_send_as_operator(
             &self.contracts.rewards_manager,
             "onSubgraphSignalUpdate(bytes32)",
             &[deployment_id],
@@ -507,10 +555,11 @@ impl TestNetwork {
         Ok(())
     }
 
-    /// Trigger accumulator update for a subgraph's allocation.
+    /// Trigger accumulator update for a subgraph's allocation. Permissionless
+    /// — signs with `operator_secret` for the same reason as above.
     /// RewardsConditionsTestPlan 3.2.
     pub fn rewards_on_subgraph_allocation_update(&self, deployment_id: &str) -> Result<()> {
-        self.cast_send(
+        self.cast_send_as_operator(
             &self.contracts.rewards_manager,
             "onSubgraphAllocationUpdate(bytes32)",
             &[deployment_id],
@@ -521,9 +570,10 @@ impl TestNetwork {
     // --- Subgraph Denial Operations (SubgraphDenialTestPlan) ---
 
     /// Ensure the oracle account has ETH for gas. The subgraph availability
-    /// oracle (deployment mnemonic index 4) may not be funded on fresh chains.
+    /// oracle (test mnemonic index 4) may not be funded on fresh chains,
+    /// though anvil pre-funds it as a default account.
     fn ensure_oracle_funded(&self) -> Result<()> {
-        let oracle_addr = "0xd03ea8624C8C5987235048901fB614fDcA89b117";
+        let oracle_addr = "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65";
         let output = run_command(
             Command::new("cast")
                 .arg("balance")
@@ -538,7 +588,7 @@ impl TestNetwork {
                     .arg("send")
                     .arg(format!("--rpc-url={}", self.rpc_url))
                     .arg("--confirmations=0")
-                    .arg(format!("--private-key={}", self.account0_secret))
+                    .arg(format!("--private-key={}", self.deployer_secret))
                     .arg("--value=1ether")
                     .arg(oracle_addr),
             )?;
@@ -552,7 +602,7 @@ impl TestNetwork {
     pub fn rewards_set_denied(&self, deployment_id: &str, denied: bool) -> Result<()> {
         self.ensure_oracle_funded()?;
         self.cast_send_as(
-            &self.oracle_secret,
+            &self.subgraph_availability_oracle_secret,
             &self.contracts.rewards_manager,
             "setDenied(bytes32,bool)",
             &[deployment_id, if denied { "true" } else { "false" }],

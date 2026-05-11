@@ -5,6 +5,7 @@
 
 pub mod cast;
 pub mod graphql;
+pub mod indexer;
 pub mod management;
 pub mod polling;
 pub mod staking;
@@ -28,16 +29,30 @@ pub struct TestNetwork {
     pub gateway_api_key: String,
     pub subgraph_id: String,
     pub indexer_address: String,
-    pub account0_secret: String,
-    /// The governor's private key (ACCOUNT1_SECRET). Needed for RewardsManager
-    /// governance operations (setReclaimAddress, setMinimumSubgraphSignal, etc.).
-    pub account1_secret: String,
-    /// The subgraph availability oracle's private key. Needed for setDenied()
-    /// on the RewardsManager. Derived from the deployment mnemonic (index 4).
+    /// The deployer's private key (DEPLOYER_SECRET). Holds DEFAULT_ADMIN_ROLE
+    /// on most contracts because it deployed them; also gateway PaymentsEscrow
+    /// payer. Not signed against at test runtime — admin operations use the
+    /// role-specific keys below.
+    pub deployer_secret: String,
+    /// The governor's private key (GOVERNOR_SECRET). Needed for RewardsManager
+    /// governance operations (setReclaimAddress, setMinimumSubgraphSignal, etc.)
+    /// and is admin of REO PAUSE_ROLE / OPERATOR_ROLE.
+    pub governor_secret: String,
+    /// REO OPERATOR_ROLE signer (OPERATOR_SECRET). Used for setEligibilityPeriod,
+    /// setEligibilityValidation, setOracleUpdateTimeout, and the permissionless
+    /// rewards_on_subgraph_*_update calls.
+    pub operator_secret: String,
+    /// REO ORACLE_ROLE signer (ORACLE_SECRET). Used for renewIndexerEligibility.
     pub oracle_secret: String,
-    /// The indexer's private key (RECEIVER_SECRET). Needed for calling
+    /// The subgraph availability oracle's private key
+    /// (SUBGRAPH_AVAILABILITY_ORACLE_SECRET). Needed for setDenied() on the
+    /// RewardsManager. Derived from the deployment mnemonic (index 4).
+    pub subgraph_availability_oracle_secret: String,
+    /// REO PAUSE_ROLE signer (PAUSE_ADMIN_SECRET). Used for pause()/unpause().
+    pub pause_admin_secret: String,
+    /// The indexer's private key (INDEXER_SECRET). Needed for calling
     /// `collect()` on the SubgraphService (requires `onlyAuthorizedForProvision`).
-    pub receiver_secret: String,
+    pub indexer_secret: String,
     pub chain_id: u64,
     /// Contract addresses loaded from config-local volume via `docker exec`.
     pub contracts: Contracts,
@@ -52,7 +67,15 @@ pub struct Contracts {
     pub subgraph_service: String,
     pub payments_escrow: String,
     pub grt_token: String,
+    /// Real RewardsEligibilityOracleA address (REO-A, with full
+    /// renewal/period/operator-role mechanics).
     pub reo: Option<String>,
+    /// MockRewardsEligibilityOracle address. The contract is always deployed
+    /// by the GIP-0088 upgrade phase; whether it's actually wired as
+    /// RewardsManager's providerEligibilityOracle is decided by the REO_MOCK
+    /// flag in `.env` (default 1). Use `TestNetwork::is_mock_reo_live` to
+    /// check the live wiring at runtime.
+    pub reo_mock: Option<String>,
 }
 
 impl TestNetwork {
@@ -109,26 +132,37 @@ impl TestNetwork {
             .cloned()
             .context("SUBGRAPH not set in .env")?;
         let indexer_address = vars
-            .get("RECEIVER_ADDRESS")
+            .get("INDEXER_ADDRESS")
             .cloned()
-            .context("RECEIVER_ADDRESS not set in .env")?;
-        let account0_secret = vars
-            .get("ACCOUNT0_SECRET")
+            .context("INDEXER_ADDRESS not set in .env")?;
+        let deployer_secret = vars
+            .get("DEPLOYER_SECRET")
             .cloned()
-            .context("ACCOUNT0_SECRET not set in .env")?;
-        let account1_secret = vars
-            .get("ACCOUNT1_SECRET")
+            .context("DEPLOYER_SECRET not set in .env")?;
+        let governor_secret = vars
+            .get("GOVERNOR_SECRET")
             .cloned()
-            .context("ACCOUNT1_SECRET not set in .env")?;
-        // The subgraph availability oracle is mnemonic index 4 of the deployment
-        // mnemonic (myth like bonus scare...). Its key is deterministic.
-        let oracle_secret = vars.get("ORACLE_SECRET").cloned().unwrap_or_else(|| {
-            "0xadd53f9a7e588d003326d1cbf9e4a43c061aadd9bc938c843a79e7b4fd2ad743".into()
-        });
-        let receiver_secret = vars
-            .get("RECEIVER_SECRET")
+            .context("GOVERNOR_SECRET not set in .env")?;
+        let operator_secret = vars
+            .get("OPERATOR_SECRET")
             .cloned()
-            .context("RECEIVER_SECRET not set in .env")?;
+            .context("OPERATOR_SECRET not set in .env")?;
+        let oracle_secret = vars
+            .get("ORACLE_SECRET")
+            .cloned()
+            .context("ORACLE_SECRET not set in .env")?;
+        let subgraph_availability_oracle_secret = vars
+            .get("SUBGRAPH_AVAILABILITY_ORACLE_SECRET")
+            .cloned()
+            .context("SUBGRAPH_AVAILABILITY_ORACLE_SECRET not set in .env")?;
+        let pause_admin_secret = vars
+            .get("PAUSE_ADMIN_SECRET")
+            .cloned()
+            .context("PAUSE_ADMIN_SECRET not set in .env")?;
+        let indexer_secret = vars
+            .get("INDEXER_SECRET")
+            .cloned()
+            .context("INDEXER_SECRET not set in .env")?;
         let chain_id = vars
             .get("CHAIN_ID")
             .and_then(|v| v.parse().ok())
@@ -145,10 +179,13 @@ impl TestNetwork {
             gateway_api_key,
             subgraph_id,
             indexer_address,
-            account0_secret,
-            account1_secret,
+            deployer_secret,
+            governor_secret,
+            operator_secret,
             oracle_secret,
-            receiver_secret,
+            subgraph_availability_oracle_secret,
+            pause_admin_secret,
+            indexer_secret,
             chain_id,
             contracts,
         })
@@ -187,9 +224,20 @@ fn parse_env_file(path: &Path) -> Result<HashMap<String, String>> {
     Ok(map)
 }
 
-/// Load `.env` and optionally `.env.local`, with `.env.local` values taking precedence.
+/// Load `.env` (generated by `scripts/resolve-recipe.sh`) and optionally
+/// `.env.local`, with `.env.local` values taking precedence. `.env` is
+/// the active recipe's composed env; tests assume it exists (run `just up` or
+/// `just resolve` to generate it).
 fn load_env_files(repo_root: &Path) -> Result<HashMap<String, String>> {
-    let mut vars = parse_env_file(&repo_root.join(".env"))?;
+    let resolved_path = repo_root.join(".env");
+    let mut vars = if resolved_path.exists() {
+        parse_env_file(&resolved_path)?
+    } else {
+        anyhow::bail!(
+            ".env missing — run `just resolve` (or `just up`) first to \
+             generate it from the active recipe"
+        );
+    };
     let local_path = repo_root.join(".env.local");
     if local_path.exists() {
         let local_vars = parse_env_file(&local_path)?;
@@ -240,15 +288,20 @@ fn load_contracts() -> Result<Contracts> {
         .context("SubgraphService address not found in subgraph-service.json")?
         .to_string();
 
-    // REO address is in issuance.json (optional — may not be deployed)
-    let reo = docker_cat("graph-node", "/opt/config/issuance.json")
+    // REO addresses are in issuance.json (optional — may not be deployed)
+    let issuance: Option<serde_json::Value> = docker_cat("graph-node", "/opt/config/issuance.json")
         .ok()
-        .and_then(|json| serde_json::from_str::<serde_json::Value>(&json).ok())
-        .and_then(|v| {
-            v["1337"]["RewardsEligibilityOracle"]["address"]
-                .as_str()
-                .map(String::from)
-        });
+        .and_then(|json| serde_json::from_str::<serde_json::Value>(&json).ok());
+    let reo = issuance.as_ref().and_then(|v| {
+        v["1337"]["RewardsEligibilityOracleA"]["address"]
+            .as_str()
+            .map(String::from)
+    });
+    let reo_mock = issuance.as_ref().and_then(|v| {
+        v["1337"]["RewardsEligibilityOracleMock"]["address"]
+            .as_str()
+            .map(String::from)
+    });
 
     Ok(Contracts {
         epoch_manager,
@@ -258,6 +311,7 @@ fn load_contracts() -> Result<Contracts> {
         payments_escrow,
         grt_token,
         reo,
+        reo_mock,
     })
 }
 

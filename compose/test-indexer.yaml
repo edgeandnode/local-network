@@ -1,0 +1,105 @@
+# Per-test indexer stack — instantiated by IndexerHandle as its own compose project.
+#
+# Usage from Rust (IndexerHandle::new):
+#   docker compose \
+#     -f compose/test-indexer.yaml \
+#     --project-name local-network-test-<test_id> \
+#     --env-file .env \
+#     up -d
+#
+# Each per-test compose project gets:
+#   - its own postgres + graph-node + indexer-agent (independent of the main stack)
+#   - shared access to main's chain + ipfs via the cross-stack network
+#   - shared read-only access to main's config-local volume (contract address books)
+#
+# Service names (postgres / graph-node / indexer-agent) are SAME as the main stack
+# but are isolated to the project's default network — main and per-test instances
+# don't collide because only chain + ipfs are exposed on cross-stack.
+#
+# Per-test indexer identity is passed via env vars: TEST_INDEXER_ADDRESS,
+# TEST_INDEXER_SECRET, TEST_INDEXER_MNEMONIC. The agent's run.sh prefers these
+# over the .env defaults (see indexer-agent/run.sh).
+
+networks:
+  default:
+  cross-stack:
+    name: cross-stack
+    external: true
+
+volumes:
+  config-local:
+    name: local-network_config-local
+    external: true
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    command: postgres -c 'max_connections=200'
+    volumes:
+      - ../containers/core/postgres/setup.sql:/docker-entrypoint-initdb.d/setup.sql:ro
+    environment:
+      POSTGRES_INITDB_ARGS: "--encoding UTF8 --locale=C"
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: postgres
+    healthcheck: { interval: 1s, retries: 30, test: pg_isready -U postgres }
+    restart: on-failure:3
+
+  graph-node:
+    build:
+      context: ../containers/indexer/graph-node
+      args:
+        GRAPH_NODE_VERSION: ${GRAPH_NODE_VERSION}
+    depends_on:
+      postgres: { condition: service_healthy }
+    stop_signal: SIGKILL
+    volumes:
+      - ../shared:/opt/shared:ro
+      - ../.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    healthcheck:
+      { interval: 1s, retries: 60, test: curl -f http://127.0.0.1:8030 }
+    restart: on-failure:3
+    networks: [default, cross-stack]
+
+  subgraph-deploy:
+    # Reuse the main-project's prebuilt image instead of building per-project
+    # copies. The main `just up` builds local-network-subgraph-deploy:latest;
+    # per-test stacks consume that same image so source/run.sh changes only
+    # need a rebuild in the main project, not in every test stack.
+    image: local-network-subgraph-deploy:latest
+    pull_policy: never
+    depends_on:
+      graph-node: { condition: service_healthy }
+    volumes:
+      - ../shared:/opt/shared:ro
+      - ../.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    networks: [default, cross-stack]
+
+  indexer-agent:
+    # Reuse the main-project's prebuilt image (see subgraph-deploy comment).
+    image: local-network-indexer-agent:latest
+    pull_policy: never
+    platform: linux/amd64
+    depends_on:
+      subgraph-deploy: { condition: service_completed_successfully }
+    stop_signal: SIGKILL
+    volumes:
+      - ../shared:/opt/shared:ro
+      - ../.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    healthcheck:
+      { interval: 5s, retries: 120, test: curl -f http://127.0.0.1:7600/ }
+    restart: on-failure:3
+    environment:
+      # Per-test indexer identity — see indexer-agent/run.sh override block.
+      TEST_INDEXER_ADDRESS: ${TEST_INDEXER_ADDRESS}
+      TEST_INDEXER_SECRET: ${TEST_INDEXER_SECRET}
+      TEST_INDEXER_MNEMONIC: ${TEST_INDEXER_MNEMONIC}
+      # Manual allocation mode is appropriate for per-test agents: tests
+      # explicitly drive create/close cycles, and we don't want the
+      # auto-reconciler racing them. Unlike the main stack's removed
+      # manual-allocation.yaml workaround (which broke start-indexing's
+      # initial-allocation loop), per-test stacks don't run start-indexing.
+      INDEXER_AGENT_ALLOCATION_MANAGEMENT: manual
+    networks: [default, cross-stack]
