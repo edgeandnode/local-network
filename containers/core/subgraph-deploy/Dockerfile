@@ -32,10 +32,8 @@ RUN git clone https://github.com/graphprotocol/block-oracle && \
   cd block-oracle && git checkout ${BLOCK_ORACLE_COMMIT} && \
   cd packages/subgraph && yarn
 
-# 4. Indexing-payments subgraph (source + node_modules copied from the
-# per-branch image built in graphprotocol/indexing-payments-subgraph).
-# Rebuild that image with `just build-image` in the subgraph worktree to
-# pick up source changes, then rebuild this service.
+# 4. Indexing-payments subgraph — source tree + node_modules, copied from
+# the prebuilt image pinned by INDEXING_PAYMENTS_SUBGRAPH_VERSION.
 COPY --from=indexing-payments-src /opt/indexing-payments-subgraph /opt/indexing-payments-subgraph
 
 COPY --chmod=755 ./run.sh /opt/run.sh

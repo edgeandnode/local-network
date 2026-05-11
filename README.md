@@ -2,127 +2,137 @@
 
 A local Graph network for debugging & integration tests.
 
-## Usage
+Requires Docker & Docker Compose v2.24+, plus [`just`](https://github.com/casey/just)
+for the entry-point commands.
 
-Requires Docker & Docker Compose v2.24+ and [just](https://github.com/casey/just).
+## Quick start
 
 ```bash
-# Show all recipes
-just --list
+just up           # resolve active recipe → .env, then docker compose up -d --build
+just down         # docker compose down
+just logs gateway # docker compose logs -f gateway
+```
 
-# Start (or resume) the network — skips already-completed setup steps
+The first `just up` materialises a recipe (see below) into a gitignored `.env`
+file. After that, bare `docker compose` commands work directly — `just up` just
+chains recipe resolution + a build-aware compose up. `docker compose` halts
+with a clear error if `.env` is missing.
+
+## Recipes
+
+A **recipe** selects which env fragments compose, which compose profiles enable,
+and which image versions pin. Recipes live in [recipes/](recipes/) and reference
+fragments in [config/](config/).
+
+| Recipe              | Profile set                                       | Includes                                                                                      |
+| ------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `baseline`          | `block-oracle,explorer,rewards-eligibility`       | Full GIP-0088 contract deployment (REO + IA + RAM) on stable image versions                   |
+| `indexing-payments` | `explorer,rewards-eligibility,indexing-payments`  | Baseline + WIP DIPs services (dipper, IISA, indexing-payments subgraph, dips-fork indexer-rs) |
+
+```bash
+just recipes                 # list available recipes
+just recipe-active           # show which one is currently selected
+just up indexing-payments    # one-shot recipe override
+echo indexing-payments > .recipe.local  # per-checkout sticky default (gitignored)
+```
+
+Recipe selection precedence: CLI arg → `RECIPE` env → `.recipe.local` →
+`.recipe` (committed per-branch default) → `baseline`.
+
+To add a recipe, create `recipes/my-recipe.json` with the fragments + override
+`env` to apply. See existing JSON files for the shape.
+
+## Local overrides
+
+Create `.env.local` (gitignored) for machine-specific values that layer on top
+of the resolved recipe — image-tag overrides, compose-profile additions, etc:
+
+```bash
+# .env.local
+GRAPH_NODE_VERSION=v0.43.0
+COMPOSE_PROFILES=block-oracle,explorer,rewards-eligibility,indexing-payments,my-extra
+```
+
+`.env.local` is sourced last during recipe resolution, so its values win.
+
+## Iterating on upstream source
+
+Most services run from prebuilt images pinned by `${SERVICE_VERSION}` vars
+in [config/services.env](config/services.env) and
+[config/indexing-payments.env](config/indexing-payments.env). To iterate on
+upstream source, build a locally-tagged image in the upstream repo and
+override the version pin in `.env.local`:
+
+```bash
+# .env.local
+INDEXING_PAYMENTS_SUBGRAPH_VERSION=local
+```
+
+Then `just rebuild <service>` here to pick up the change.
+
+How each upstream produces a `:local` tag is repo-specific. Convention is a
+`just build-image` recipe that tags `<image>:local` — e.g.
+graphprotocol/indexing-payments-subgraph builds
+`ghcr.io/graphprotocol/indexing-payments-subgraph:local` via its `justfile`.
+
+## Rebuilding after edits
+
+```bash
+just rebuild indexer-agent       # rebuild + restart one service
+just rebuild                     # rebuild + restart all
+just up                          # equivalent if recipe hasn't changed (defaults to --build)
+```
+
+`run.sh` and `Dockerfile` changes only take effect after a rebuild.
+
+## State persistence
+
+Volumes (`chain-data`, `postgres-data`, `ipfs-data`, `redpanda-data`,
+`iisa-scores`, `config-local`) survive `just down`. To start clean:
+
+```bash
+just reset      # docker compose down -v
 just up
-
-# Rebuild a single service after code changes
-just up --build ${service}
-
-# Get logs for a service
-just logs ${service}
-
-# Re-initialise from scratch (removes all persisted state)
-just reset && just up
 ```
 
-__Note__: State is persisted in named volumes, so the network restarts where it left off. Use `just reset` only when you want a clean slate.
+## GHCR authentication (indexing-payments)
 
-More useful commands for each component can be found at [CHEATSHEET.md](CHEATSHEET.md).
-
-## Configuration
-
-The `.env` file holds all configuration and is read by three consumers:
-
-- **docker-compose** — for `${VAR}` substitution in `docker-compose.yaml` (auto-loaded from the project directory).
-- **host scripts** — scripts that run on the host source this file via `source .env`.
-- **containers** — volume-mounted at `/opt/config/.env` and typically sourced by each service's `run.sh`.
-
-## Local Overrides
-
-Create `.env.local` (gitignored) to override defaults without touching `.env`:
-
-```bash
-# .env.local — your local settings
-COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer,indexing-payments
-GRAPH_NODE_VERSION=v0.38.0-rc1
-```
-
-`.env.local` overrides `.env` for:
-- `docker compose` but only when invoked via `just`. Bare `docker compose` reads only `.env`.
-- host scripts (typically sourced automatically after `.env`)
-- it DOES NOT override `.env` for container scripts.
-
-## Service Profiles
-
-Optional services are controlled via `COMPOSE_PROFILES` in `.env`. By default, profiles that work out of the box are enabled:
-
-```bash
-COMPOSE_PROFILES=block-oracle,explorer
-```
-
-Available profiles:
-
-| Profile               | Services                          | Prerequisites              |
-| --------------------- | --------------------------------- | -------------------------- |
-| `block-oracle`        | block-oracle                      | none                       |
-| `explorer`            | block-explorer UI                 | none                       |
-| `rewards-eligibility` | eligibility-oracle-node           | none (clones from GitHub)  |
-| `indexing-payments`   | dipper, iisa, iisa-scoring        | GHCR auth (below)          |
-
-To enable all profiles, uncomment the full line in `.env`:
-
-```bash
-COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer,indexing-payments
-```
-
-### GHCR authentication (indexing-payments)
-
-The `indexing-payments` profile pulls private images from `ghcr.io/edgeandnode`. Create a GitHub **classic** Personal Access Token with `read:packages` scope (https://github.com/settings/tokens — fine-grained tokens do not support packages) and log in once:
+The `indexing-payments` profile pulls private images from `ghcr.io/edgeandnode`.
+Create a GitHub **classic** Personal Access Token with `read:packages` scope
+([fine-grained tokens don't support packages](https://github.com/settings/tokens))
+and log in once:
 
 ```bash
 echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_USERNAME --password-stdin
 ```
 
-Then set the image versions in `.env` or `.env.local`:
-
-```bash
-DIPPER_VERSION=<tag>
-IISA_VERSION=<tag>
-```
-
-## Building from source - Dev overrides (compose/dev/)
-
-For local development, mount locally-built binaries into running containers. Set `COMPOSE_FILE` in `.env` (or `.env.local`, when using `just`) to include dev override files:
-
-```bash
-# Mount local indexer-service binary
-INDEXER_SERVICE_BINARY=/path/to/indexer-rs/target/release/indexer-service-rs
-COMPOSE_FILE=docker-compose.yaml:compose/dev/indexer-service.yaml
-
-# Multiple overrides
-COMPOSE_FILE=docker-compose.yaml:compose/dev/indexer-service.yaml:compose/dev/tap-agent.yaml
-```
-
-Each override requires a binary path env var. Source repos own their own build;
-local-network just wraps the published image with `run.sh` and utilities.
-See [compose/dev/README.md](compose/dev/README.md) for details.
-
 ## Devcontainer usage
 
-When running inside a devcontainer, service names (gateway, redpanda, etc.) won't resolve by default because the devcontainer is on a different Docker network. Connect it to the compose network once per session:
+Inside a devcontainer, service names won't resolve by default because the
+devcontainer is on a different Docker network. Connect once per session:
 
 ```bash
 scripts/connect-network.sh
 ```
 
-The script auto-detects the compose project network. You can also pass a network name explicitly: `scripts/connect-network.sh my-network_default`.
+The script auto-detects the compose project network. Pass a name explicitly with
+`scripts/connect-network.sh my-network_default`.
+
+## Component cheatsheet
+
+See [CHEATSHEET.md](CHEATSHEET.md) for per-component commands.
 
 ## Common issues
 
 ### `too far behind`
 
-Gateway error:
-
 ```
 ERROR graph_gateway::network::subgraph_client: network_subgraph_query_err="response too far behind"
 ```
 
-This happens when subgraphs fall behind the chain head. With automine (default), this is a harmless warning during startup. Run `scripts/mine-block.sh 10` to advance blocks manually if needed.
+Subgraphs fell behind the chain head. With automine (default), this is harmless
+during startup. `scripts/mine-block.sh 10` to advance blocks manually.
+
+### `LOCAL_NETWORK_RECIPE is missing a value`
+
+`.env` hasn't been generated yet. Run `just resolve` (or any `just up`).
