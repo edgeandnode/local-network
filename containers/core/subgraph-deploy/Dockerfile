@@ -1,3 +1,7 @@
+# check=skip=InvalidDefaultArgInFrom
+ARG INDEXING_PAYMENTS_SUBGRAPH_VERSION
+FROM ghcr.io/graphprotocol/indexing-payments-subgraph:${INDEXING_PAYMENTS_SUBGRAPH_VERSION} AS indexing-payments-src
+
 FROM node:23.11-bookworm-slim
 ARG NETWORK_SUBGRAPH_COMMIT
 ARG BLOCK_ORACLE_COMMIT
@@ -27,6 +31,12 @@ RUN git clone https://github.com/graphprotocol/graph-network-subgraph && \
 RUN git clone https://github.com/graphprotocol/block-oracle && \
   cd block-oracle && git checkout ${BLOCK_ORACLE_COMMIT} && \
   cd packages/subgraph && yarn
+
+# 4. Indexing-payments subgraph (source + node_modules copied from the
+# per-branch image built in graphprotocol/indexing-payments-subgraph).
+# Rebuild that image with `just build-image` in the subgraph worktree to
+# pick up source changes, then rebuild this service.
+COPY --from=indexing-payments-src /opt/indexing-payments-subgraph /opt/indexing-payments-subgraph
 
 COPY --chmod=755 ./run.sh /opt/run.sh
 ENTRYPOINT ["bash", "/opt/run.sh"]
