@@ -1,0 +1,15 @@
+{
+  "description": "Default local-network stack: full GIP-0088 contract deployment (REO + IssuanceAllocator + RecurringAgreementManager on the audit-fix-3 ABI) with upstream stable image versions. No indexing-payments services. Mock REO wired by default for tests; REO-A still deployed and available. Profile set: block-oracle + explorer + rewards-eligibility.",
+  "fragments": [
+    "base.env",
+    "services.env",
+    "accounts-role-named.env",
+    "mock-reo.env"
+  ],
+  "env": {
+    "COMPOSE_PROFILES": "block-oracle,explorer,rewards-eligibility"
+  },
+  "compose_files": [
+    "docker-compose.yaml"
+  ]
+}

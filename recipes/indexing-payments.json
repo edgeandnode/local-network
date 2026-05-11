@@ -1,0 +1,15 @@
+{
+  "description": "Baseline + WIP indexing-payments overlay: dipper, IISA, indexing-payments subgraph, and dips-fork indexer-rs (indexer-service + tap-agent). Layers indexing-payments.env on top of services.env. Profile set adds indexing-payments. Mock REO wired by default for tests; REO-A still deployed and available.",
+  "fragments": [
+    "base.env",
+    "services.env",
+    "indexing-payments.env",
+    "accounts-role-named.env",
+    "mock-reo.env"
+  ],
+  "env": {    "COMPOSE_PROFILES": "explorer,rewards-eligibility,indexing-payments"
+  },
+  "compose_files": [
+    "docker-compose.yaml"
+  ]
+}
