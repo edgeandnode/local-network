@@ -11,15 +11,17 @@ network_subgraph_deployment=$(wait_for_gql \
   "{ _meta { deployment } }" \
   ".data._meta.deployment")
 
-tap_verifier=$(contract_addr TAPVerifier tap-contracts)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
+recurring_collector=$(contract_addr RecurringCollector.address horizon)
+
+signal_topic=$(kafka_topic indexing-requirements)
 
 ## Config
 cat >config.json <<-EOF
 {
   "dips": {
     "data_service": "${subgraph_service}",
-    "recurring_collector": "0x0000000000000000000000000000000000000000",
+    "recurring_collector": "${recurring_collector}",
     "max_initial_tokens": "1000000000000000000",
     "max_ongoing_tokens_per_second": "1000000000000000",
     "max_seconds_per_collection": 86400,
@@ -36,13 +38,13 @@ cat >config.json <<-EOF
   "admin_rpc": {
     "listen_addr": "0.0.0.0:${DIPPER_ADMIN_RPC_PORT}",
     "gateway_operator_allowlist": [
-      "${RECEIVER_ADDRESS}"
+      "${INDEXER_ADDRESS}"
     ]
   },
   "indexer_rpc": {
     "listen_addr": "0.0.0.0:${DIPPER_INDEXER_RPC_PORT}",
     "allowlist": [
-      "${RECEIVER_ADDRESS}"
+      "${INDEXER_ADDRESS}"
     ]
   },
   "db": {
@@ -58,19 +60,30 @@ cat >config.json <<-EOF
     "update_interval": 60
   },
   "signer": {
-    "secret_key": "${ACCOUNT0_SECRET}",
+    "secret_key": "${DEPLOYER_SECRET}",
     "chain_id": 1337
-  },
-  "tap_signer": {
-    "secret_key": "${ACCOUNT0_SECRET}",
-    "chain_id": 1337,
-    "verifier": "${tap_verifier}"
   },
   "iisa": {
     "endpoint": "http://iisa:8080",
     "request_timeout": 30,
     "connect_timeout": 10,
     "max_retries": 3
+  },
+  "signal": {
+    "brokers": "redpanda:9092",
+    "topic": "${signal_topic}",
+    "consumer_group": "dipper-local"
+  },
+  "chain_listener": {
+    "enabled": true,
+    "subgraph_endpoint": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments",
+    "chain_id": ${CHAIN_ID},
+    "poll_interval": 5,
+    "request_timeout": 30,
+    "max_retries": 3
+  },
+  "additional_networks": {
+    "1337": "hardhat"
   }
 }
 EOF

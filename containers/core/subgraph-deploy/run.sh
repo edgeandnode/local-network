@@ -40,6 +40,42 @@ deploy_network() {
   echo "==== Network subgraph done ===="
 }
 
+deploy_indexing_payments() {
+  echo "==== Indexing-payments subgraph ===="
+  if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments" \
+    -H 'content-type: application/json' \
+    -d '{"query": "{ _meta { deployment } }" }' | grep -q "_meta"
+  then
+    echo "SKIP: Indexing-payments subgraph already deployed"
+    return
+  fi
+
+  subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
+  recurring_collector=$(contract_addr RecurringCollector.address horizon)
+
+  cd /opt/indexing-payments-subgraph
+  cat > /tmp/indexing-payments-config.json <<-CONF
+	{
+	  "network": "hardhat",
+	  "subgraphServiceAddress": "${subgraph_service}",
+	  "recurringCollectorAddress": "${recurring_collector}",
+	  "startBlock": 0
+	}
+	CONF
+  npx mustache /tmp/indexing-payments-config.json subgraph.template.yaml > subgraph.yaml
+  npx graph codegen
+  npx graph build
+  npx graph create indexing-payments --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}"
+  npx graph deploy indexing-payments --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}" --ipfs="http://ipfs:${IPFS_RPC_PORT}" --version-label=v0.1.0 | tee deploy.txt
+  # Without subgraph_reassign, graph-node leaves the deployment unassigned
+  # and the subgraph never starts — dipper's chain_listener would stall.
+  deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
+  curl -s "http://graph-node:${GRAPH_NODE_ADMIN_PORT}" \
+    -H 'content-type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"subgraph_reassign\",\"params\":{\"node_id\":\"default\",\"ipfs_hash\":\"${deployment_id}\"}}"
+  echo "==== Indexing-payments subgraph done ===="
+}
+
 deploy_block_oracle() {
   echo "==== Block-oracle subgraph ===="
   if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/block-oracle" \
@@ -74,16 +110,19 @@ deploy_block_oracle() {
   echo "==== Block-oracle subgraph done ===="
 }
 
-# Launch in parallel
+# Launch all in parallel
 deploy_network &
 pid_network=$!
 deploy_block_oracle &
 pid_oracle=$!
+deploy_indexing_payments &
+pid_indexing_payments=$!
 
 # Wait for all, fail if any fails
 failed=0
 wait $pid_network || { echo "FAILED: Network subgraph"; failed=1; }
 wait $pid_oracle || { echo "FAILED: Block-oracle subgraph"; failed=1; }
+wait $pid_indexing_payments || { echo "FAILED: Indexing-payments subgraph"; failed=1; }
 
 if [ "$failed" -ne 0 ]; then
   echo "One or more subgraph deployments failed"
