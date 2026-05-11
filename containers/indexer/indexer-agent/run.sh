@@ -93,4 +93,43 @@ export INDEXER_AGENT_MAX_PROVISION_INITIAL_SIZE=200000
 export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
 export INDEXER_AGENT_LOG_LEVEL=trace
 
+# DIPs: enable the indexer-agent's on-chain accept path when RecurringCollector
+# is deployed. Mirrors the conditional [dips] block in indexer-service/run.sh.
+# Without this, the agent never polls pending_rca_proposals, never calls
+# acceptIndexingAgreement on-chain, and every dipper-submitted offer expires.
+recurring_collector=$(contract_addr RecurringCollector.address horizon 2>/dev/null) || recurring_collector=""
+if [ -n "$recurring_collector" ]; then
+  # BUG-014: wait for the indexing-payments subgraph so we can pin it as an
+  # offchain subgraph. Without this, reconcileDeployments pauses it because
+  # the indexer has no allocation. subgraph-deploy runs in parallel and may
+  # not be done when this container starts — poll for up to 3 minutes.
+  echo "Waiting for indexing-payments subgraph..."
+  INDEXING_PAYMENTS_DEPLOYMENT=""
+  for _ip_attempt in $(seq 1 36); do
+    INDEXING_PAYMENTS_DEPLOYMENT=$(curl -s "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments" \
+      -H 'content-type: application/json' \
+      -d '{"query":"{ _meta { deployment } }"}' 2>/dev/null \
+      | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])" 2>/dev/null || true)
+    if [ -n "${INDEXING_PAYMENTS_DEPLOYMENT}" ]; then
+      break
+    fi
+    [ $((_ip_attempt % 6)) -eq 0 ] && echo "  still waiting for indexing-payments subgraph (attempt ${_ip_attempt}/36)..."
+    sleep 5
+  done
+  if [ -n "${INDEXING_PAYMENTS_DEPLOYMENT}" ]; then
+    echo "Adding indexing-payments (${INDEXING_PAYMENTS_DEPLOYMENT}) to offchain subgraphs"
+    export INDEXER_AGENT_OFFCHAIN_SUBGRAPHS="${INDEXING_PAYMENTS_DEPLOYMENT}"
+  else
+    echo "WARNING: indexing-payments subgraph not found after 3m — DIPs accept path will stall"
+  fi
+
+  echo "Enabling DIPs (RecurringCollector=${recurring_collector})"
+  export INDEXER_AGENT_ENABLE_DIPS=true
+  export INDEXER_AGENT_DIPS_EPOCHS_MARGIN=1
+  export INDEXER_AGENT_DIPPER_ENDPOINT="http://dipper:${DIPPER_INDEXER_RPC_PORT}"
+  export INDEXER_AGENT_DIPS_ALLOCATION_AMOUNT=1
+  # Faster reconciliation for local testing (default 120s is too slow).
+  export INDEXER_AGENT_POLLING_INTERVAL=15000
+fi
+
 node ./dist/index.js start
