@@ -21,19 +21,14 @@ COPY --from=ghcr.io/foundry-rs/foundry:stable \
 
 WORKDIR /opt
 
-# 1. Graph protocol contracts (Horizon)
-#    Install/build commands mirror upstream CI (see contracts repo's
-#    .github/actions/setup/action.yml and .github/workflows/build-test.yml).
+# Graph protocol contracts (Horizon). The data-edge contract is a workspace
+# package inside this repo (packages/data-edge), built as part of `pnpm build`,
+# so a separate clone is not needed.
+# Install/build commands mirror upstream CI (see contracts repo's
+# .github/actions/setup/action.yml and .github/workflows/build-test.yml).
 RUN git clone https://github.com/graphprotocol/contracts && \
   cd contracts && git checkout ${CONTRACTS_COMMIT} && \
   pnpm install --frozen-lockfile && pnpm build
-
-# 2. DataEdge contracts (fixed commit, for block-oracle setup)
-RUN git clone https://github.com/graphprotocol/contracts contracts-data-edge && \
-  cd contracts-data-edge && git checkout bdc66135e7700e9a4dcd6a4beac585337fdb9c21 && \
-  cd packages/data-edge && pnpm install && \
-  sed -i "s/localhost/chain/g" hardhat.config.ts && \
-  pnpm build
 
 COPY --chmod=755 ./run.sh /opt/run.sh
 ENTRYPOINT ["bash", "/opt/run.sh"]
