@@ -9,12 +9,12 @@ graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 
 cat >endpoints.yaml <<-EOF
-${ACCOUNT0_ADDRESS}: "http://graph-tally-aggregator:${GRAPH_TALLY_AGGREGATOR_PORT}"
+${DEPLOYER_ADDRESS}: "http://graph-tally-aggregator:${GRAPH_TALLY_AGGREGATOR_PORT}"
 EOF
 
 cat >config.toml <<-EOF
 [indexer]
-indexer_address = "${RECEIVER_ADDRESS}"
+indexer_address = "${INDEXER_ADDRESS}"
 operator_mnemonic = "${INDEXER_MNEMONIC}"
 
 [database]
@@ -27,6 +27,13 @@ status_url = "http://graph-node:${GRAPH_NODE_STATUS_PORT}/graphql"
 [subgraphs.network]
 query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 recently_closed_allocation_buffer_secs = 60
+syncing_interval_secs = 30
+
+# Schema-required even in Horizon mode (where V2 escrow accounts live in the
+# network subgraph itself). Point at the network subgraph as a satisfier; the
+# legacy TAP v1 subgraph isn't deployed in this stack.
+[subgraphs.escrow]
+query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 syncing_interval_secs = 30
 
 [blockchain]
@@ -47,8 +54,15 @@ max_amount_willing_to_lose_grt = 1
 timestamp_buffer_secs = 15
 
 [tap.sender_aggregator_endpoints]
-${ACCOUNT0_ADDRESS} = "http://graph-tally-aggregator:${GRAPH_TALLY_AGGREGATOR_PORT}"
+${DEPLOYER_ADDRESS} = "http://graph-tally-aggregator:${GRAPH_TALLY_AGGREGATOR_PORT}"
 
+[horizon]
+# Enable Horizon migration support and detection
+# When enabled: Check if Horizon contracts are active in the network
+#   - If Horizon contracts detected: Hybrid migration mode (new V2 receipts only, process existing V1 receipts)
+#   - If Horizon contracts not detected: Remain in legacy mode (V1 receipts only)
+# When disabled: Pure legacy mode, no Horizon detection performed
+enabled = true
 EOF
 cat config.toml
 

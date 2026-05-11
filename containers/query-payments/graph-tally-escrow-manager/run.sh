@@ -8,8 +8,10 @@ grt=$(contract_addr L2GraphToken.address horizon)
 graph_tally_collector=$(contract_addr GraphTallyCollector.address horizon)
 payments_escrow=$(contract_addr PaymentsEscrow.address horizon)
 
-rpk topic create gateway_queries --brokers="redpanda:9092" || true
-rpk topic create gateway_ravs --brokers="redpanda:9092" || true
+queries_topic=$(kafka_topic gateway_queries)
+rpk topic create "$queries_topic" --brokers="redpanda:9092" || true
+ravs_topic=$(kafka_topic gateway_ravs)
+rpk topic create "$ravs_topic" --brokers="redpanda:9092" || true
 
 cat >config.json <<-EOF
 {
@@ -24,13 +26,13 @@ cat >config.json <<-EOF
     "config": {
       "bootstrap.servers": "redpanda:9092"
     },
-    "realtime_topic": "gateway_queries"
+    "realtime_topic": "${queries_topic}"
   },
   "network_subgraph": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network",
   "query_auth": "freestuff",
   "rpc_url": "http://chain:${CHAIN_RPC_PORT}",
-  "signers": ["${ACCOUNT1_SECRET}"],
-  "secret_key": "${ACCOUNT0_SECRET}",
+  "signers": ["${GOVERNOR_SECRET}"],
+  "secret_key": "${DEPLOYER_SECRET}",
   "update_interval_seconds": 10
 }
 EOF
