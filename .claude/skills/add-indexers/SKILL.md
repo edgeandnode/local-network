@@ -171,7 +171,7 @@ while true; do
   ALLOC_COUNT=$(curl -s -X POST -H "Content-Type: application/json" \
     -d '{"query":"{ allocations(where: { status: Active }) { subgraphDeployment { ipfsHash } } }"}' \
     http://localhost:8000/subgraphs/name/graph-network \
-    | python3 -c "import json,sys,os; d=os.environ['ND']; print(sum(1 for a in json.load(sys.stdin)['data']['allocations'] if a['subgraphDeployment']['ipfsHash']==d))" ND="$NETWORK_DEPLOYMENT")
+    | ND="$NETWORK_DEPLOYMENT" python3 -c "import json,sys,os; d=os.environ['ND']; print(sum(1 for a in json.load(sys.stdin)['data']['allocations'] if a['subgraphDeployment']['ipfsHash']==d))")
   echo "$ALLOC_COUNT / $TOTAL_EXPECTED allocations"
   [ "$ALLOC_COUNT" -ge "$TOTAL_EXPECTED" ] && break
   sleep 5
