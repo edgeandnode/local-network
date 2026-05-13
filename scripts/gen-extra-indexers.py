@@ -26,10 +26,21 @@ Usage:
 import sys
 from pathlib import Path
 
-from eth_account import Account
-from mnemonic import Mnemonic
+# eth_account and mnemonic are only needed when N > 0 (generating extras
+# requires deriving operator addresses from BIP39 mnemonics). The N == 0
+# cleanup path just deletes files and edits .env, so it must work on
+# systems without these third-party packages (e.g. the deploy VM, which
+# runs system Python with no pip). Wrap the imports and the heavy
+# module-level init so the script stays usable as a portable cleanup
+# tool even when the deps are absent.
+try:
+    from eth_account import Account
+    from mnemonic import Mnemonic
 
-Account.enable_unaudited_hdwallet_features()
+    Account.enable_unaudited_hdwallet_features()
+    _ETH_DEPS_AVAILABLE = True
+except ImportError:
+    _ETH_DEPS_AVAILABLE = False
 
 # Hardhat "junk" mnemonic accounts starting at index 2.
 # Deterministic and pre-funded with 10,000 ETH by Hardhat.
@@ -113,16 +124,19 @@ JUNK_MNEMONIC = "test test test test test test test test test test test junk"
 
 # Operator mnemonics: "test*11 {word}" for each BIP39 word that passes
 # the 12-word checksum. Skip "junk" (ACCOUNT0) and "zero" (RECEIVER).
-_bip39 = Mnemonic("english")
-_prefix = "test " * 11
+# Skipped entirely when eth_account/mnemonic aren't installed — the N == 0
+# cleanup path doesn't need this list, and N > 0 fails fast in main().
 OPERATOR_MNEMONICS: list[tuple[str, str]] = []  # (mnemonic, address)
-for _word in _bip39.wordlist:
-    if _word in ("junk", "zero"):
-        continue
-    _candidate = _prefix + _word
-    if _bip39.check(_candidate):
-        _addr = Account.from_mnemonic(_candidate).address
-        OPERATOR_MNEMONICS.append((_candidate, _addr))
+if _ETH_DEPS_AVAILABLE:
+    _bip39 = Mnemonic("english")
+    _prefix = "test " * 11
+    for _word in _bip39.wordlist:
+        if _word in ("junk", "zero"):
+            continue
+        _candidate = _prefix + _word
+        if _bip39.check(_candidate):
+            _addr = Account.from_mnemonic(_candidate).address
+            OPERATOR_MNEMONICS.append((_candidate, _addr))
 
 OUTPUT_FILE = Path(__file__).resolve().parent.parent / "compose" / "extra-indexers.yaml"
 ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
@@ -510,6 +524,14 @@ def main():
 
     if count < 0 or count > MAX_EXTRA:
         print(f"Count must be 0..{MAX_EXTRA}, got {count}", file=sys.stderr)
+        sys.exit(1)
+
+    if not _ETH_DEPS_AVAILABLE:
+        print(
+            "Generating extras (N > 0) requires the eth_account and mnemonic packages.\n"
+            "Install with: pip install eth_account mnemonic",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     yaml_content = generate(count)
