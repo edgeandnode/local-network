@@ -74,13 +74,18 @@ The cronjob runs once and exits. Exit codes: `0` success, `1` scoring/push failu
 
 If the skill was invoked with an argument (e.g. `/send-indexing-request QmSQq...`), use that as the deployment ID. Otherwise default to `QmPdbQaRCMhgouSZSW3sHZxU3M8KwcngWASvreAexzmmrh` (the graph-network subgraph).
 
+Dipper's admin API is declarative: a single mutating method, `set-target-candidates`, takes the desired indexer count for a given `(deployment, chain)` tuple. The first call inserts a new request row; subsequent calls with a different `--num-candidates` value update it in place (grow or shrink). `--num-candidates 0` cancels. There is no separate `register`/`cancel` subcommand any more.
+
 ```bash
-/Users/samuel/Documents/github/dipper/target/release/dipper-cli indexings register \
+/Users/samuel/Documents/github/dipper/target/release/dipper-cli indexings set-target-candidates \
   --server-url http://localhost:9000 \
   --signing-key "0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573" \
   <DEPLOYMENT_ID> \
-  1337
+  1337 \
+  --num-candidates 3
 ```
+
+`--num-candidates` is optional; omit it to let dipper use its configured maximum. Three is a sensible default for local testing — picks 3 of the 5 available indexers and exercises the full pipeline without saturating the stack.
 
 The signing key belongs to RECEIVER (`0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3`). Dipper's admin RPC allowlist only accepts this address; ACCOUNT0's key returns 403.
 
