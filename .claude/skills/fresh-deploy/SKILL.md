@@ -1,6 +1,6 @@
 ---
 name: fresh-deploy
-description: Full nuke-and-rebuild of the local-network Docker Compose stack on the deploy VM (`lnet-test`) — wipes containers, volumes, images, networks, the local-network clone itself, then re-clones from origin, repopulates the eligibility-oracle-node source/ directory, rebuilds with --pull, brings the stack up, and waits for dipper healthy. Use when the user asks for a fresh deploy, full reset, redeploy from scratch, after merging branch changes, or when debugging stuck state. Also use after the user runs `git pull` on a branch whose container code has changed.
+description: Full nuke-and-rebuild of the local-network Docker Compose stack on the deploy VM (`lnet-test`) — wipes containers, volumes, images, networks, the local-network clone itself, then re-clones from origin, resets compose to primary-only (any prior `/add-indexers` overlay is dropped), repopulates the eligibility-oracle-node source/ directory, rebuilds with --pull, brings the stack up, and waits for dipper healthy. Use when the user asks for a fresh deploy, full reset, redeploy from scratch, after merging branch changes, or when debugging stuck state. Also use after the user runs `git pull` on a branch whose container code has changed.
 ---
 
 # Fresh Deploy
@@ -70,7 +70,19 @@ cd /home/mainuser/local-network && git rev-parse --short HEAD"
 
 `local-network` itself is anonymously cloneable; no credentials needed. Avoid `--depth 1` — a shallow clone makes later `git fetch origin <other-branch>` operations awkward.
 
-### 5. Populate the eligibility-oracle-node source/ from the Mac
+### 5. Reset compose to primary-only
+
+Even after re-cloning, `.env`'s `COMPOSE_FILE` may still reference `compose/extra-indexers.yaml` if a prior `/add-indexers` run committed that line to the branch. The overlay yaml itself is gitignored and won't come back via clone, so a leftover entry would cause `docker compose build` to fail with "no such file."
+
+`gen-extra-indexers.py 0` is idempotent: deletes the overlay if present, strips the entry from `.env`, no-op otherwise.
+
+```bash
+ssh lnet-test 'cd /home/mainuser/local-network && python3 scripts/gen-extra-indexers.py 0'
+```
+
+If you want extras for this run, run `/add-indexers N` after the skill finishes — extras never survive a fresh-deploy.
+
+### 6. Populate the eligibility-oracle-node source/ from the Mac
 
 The Dockerfile for `eligibility-oracle-node` does `COPY ./source /opt/eligibility-oracle-node`. The `source/` directory is gitignored and populated per-developer because the upstream repo is private and the build container has no GitHub auth.
 
@@ -83,7 +95,7 @@ rsync -a \
 
 If the user has bumped their local clone to a specific commit, that commit is what gets baked into the image. The `rewards-eligibility` profile is OFF by default in `.env`, so the build skips this service unless the profile is enabled — but populating `source/` keeps the documented developer workflow honest and costs nothing.
 
-### 6. Build everything with --pull
+### 7. Build everything with --pull
 
 ```bash
 ssh lnet-test 'cd /home/mainuser/local-network && docker compose build --pull'
@@ -93,7 +105,7 @@ Run this in the background — it takes ~10–15 minutes on a cold cache. The lo
 
 `--pull` refreshes the FROM-line base images; without it, the daemon would skip the pull for layers it remembers (irrelevant here since step 2 wiped them, but harmless to be explicit).
 
-### 7. Bring up the stack
+### 8. Bring up the stack
 
 ```bash
 ssh lnet-test 'cd /home/mainuser/local-network && docker compose up -d'
@@ -101,7 +113,7 @@ ssh lnet-test 'cd /home/mainuser/local-network && docker compose up -d'
 
 Compose handles the dependency order automatically: chain → graph-contracts → graph-node → subgraph-deploy → indexer-agent → indexer-service / tap-agent / dipper / gateway, with the graph-tally services and one-shots interleaved as their depends_on conditions are met.
 
-### 8. Stream per-service health to the user
+### 9. Stream per-service health to the user
 
 The user typically wants to see services come up one at a time, not just a final dump. Use a polling loop that emits one line per state-change. Example pattern (run on the Mac, polls the VM):
 
@@ -133,9 +145,17 @@ Use `[[ "$status" == *"Exited (0)"* ]]` (glob) rather than `=~ "Exited (0)"` (re
 
 Avoid running this with `set -e` in zsh — `status` is a read-only variable in zsh; rename to `svc_status` to avoid the `read-only variable: status` error.
 
-### 9. Wait for dipper to settle
+Expect `dipper: unhealthy` to appear in the stream ~30s after `up` returns, followed by `dipper: healthy` ~60s later. This is the normal warm-up sequence — see step 10 for why. Don't treat the intermediate `unhealthy` event as a deploy failure.
 
-Dipper is the last service to become healthy. Its bootstrap query routes through gateway, which requires the network subgraph to be indexed and signer auth to be propagated — this can take 2–4 minutes after the initial `up` returns. Dipper may briefly flap between `healthy` and `unhealthy` during the warm-up; the stable terminal state is `healthy`.
+### 10. Wait for dipper to settle
+
+Dipper is the last service to become healthy. The expected sequence on a fresh deploy is:
+
+1. **starting** — container boots, runs DB migrations.
+2. **unhealthy** — typically ~30–90s. Dipper retries the initial topology fetch against the network subgraph with exponential backoff (2 → 4 → 8 → 16 → 32 → 32s). The healthcheck fails while the topology is empty, so `(unhealthy)` shows up in compose ps. This is the normal warm-up path, not a deploy failure — keep waiting.
+3. **healthy** — once topology refresh succeeds and the indexer set is populated.
+
+Total warm-up from `up` returning to `(healthy)`: ~2–4 minutes. If dipper stays unhealthy past ~5 minutes, the network subgraph isn't reachable or isn't syncing — check graph-node indexing status at `:8030/graphql`.
 
 ```bash
 until ssh lnet-test 'docker compose -f /home/mainuser/local-network/docker-compose.yaml ps dipper --format "{{.Status}}"' \
@@ -144,7 +164,7 @@ until ssh lnet-test 'docker compose -f /home/mainuser/local-network/docker-compo
 
 Anchor the regex with `\(healthy\)$` — without the `$` anchor, the substring `healthy)` matches inside `(unhealthy)` because `(unhealthy)` ends with `healthy)`.
 
-### 10. Final verification
+### 11. Final verification
 
 ```bash
 ssh lnet-test 'cd /home/mainuser/local-network && docker compose ps --all --format "{{.Name}}\t{{.Status}}" | sort'
