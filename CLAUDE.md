@@ -36,6 +36,20 @@ The stack runs entirely from pinned commits and images. The `graph-contracts` an
 - `.env` is the canonical config file (read by docker-compose, host scripts, and containers via volume mount at `/opt/config/.env`).
 - `DOCKER_DEFAULT_PLATFORM=` must prefix docker compose commands on machines whose host arch differs from images (e.g. macOS arm64 hosts pulling linux/amd64 images).
 
+## Dipper IndexingAgreement status enum
+
+The dipper postgres `dipper_reg_indexing_agreements.status` column stores the discriminant values defined in `dipper-pgregistry/src/indexing_agreement.rs:131`. Six values are commonly observed in local-network. The discriminants are not contiguous and are easy to mis-map by intuition (in particular `6 = AcceptedOnChain` and `7 = Rejected` are not in alphabetical order). Always confirm against the source enum, not against natural ordering.
+
+| Value | Variant | Meaning |
+|---|---|---|
+| -1 | Created | Inserted, proposal not yet attempted or in flight |
+| 1 | DeliveryFailed | Terminal — proposal couldn't be delivered |
+| 3 | CanceledByRequester | Terminal — payer cancelled |
+| 4 | CanceledByIndexer | Terminal — indexer cancelled |
+| 5 | Expired | Terminal — deadline passed before acceptance |
+| 6 | AcceptedOnChain | `IndexingAgreementAccepted` event observed on-chain |
+| 7 | Rejected | Off-chain rejection by indexer-service via gRPC |
+
 ## DIPs conditions field
 
 The audit-branch `RecurringCollectionAgreement` struct has a `uint16 conditions` field (a bitmask of payer-declared conditions like `CONDITION_ELIGIBILITY_CHECK = 1`). Local-network always uses `conditions = 0`. Setting any non-zero value makes the `RecurringCollector` contract staticcall the payer to verify it implements an eligibility callback interface. Our payer is an EOA (ACCOUNT0 = dipper's wallet), so any non-zero condition bit causes both the `offer()` and `accept()` calls to revert. Exercising the eligibility-check path requires a contract payer, which is out of scope for local testing.
