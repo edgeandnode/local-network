@@ -115,7 +115,8 @@ cat >config.json <<-EOF
     "enabled": true,
     "subgraph_endpoint": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments",
     "poll_interval": 5,
-    "chain_id": ${CHAIN_ID}
+    "chain_id": ${CHAIN_ID},
+    "bypass_chain_clock_defenses": true
   },
   "additional_networks": {
     "${CHAIN_ID}": "${CHAIN_NAME}"
