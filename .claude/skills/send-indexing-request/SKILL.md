@@ -72,7 +72,14 @@ The cronjob runs once and exits. Exit codes: `0` success, `1` scoring/push failu
 
 ### 5. Send the indexing request (Mac binary, tunnelled to VM dipper)
 
-If the skill was invoked with an argument (e.g. `/send-indexing-request QmSQq...`), use that as the deployment ID. Otherwise default to `QmPdbQaRCMhgouSZSW3sHZxU3M8KwcngWASvreAexzmmrh` (the graph-network subgraph).
+If the skill was invoked with an argument (e.g. `/send-indexing-request QmSQq...`), use that as the deployment ID. Otherwise resolve the current graph-network deployment hash dynamically — it changes whenever the schema, ABI, or mapping does, so a hardcoded value goes stale on every contract rebuild and indexer-service then rejects the proposal with `SubgraphManifestUnavailable`:
+
+```bash
+DEPLOYMENT=$(ssh lnet-test 'curl -s http://localhost:8000/subgraphs/name/graph-network \
+  -H "content-type: application/json" \
+  -d "{\"query\":\"{ _meta { deployment } }\"}"' \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])")
+```
 
 Dipper's admin API is declarative: a single mutating method, `set-target-candidates`, takes the desired indexer count for a given `(deployment, chain)` tuple. The first call inserts a new request row; subsequent calls with a different `--num-candidates` value update it in place (grow or shrink). `--num-candidates 0` cancels. There is no separate `register`/`cancel` subcommand any more.
 
@@ -144,7 +151,7 @@ Leaving the tunnel open is also fine — it's a quiet idle connection.
 | Signing key | RECEIVER: `0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573` |
 | Signing address | `0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3` |
 | Chain ID | 1337 (hardhat) |
-| Default deployment | `QmPdbQaRCMhgouSZSW3sHZxU3M8KwcngWASvreAexzmmrh` (graph-network; override via skill argument) |
+| Default deployment | Resolved dynamically from graph-network's `_meta.deployment` (override via skill argument) |
 
 ## Common rejection reasons
 
