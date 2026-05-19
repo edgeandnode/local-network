@@ -41,7 +41,7 @@ The whole flow is a single ssh-bash heredoc that:
 ```bash
 AMOUNT_GRT=${ARG1:-1000000}
 ssh lnet-test "bash -s -- $AMOUNT_GRT" <<'REMOTE'
-set -e
+set -eo pipefail
 AMOUNT_GRT=$1
 AMOUNT_WEI=$(python3 -c "print($AMOUNT_GRT * 10**18)")
 
@@ -51,6 +51,22 @@ RC=$(docker exec graph-node cat /opt/config/horizon.json | jq -r '."1337".Recurr
 ACCOUNT0=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 SECRET=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 RPC=http://localhost:8545
+
+# Run cast send and fail loud if the tx didn't reach "status 1 (success)".
+# The previous pattern (`cast send ... 2>&1 | grep -E '...' | head -2`)
+# silently exited 0 when cast failed or returned no success line, because
+# head's exit code masked everything earlier in the pipeline.
+send_or_die() {
+  local label=$1; shift
+  local out
+  if ! out=$(cast send "$@" --rpc-url "$RPC" --private-key "$SECRET" 2>&1); then
+    echo "[$label] cast send failed:"; echo "$out"; exit 1
+  fi
+  if ! grep -q 'status .*1 (success)' <<<"$out"; then
+    echo "[$label] cast send returned no success line:"; echo "$out"; exit 1
+  fi
+  grep -E 'status|transactionHash' <<<"$out" | head -2
+}
 
 echo "GRT=$GRT  PaymentsEscrow=$PE  RecurringCollector=$RC"
 echo "depositing $AMOUNT_WEI wei ($AMOUNT_GRT GRT) per indexer"
@@ -62,14 +78,12 @@ INDEXERS=$(curl -s -X POST -H "Content-Type: application/json" \
 echo "indexers: $INDEXERS"
 
 echo "--- approve(PaymentsEscrow, max) ---"
-cast send "$GRT" 'approve(address,uint256)' "$PE" \
-  0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
-  --rpc-url "$RPC" --private-key "$SECRET" 2>&1 | grep -E 'status|transactionHash' | head -2
+send_or_die approve "$GRT" 'approve(address,uint256)' "$PE" \
+  0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 for I in $INDEXERS; do
   echo "--- deposit for $I ---"
-  cast send "$PE" 'deposit(address,address,uint256)' "$RC" "$I" "$AMOUNT_WEI" \
-    --rpc-url "$RPC" --private-key "$SECRET" 2>&1 | grep -E 'status|transactionHash' | head -2
+  send_or_die "deposit/$I" "$PE" 'deposit(address,address,uint256)' "$RC" "$I" "$AMOUNT_WEI"
 done
 
 echo "--- final balances (wei) ---"
