@@ -31,5 +31,55 @@ Then `docker compose up -d` applies the overrides automatically.
 | `eligibility-oracle.yaml` | eligibility-oracle-node          | `REO_BINARY`                                           |
 | `dipper.yaml`             | dipper                           | `DIPPER_BINARY`                                        |
 | `iisa.yaml`               | iisa                             | `IISA_VERSION=local`                                   |
+| `studio.yaml`             | studio-api, studio-ui, studio-query-proxy, studio-deployment-router | `STUDIO_SOURCE_ROOT` |
 
 See each file's header comments for details.
+
+## Studio (dev override)
+
+Mounts a local `subgraph-studio` checkout at `/app` so the four studio app
+services (`studio-api`, `studio-ui`, `studio-query-proxy`,
+`studio-deployment-router`) run against your working tree. This override is
+**required** today — no local-network-targeted subgraph-studio image is
+published yet (see "Future" below). Without it, the four services start, find
+no source at `/app`, and exit with a helpful message.
+
+`studio-redis` runs unconditionally (no override needed) once the `studio`
+profile is active.
+
+**URL:** http://localhost:5000/studio/
+
+### Prerequisites
+
+1. Clone `subgraph-studio` and check out the `nas/ui-hardhat-publish` branch —
+   it carries the local-Hardhat patches (chain entry, deployment router LOCAL
+   mode, optional `LOCAL_*` env vars) not yet on `main`.
+   Then set `STUDIO_SOURCE_ROOT=/abs/path/to/subgraph-studio` in `.env.local`.
+2. From inside the studio repo, install once:
+   ```bash
+   bun install
+   ```
+3. Enable the override and the studio profile in `.env.local`:
+   ```bash
+   COMPOSE_FILE=docker-compose.yaml:compose/dev/studio.yaml
+   COMPOSE_PROFILES=block-oracle,explorer,studio
+   ```
+
+### Port 5000
+
+`STUDIO_UI_PORT` must stay at 5000 — WalletConnect's metadata URL is
+hardcoded to that port in the studio UI.
+
+### Future: switch to a prebuilt GHCR image
+
+The current base compose builds `containers/ui/studio/dev/Dockerfile`
+(node + bun, no source baked in). It's a placeholder for an image that doesn't
+exist yet. Subgraph-studio already publishes to GHCR staging and production build 
+images, but both bake their URLs into the UI bundle at build time so a local network
+version is still required.
+
+Migration to image-pull mode requires a CI job on `edgeandnode/subgraph-studio`
+that builds an image with `localhost`-targeted URLs and pushes it to GHCR. 
+Once that exists, swap `build: { context: containers/ui/studio/dev }` in 
+`docker-compose.yaml` for `image: ghcr.io/...:<tag>` and drop the dev
+override + the dev/Dockerfile. The per-service `.sh` env wrappers stay.

@@ -23,3 +23,7 @@ services:
   studio-deployment-router:
     volumes:
       - ${STUDIO_SOURCE_ROOT}:/app
+
+  studio-query-proxy:
+    volumes:
+      - ${STUDIO_SOURCE_ROOT}:/app
