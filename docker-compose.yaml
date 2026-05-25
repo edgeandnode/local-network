@@ -521,6 +521,36 @@ services:
       retries: 60
     restart: on-failure:3
 
+  studio-query-proxy:
+    container_name: studio-query-proxy
+    profiles: [studio]
+    build: { context: containers/ui/studio/dev }
+    entrypoint: bash /opt/run.sh
+    command:
+      - bash
+      - -c
+      - |
+        if [ ! -d /app/packages/query-proxy ]; then
+          echo "studio-query-proxy needs subgraph-studio source mounted at /app."
+          echo "Activate compose/dev/studio.yaml and set STUDIO_SOURCE_ROOT — see compose/dev/README.md."
+          exit 1
+        fi
+        cd /app/packages/query-proxy && exec npx tsx src/server.ts
+    depends_on:
+      studio-api: { condition: service_healthy }
+      studio-redis: { condition: service_healthy }
+    ports:
+      - "${STUDIO_QUERY_PROXY_PORT}:4002"
+      - "${STUDIO_QUERY_PROXY_METRICS_PORT}:9092"
+    volumes:
+      - ./containers/ui/studio/query-proxy.sh:/opt/run.sh:ro
+      - ./.env:/opt/config/.env:ro
+    healthcheck:
+      test: curl -sf http://127.0.0.1:9092/metrics || exit 1
+      interval: 10s
+      retries: 60
+    restart: on-failure:3
+
   # --- Readiness check ---
 
   ready:
