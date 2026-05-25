@@ -15,3 +15,7 @@ services:
   studio-api:
     volumes:
       - ${STUDIO_SOURCE_ROOT}:/app
+
+  studio-ui:
+    volumes:
+      - ${STUDIO_SOURCE_ROOT}:/app

@@ -461,6 +461,34 @@ services:
       retries: 60
     restart: on-failure:3
 
+  studio-ui:
+    container_name: studio-ui
+    profiles: [studio]
+    build: { context: containers/ui/studio/dev }
+    entrypoint: bash /opt/run.sh
+    command:
+      - bash
+      - -c
+      - |
+        if [ ! -d /app/packages/ui ]; then
+          echo "studio-ui needs subgraph-studio source mounted at /app."
+          echo "Activate compose/dev/studio.yaml and set STUDIO_SOURCE_ROOT — see compose/dev/README.md."
+          exit 1
+        fi
+        cd /app/packages/ui && exec npx next dev -p 5000
+    depends_on:
+      studio-api: { condition: service_healthy }
+    ports:
+      - "${STUDIO_UI_PORT}:5000"
+    volumes:
+      - ./containers/ui/studio/ui.sh:/opt/run.sh:ro
+      - ./.env:/opt/config/.env:ro
+    healthcheck:
+      test: curl -sf http://127.0.0.1:5000/studio/ || exit 1
+      interval: 10s
+      retries: 60
+    restart: on-failure:3
+
   # --- Readiness check ---
 
   ready:
