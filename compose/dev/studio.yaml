@@ -19,3 +19,7 @@ services:
   studio-ui:
     volumes:
       - ${STUDIO_SOURCE_ROOT}:/app
+
+  studio-deployment-router:
+    volumes:
+      - ${STUDIO_SOURCE_ROOT}:/app

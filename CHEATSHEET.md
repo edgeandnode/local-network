@@ -147,3 +147,12 @@ without the email-confirmation prompt:
 # e.g. ACCOUNT0: ./scripts/seed-studio-user.sh 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 ```
 
+To publish a subgraph from Studio, the connected MetaMask wallet must have ETH
+on the local chain to cover gas. Fund it then mine a block so MetaMask picks
+up the new balance:
+
+```bash
+./scripts/fund-wallet.sh <metamask_address> [amount_in_eth]
+./scripts/mine-block.sh
+```
+
