@@ -473,6 +473,38 @@ services:
       retries: 60
     restart: on-failure:3
 
+  studio-deployment-router:
+    container_name: studio-deployment-router
+    profiles: [studio]
+    build: { context: containers/ui/studio/dev }
+    entrypoint: bash /opt/run.sh
+    command:
+      - bash
+      - -c
+      - |
+        if [ ! -d /app/packages/deployment-router ]; then
+          echo "studio-deployment-router needs subgraph-studio source mounted at /app."
+          echo "Activate compose/dev/studio.yaml and set STUDIO_SOURCE_ROOT — see compose/dev/README.md."
+          exit 1
+        fi
+        cd /app/packages/deployment-router && exec npx tsx src/server.ts
+    depends_on:
+      studio-api: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      graph-node: { condition: service_healthy }
+      ipfs: { condition: service_healthy }
+    ports:
+      - "${STUDIO_DEPLOYMENT_ROUTER_PORT}:4001"
+      - "${STUDIO_DEPLOYMENT_ROUTER_METRICS_PORT}:9091"
+    volumes:
+      - ./containers/ui/studio/deployment-router.sh:/opt/run.sh:ro
+      - ./.env:/opt/config/.env:ro
+    healthcheck:
+      test: curl -sf http://127.0.0.1:4001/deploy || exit 1
+      interval: 10s
+      retries: 60
+    restart: on-failure:3
+
   # --- Readiness check ---
 
   ready:
