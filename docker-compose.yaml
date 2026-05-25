@@ -397,6 +397,54 @@ services:
         ]
     restart: on-failure:3
 
+  # --- Studio (activated via COMPOSE_PROFILES) ---
+  # Studio app services require a local subgraph-studio checkout mounted at /app
+  # via compose/dev/studio.yaml. Without that override, containers start, find
+  # no source, and exit with a helpful message. Stage 6 (see compose/dev/README.md)
+  # plans to replace the dev/Dockerfile build with a published GHCR image.
+
+  studio-redis:
+    container_name: studio-redis
+    profiles: [studio]
+    image: redis:7-alpine
+    ports: ["${STUDIO_REDIS_PORT}:6379"]
+    healthcheck: { interval: 1s, retries: 20, test: redis-cli ping }
+    restart: on-failure:3
+
+  studio-api:
+    container_name: studio-api
+    profiles: [studio]
+    build: { context: containers/ui/studio/dev }
+    entrypoint: bash /opt/run.sh
+    command:
+      - bash
+      - -c
+      - |
+        if [ ! -d /app/packages/api ]; then
+          echo "studio-api needs subgraph-studio source mounted at /app."
+          echo "Activate compose/dev/studio.yaml and set STUDIO_SOURCE_ROOT — see compose/dev/README.md."
+          exit 1
+        fi
+        cd /app/packages/shared && bun run db:setup
+        cd /app/packages/api && exec npx tsx --require /opt/clear-metrics.cjs src/server.ts
+    depends_on:
+      postgres: { condition: service_healthy }
+      studio-redis: { condition: service_healthy }
+      graph-contracts: { condition: service_completed_successfully }
+      ipfs: { condition: service_healthy }
+    ports:
+      - "${STUDIO_API_PORT}:4000"
+      - "${STUDIO_API_METRICS_PORT}:9090"
+    volumes:
+      - ./containers/ui/studio/api.sh:/opt/run.sh:ro
+      - ./containers/ui/studio/dev/clear-metrics.cjs:/opt/clear-metrics.cjs:ro
+      - ./.env:/opt/config/.env:ro
+    healthcheck:
+      test: curl -sf http://127.0.0.1:4000/ || exit 1
+      interval: 10s
+      retries: 60
+    restart: on-failure:3
+
   # --- Readiness check ---
 
   ready:
