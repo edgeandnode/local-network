@@ -349,6 +349,11 @@ services:
       DEGRADED_ALERT_THRESHOLD: "999"
       IISA_API_URL: "http://iisa:8080"
       IISA_PUSH_TOKEN: ${IISA_PUSH_TOKEN:-}
+      # Minimum graph-node version an indexer must report to remain a DIPs
+      # candidate. Mirrors the production policy on the testnet-v2 cluster.
+      MIN_GRAPH_NODE_VERSION: "0.43.0"
+      # Strict: also drop indexers whose /status doesn't return a version.
+      MIN_GRAPH_NODE_VERSION_STRICT: "true"
     depends_on:
       iisa: { condition: service_started }
     # One-shot: run scoring once and exit. Exit codes: 0 success, 1 scoring/push
