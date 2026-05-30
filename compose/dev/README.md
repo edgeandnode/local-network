@@ -51,18 +51,19 @@ profile is active.
 
 ### Prerequisites
 
-1. Clone `subgraph-studio` and check out the `nas/ui-hardhat-publish` branch —
-   it carries the local-Hardhat patches (chain entry, deployment router LOCAL
-   mode, optional `LOCAL_*` env vars) not yet on `main`.
-   Then set `STUDIO_SOURCE_ROOT=/abs/path/to/subgraph-studio` in `.env.local`.
-2. From inside the studio repo, install once:
+1. Clone `subgraph-studio` — the local-Hardhat patches (chain entry, deployment
+   router LOCAL mode, optional `LOCAL_*` env vars) are now on `main`.
+   Then set `STUDIO_SOURCE_ROOT=/abs/path/to/subgraph-studio` in `.env` or `.env.local`.
+2. From inside the studio repo, run install and build:
    ```bash
    bun install
+   bun run build
    ```
-3. Enable the override and the studio profile in `.env.local`:
+3. Enable the override and the studio profile in `.env` or `.env.local` :
    ```bash
    COMPOSE_FILE=docker-compose.yaml:compose/dev/studio.yaml
    COMPOSE_PROFILES=block-oracle,explorer,studio
+   STUDIO_SOURCE_ROOT=/abs/path/to/subgraph-studio
    ```
 
 ### Port 5000
