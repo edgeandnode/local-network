@@ -67,6 +67,7 @@ services:
 
   graph-node:
     container_name: graph-node
+    platform: linux/amd64
     build:
       context: containers/indexer/graph-node
       args:
@@ -209,6 +210,7 @@ services:
 
   graph-tally-aggregator:
     container_name: graph-tally-aggregator
+    platform: linux/amd64
     build:
       context: containers/query-payments/graph-tally-aggregator
       args:
@@ -228,6 +230,7 @@ services:
 
   graph-tally-escrow-manager:
     container_name: graph-tally-escrow-manager
+    platform: linux/amd64
     build:
       context: containers/query-payments/graph-tally-escrow-manager
       args:
@@ -385,6 +388,7 @@ services:
   dipper:
     container_name: dipper
     profiles: [indexing-payments]
+    platform: linux/amd64
     build:
       context: containers/indexing-payments/dipper
       args:
