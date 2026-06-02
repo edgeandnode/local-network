@@ -67,6 +67,8 @@ services:
 
   graph-node:
     container_name: graph-node
+    labels:
+      - dev.dozzle.group=dips
     build:
       context: containers/indexer/graph-node
       args:
@@ -133,6 +135,8 @@ services:
 
   indexer-agent:
     container_name: indexer-agent
+    labels:
+      - dev.dozzle.group=dips
     build:
       context: containers/indexer/indexer-agent
       args:
@@ -272,6 +276,8 @@ services:
 
   indexer-service:
     container_name: indexer-service
+    labels:
+      - dev.dozzle.group=dips
     build:
       context: containers/indexer/indexer-service
       args:
@@ -363,6 +369,8 @@ services:
 
   iisa:
     container_name: iisa
+    labels:
+      - dev.dozzle.group=dips
     profiles: [indexing-payments]
     image: ghcr.io/edgeandnode/subgraph-dips-indexer-selection:${IISA_VERSION}
     pull_policy: if_not_present
@@ -384,6 +392,8 @@ services:
 
   dipper:
     container_name: dipper
+    labels:
+      - dev.dozzle.group=dips
     profiles: [indexing-payments]
     build:
       context: containers/indexing-payments/dipper
