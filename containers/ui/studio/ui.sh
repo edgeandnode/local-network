@@ -40,6 +40,7 @@ read_addr() {
 LOCAL_GNS_ADDRESS="$(read_addr L2GNS subgraph-service)"
 LOCAL_GRAPH_TOKEN_ADDRESS="$(read_addr L2GraphToken horizon)"
 LOCAL_L2_GRAPH_TOKEN_GATEWAY_ADDRESS="$(read_addr L2GraphTokenGateway horizon)"
+export LOCAL_GATEWAY_QUERY_URL="http://localhost:${GATEWAY_PORT}/api"
 export LOCAL_GNS_ADDRESS LOCAL_GRAPH_TOKEN_ADDRESS LOCAL_L2_GRAPH_TOKEN_GATEWAY_ADDRESS
 export GRAPH_NETWORK_LOCAL_GRAPHQL_URI="http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 
