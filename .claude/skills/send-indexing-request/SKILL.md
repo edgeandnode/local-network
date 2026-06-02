@@ -14,6 +14,20 @@ The dipper stack runs on the `lnet-test` VM. The `dipper-cli` Rust binary is bui
 
 For a local-only docker setup, drop the SSH wrappers and tunnel; everything else is identical.
 
+## Running in local mode (no VM/SSH)
+
+When the whole stack runs in Docker on this machine, the VM/SSH wrapping above does not apply. Substitutions:
+
+- **dipper repo / CLI**: the dipper repo is typically a sibling of local-network at `../dipper`. Confirm the actual location with the user before building (don't assume an absolute path). Build: `cargo build --manifest-path <dipper-repo>/Cargo.toml --bin dipper-cli --release`; binary at `<dipper-repo>/target/release/dipper-cli`. Never `cd` into the dipper repo — run from local-network with the manifest path.
+- **Skip the SSH tunnel** — dipper admin RPC is directly at `http://localhost:9000` (a GET returns 405 = healthy JSON-RPC server).
+- **No `ssh lnet-test` prefix** anywhere. Run `docker compose ...`, `curl`, and `python3 scripts/...` directly on the host from the local-network dir.
+- **Ports (host)**: gateway `${GATEWAY_PORT}` (7700), graph-node GraphQL `:8000`, graph-node status `:8030`, IISA scores `http://localhost:8080/scores`, chain RPC `:8545`.
+- **Health check**: `docker compose ps dipper --format "{{.Status}}"` (expect `Up ... (healthy)`).
+- **num-candidates**: a fresh local stack has only the **primary indexer**. Use `--num-candidates 1` unless `/add-indexers` was run. IISA will only score indexers it has query history for, so the local default is 1.
+- **Signing key** is the same RECEIVER key (`0x2ee789...`); ACCOUNT0's key returns 403 from the admin allowlist.
+
+Everything in steps 1–8 below works locally with those substitutions (drop `ssh lnet-test`, use `../dipper/...` paths, no tunnel).
+
 ## Steps
 
 ### 1. Build the dipper CLI (Mac)
@@ -157,3 +171,54 @@ Leaving the tunnel open is also fine — it's a quiet idle connection.
 
 - **OFFER_NOT_FOUND / OFFER_MISMATCH**: dipper successfully signed an RCA but the indexer-service can't find a matching on-chain offer. Most often means the indexing-payments subgraph hasn't indexed the offer yet. Wait a few seconds and re-monitor; if it persists, check the subgraph sync state.
 - **PRICE_TOO_LOW**: dipper's pricing config doesn't meet the indexer-service's minimum. Compare `pricing_table` in `containers/indexing-payments/dipper/run.sh` with `min_grt_per_30_days` in the indexer-service config.
+
+## Local-network troubleshooting
+
+### Inspecting dipper state directly
+
+dipper's postgres is the `postgres` service, database `dipper_1`. The agreements live in `dipper_reg_indexing_agreements`; `id` and `indexer_id` are `bytea` (use `encode(id,'hex')`). Status discriminants are **not** alphabetical — see the enum table in the repo `CLAUDE.md` (`-1`=Created, `5`=Expired, `6`=AcceptedOnChain, `7`=Rejected, etc.).
+
+```bash
+docker compose exec -T postgres psql -U postgres -d dipper_1 -c \
+ "SELECT encode(id,'hex') id, status, COALESCE(rejection_reason,'-') reason, \
+  CASE WHEN offer_tx_hash IS NULL OR offer_tx_hash='' THEN '-' ELSE 'yes' END offer, updated_at \
+  FROM dipper_reg_indexing_agreements WHERE deployment_id='<DEPLOYMENT_ID>' ORDER BY created_at;"
+```
+
+A `monitor-dips-pipeline.py` timeout with the agreement stuck at `CREATED` (status -1) almost always means one of the next two.
+
+### Stuck CREATED + chain frozen (nonce gap)
+
+**Symptom**: agreement sits in CREATED to the deadline then Expired; `eth_blockNumber` (`:8545`) is frozen; dipper logs `Offer tx did not mine within receipt-poll window; treating as dropped` then `retry with fresh nonce` in a loop.
+
+**Cause**: dipper signs offers with ACCOUNT0 (`0xf39F…2266`), shared with `tap_signer` + deploy scripts. A dropped/raced tx leaves dipper's local nonce ahead of chain; its only recovery is to bump *higher*, which orphans the missing nonce. On automine, nothing from that EOA can mine behind the gap → the whole chain freezes.
+
+**Diagnose**:
+```bash
+RPC=http://localhost:8545; A0=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+curl -s -X POST -H 'content-type: application/json' -d '{"jsonrpc":"2.0","method":"txpool_status","params":[],"id":1}' $RPC        # queued > 0 = gap
+curl -s -X POST -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getTransactionCount\",\"params\":[\"$A0\",\"pending\"],\"id\":1}" $RPC   # on-chain next nonce
+```
+Compare the on-chain nonce to the nonce in dipper's "Transaction sent" logs; the gap is the missing nonce(s). Inspect `txpool_content` to see exactly which nonces are stuck.
+
+**One-shot unblock** (recovery, not a fix — the leak recurs on the next receipt timeout): send a 0-value ACCOUNT0 self-tx at the missing nonce to fill the gap so the queued offers mine.
+```bash
+cast send 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --value 0 --nonce <MISSING_NONCE> \
+  --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+  --rpc-url http://localhost:8545 --gas-limit 21000
+```
+
+### DEADLINE_EXPIRED on a healthy-looking proposal (chain-clock skew)
+
+**Symptom**: indexer-service rejects with `DEADLINE_EXPIRED` immediately, even for a just-created agreement; the agreement's `terms.deadline` is in the *past* relative to wall clock.
+
+**Cause**: dipper runs with `bypass_chain_clock_defenses=true` locally, so it anchors `terms.deadline = chain_listener_last_block_timestamp + deadline_seconds` (chain time), but indexer-service evaluates the deadline against **wall clock**. Hardhat block time only advances when it mines, so after any chain freeze/idle the chain clock lags wall clock. If that skew exceeds `deadline_seconds` (default 600), every proposal is born expired.
+
+**Diagnose** — compare chain head timestamp to wall clock and watch the chain_listener lag:
+```bash
+curl -s -X POST -H 'content-type: application/json' -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest",false],"id":1}' http://localhost:8545 \
+  | python3 -c "import json,sys,time; ts=int(json.load(sys.stdin)['result']['timestamp'],16); print('chain-head skew vs wall:', int(time.time())-ts,'s')"
+docker logs dipper --since 90s 2>&1 | grep 'chain listener heartbeat' | tail -1   # subgraph_lag_seconds
+```
+**Fix**: let the chain catch up (it self-recovers as txs flow and blocks mine — skew shrinks back under 600s), or mine blocks to advance chain time. Durable mitigation for local testing: enable interval mining on Hardhat so block time tracks wall clock and this never recurs.
+
