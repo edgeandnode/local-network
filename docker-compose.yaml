@@ -402,7 +402,7 @@ services:
       - config-local:/opt/config:ro
     environment:
       RUST_BACKTRACE: full
-      RUST_LOG: debug
+      RUST_LOG: debug,sqlx=warn,hyper=warn,hyper_util=warn,h2=warn
     healthcheck:
       interval: 5s
       retries: 10
