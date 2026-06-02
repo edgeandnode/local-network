@@ -487,6 +487,7 @@ services:
     volumes:
       - ./containers/ui/studio/ui.sh:/opt/run.sh:ro
       - ./.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
     healthcheck:
       test: curl -sf http://127.0.0.1:5000/studio/ || exit 1
       interval: 10s

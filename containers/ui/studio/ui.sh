@@ -22,11 +22,25 @@ export STUDIO_JWKS_URI="http://studio-api:4000/.well-known/jwks.json"
 # hardcodes 'https://ipfs.thegraph.com' (no process.env read), so any value here
 # is a no-op. Local IPFS image rendering needs an upstream patch.
 
-# Local Hardhat chain addresses (deterministic from test mnemonic).
-# TODO: read from /opt/config/horizon.json via lib.sh for robustness.
-export LOCAL_GNS_ADDRESS="0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E"
-export LOCAL_GRAPH_TOKEN_ADDRESS="0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690"
-export LOCAL_L2_GRAPH_TOKEN_GATEWAY_ADDRESS="0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB"
+# Local Hardhat chain addresses. Read live from the mounted config volume —
+# deterministic-from-mnemonic addresses shift whenever deploy order changes
+# (e.g. audit branch adding contracts), so hardcoding them silently breaks the
+# UI publish flow with `nextAccountSeqID` reverting on a wrong/empty address.
+# jq isn't in the node image, so read via node.
+read_addr() {
+  # $1 = contract name, $2 = config file basename (no .json)
+  node -e "
+    const j = require('/opt/config/$2.json');
+    const v = j && j['1337'] && j['1337']['$1'] && j['1337']['$1'].address;
+    if (!v) { console.error('address $1 not found in /opt/config/$2.json'); process.exit(1); }
+    process.stdout.write(v);
+  "
+}
+# Assign separately from export so set -e aborts if an address can't be read.
+LOCAL_GNS_ADDRESS="$(read_addr L2GNS subgraph-service)"
+LOCAL_GRAPH_TOKEN_ADDRESS="$(read_addr L2GraphToken horizon)"
+LOCAL_L2_GRAPH_TOKEN_GATEWAY_ADDRESS="$(read_addr L2GraphTokenGateway horizon)"
+export LOCAL_GNS_ADDRESS LOCAL_GRAPH_TOKEN_ADDRESS LOCAL_L2_GRAPH_TOKEN_GATEWAY_ADDRESS
 export GRAPH_NETWORK_LOCAL_GRAPHQL_URI="http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 
 # Billing — required by UI inlinedEnv but local doesn't exercise paid flows.
