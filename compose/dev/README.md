@@ -17,7 +17,7 @@ Chain multiple overrides:
 COMPOSE_FILE=docker-compose.yaml:compose/dev/graph-node.yaml:compose/dev/indexer-agent.yaml
 ```
 
-Then `docker compose up -d` applies the overrides automatically.
+Then `just up` applies the overrides automatically.
 
 ## Available Overrides
 
