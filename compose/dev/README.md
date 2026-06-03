@@ -28,6 +28,7 @@ Then `just up` applies the overrides automatically.
 | `indexer-agent.yaml`      | indexer-agent                    | `INDEXER_AGENT_SOURCE_ROOT`                            |
 | `indexer-service.yaml`    | indexer-service                  | `INDEXER_SERVICE_BINARY`                               |
 | `tap-agent.yaml`          | tap-agent                        | `TAP_AGENT_BINARY`                                     |
+| `gateway.yaml`            | gateway                          | `GATEWAY_BINARY`                                       |
 | `eligibility-oracle.yaml` | eligibility-oracle-node          | `REO_BINARY`                                           |
 | `dipper.yaml`             | dipper                           | `DIPPER_BINARY`                                        |
 | `iisa.yaml`               | iisa                             | `IISA_VERSION=local`                                   |
