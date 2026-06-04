@@ -1,0 +1,25 @@
+# Gateway Dev Override
+# Mounts a locally-built binary for WIP development (skip image rebuild).
+#
+# 1. One-time: build the build-env stage as a tagged image (from local-network root):
+#      docker build --target build-env --platform linux/arm64 \
+#        -t local-network-gateway-builder \
+#        containers/core/gateway/
+#
+# 2. Compile your local gateway source against it (from your gateway repo):
+#      docker run --rm --platform linux/arm64 \
+#        -v "$PWD:/work" \
+#        -v "$HOME/.cargo/registry:/usr/local/cargo/registry" \
+#        -w /work \
+#        local-network-gateway-builder \
+#        cargo build --target aarch64-unknown-linux-gnu -p graph-gateway
+#    Binary at: <gateway-repo>/target/aarch64-unknown-linux-gnu/debug/graph-gateway
+#
+# 3. Wire it in via .env (or .env.local, when using `just`):
+#      GATEWAY_BINARY=/path/to/gateway/target/aarch64-unknown-linux-gnu/debug/graph-gateway
+#      COMPOSE_FILE=docker-compose.yaml:compose/dev/gateway.yaml
+
+services:
+  gateway:
+    volumes:
+      - ${GATEWAY_BINARY:?Set GATEWAY_BINARY to locally-built graph-gateway binary}:/usr/local/bin/graph-gateway:ro
