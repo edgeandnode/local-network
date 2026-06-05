@@ -163,34 +163,50 @@ def make_ipfs_manifest(
     abi_cid: str,
     wasm_cid: str,
 ) -> str:
-    """Resolved manifest graph-node expects from IPFS (file refs -> /ipfs/CID)."""
-    return json.dumps(
-        {
-            "specVersion": "0.0.4",
-            "schema": {"file": {"/": f"/ipfs/{schema_cid}"}},
-            "dataSources": [
-                {
-                    "kind": "ethereum",
-                    "name": name,
-                    "network": "hardhat",
-                    "source": {
-                        "abi": "Dummy",
-                        "address": source_address,
-                        "startBlock": start_block,
-                    },
-                    "mapping": {
-                        "apiVersion": "0.0.6",
-                        "language": "wasm/assemblyscript",
-                        "kind": "ethereum/events",
-                        "entities": ["Block"],
-                        "abis": [{"name": "Dummy", "file": {"/": f"/ipfs/{abi_cid}"}}],
-                        "blockHandlers": [{"handler": "handleBlock"}],
-                        "file": {"/": f"/ipfs/{wasm_cid}"},
-                    },
-                }
-            ],
-        }
-    )
+    """Resolved manifest graph-node expects from IPFS (file refs -> /ipfs/CID).
+
+    MUST be YAML, not JSON. graph-node itself accepts either (YAML is a JSON
+    superset), but the graph-network-subgraph manifest parser
+    (graph-network-subgraph/src/mappings/ipfs.ts) extracts `network`, the schema
+    hash, and startBlock with literal YAML string splits -- `manifest.split('network: ')`,
+    `split('schema:\\n')`, `split('startBlock: ')`. A JSON manifest contains
+    `"network":` (not `network: `), so the split fails and `manifest.network`
+    is stored as null. The gateway then can't resolve the deployment's chain and
+    drops it with "no valid versions", making _logs (and every query) unroutable
+    through the gateway. Emitting canonical YAML (the same shape graph-cli
+    produces) keeps these parsers happy. See BUG entry on JSON-manifest test subgraphs.
+    """
+    # Key order mirrors graph-cli output (dataSources, then schema last) so the
+    # network-subgraph's `split('schema:\n')` parser sees only the schema's own
+    # /ipfs/ link after the `schema:` key.
+    return f"""\
+dataSources:
+  - kind: ethereum
+    name: {name}
+    network: hardhat
+    source:
+      abi: Dummy
+      address: "{source_address}"
+      startBlock: {start_block}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      entities:
+        - Block
+      abis:
+        - name: Dummy
+          file:
+            /: /ipfs/{abi_cid}
+      blockHandlers:
+        - handler: handleBlock
+      file:
+        /: /ipfs/{wasm_cid}
+schema:
+  file:
+    /: /ipfs/{schema_cid}
+specVersion: 0.0.4
+"""
 
 
 def build_once(source_address: str):
