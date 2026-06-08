@@ -43,6 +43,8 @@ LOCAL_L2_GRAPH_TOKEN_GATEWAY_ADDRESS="$(read_addr L2GraphTokenGateway horizon)"
 export LOCAL_GATEWAY_QUERY_URL="http://localhost:${GATEWAY_PORT}/api"
 export LOCAL_GNS_ADDRESS LOCAL_GRAPH_TOKEN_ADDRESS LOCAL_L2_GRAPH_TOKEN_GATEWAY_ADDRESS
 export GRAPH_NETWORK_LOCAL_GRAPHQL_URI="http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
+export INDEXING_PAYMENTS_SUBGRAPH_ENABLED=true
+export INDEXING_PAYMENTS_SUBGRAPH_URL="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
 
 # Billing — required by UI inlinedEnv but local doesn't exercise paid flows.
 # GraphQL points at a non-routable host; addrs are zero; chain ID must be one
