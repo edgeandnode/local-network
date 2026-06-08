@@ -1,4 +1,4 @@
-FROM node:22.14-slim
+FROM node:24.16-slim
 RUN apt-get -qy update && apt-get -qy install --no-install-recommends \
       ca-certificates curl git openssl unzip \
     && rm -rf /var/lib/apt/lists/*

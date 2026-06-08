@@ -254,3 +254,94 @@ The architectural gap: the agent treats dipper's promises as durable invariants,
 This makes the agent self-protective: regardless of dipper's behaviour, the agent only keeps `dips`-basis allocations alive while the indexing-payments subgraph confirms there's a paying agreement for them. Defends against dipper bugs marking accepted agreements expired, dipper restarts losing in-flight state, stale rules surviving DB resets, and the kind of reassessment-induced orphan we're seeing here.
 
 **PR**: not submitted; design agreed, implementation deferred.
+
+## BUG-019: gateway drops studio-published DIPs deployment — deploy script uploads a JSON manifest the network subgraph's YAML-only parser can't read (network=null)
+
+**Symptom**: Gateway returns `subgraph not found: QmUvDoZbS7HJhqb4WzT51LkMDS4bSXWn7C3GfExE1vAjC1` for the studio-published subgraph that has an Accepted DIPs agreement, even though the deployment is synced + healthy on graph-node and has an active on-chain allocation (`0x6178bb67...`). Querying it through the gateway (`/api/deployments/id/Qm...`) or by subgraph id fails. Gateway logs show `subgraph=4MH9Uz1z... err=manifest missing network` during pre-processing, and `subgraphs=3 deployments=2 indexings=2` — only 2 of the 3 published deployments are usable.
+
+**Root cause** (verified): The deployment's IPFS manifest is serialized as **JSON**, while `graph deploy` (and every real deployment) uploads **YAML**. `local-network/scripts/deploy-studio-test-subgraphs.py:make_ipfs_manifest()` builds the IPFS manifest with `json.dumps(...)`, so QmUvDoZbS7's manifest on IPFS is `{"specVersion":"0.0.4", ... "network":"hardhat", ... "startBlock":1}`. graph-node accepts JSON manifests fine (YAML is a JSON superset), so it indexes the deployment correctly. But the graph-network subgraph's manifest handler `handleSubgraphDeploymentManifest` (`src/mappings/ipfs.ts`) does **naive YAML string-splitting**, not real parsing: network via `manifest.split('network: ', 2)`, schema via `split('schema:\n')`, startBlock by counting `source:` vs `startBlock: ` tokens. A JSON manifest contains none of those YAML tokens (`"network": "hardhat"` has a quote+colon, not `network: `), so the splits return length 1, leaving `network = null` and `startBlock = 0`. The gateway's `network::pre_processing` then hard-drops any deployment whose `manifest.network` is null (`err=manifest missing network`), so the deployment is never added to the routable set. The two working deployments (block-oracle DataEdge `QmPJaxGgG3...`, network subgraph) were deployed with YAML manifests by standard tooling, so their `network` parses to `"hardhat"`.
+
+**Verified**:
+- `ipfs cat QmUvDoZbS7...` → starts with `{"specVersion": "0.0.4", ...}` — **JSON**, with `"network": "hardhat"`, `"startBlock": 1`.
+- `ipfs cat QmPJaxGgG3...` (working) → starts with `dataSources:\n  - kind: ethereum` — **YAML**.
+- graph-network `subgraphDeploymentManifests`: QmUvDoZbS7 `{network:null, startBlock:"0"}`; QmPJaxGgG3 + QmU9fn4xn2 `{network:"hardhat", startBlock:"1"}`.
+- graph-network-subgraph `src/mappings/ipfs.ts` `handleSubgraphDeploymentManifest` parses via `manifest.split('network: ', 2)` etc. (YAML-only string-split, confirmed against `master`).
+- `deploy-studio-test-subgraphs.py:make_ipfs_manifest()` returns `json.dumps({...})` (line ~167) — the JSON source.
+- gateway logs: `pre_processing subgraph=4MH9Uz1z... err=manifest missing network` → `subgraphs=3 deployments=2 indexings=2`; direct gateway query → `{"errors":[{"message":"subgraph not found: QmUvDoZbS7..."}]}`.
+- graph-node `indexingStatuses`: QmUvDoZbS7 synced, healthy, latestBlock 57362.
+- graph-network `allocations`: active allocation `0x6178bb67...` by indexer `0xf4ef6650...` for QmUvDoZbS7 — so the **only** gateway blocker is `network=null`.
+
+**Impact on Studio DIPs UI testing**: The Playground "send queries to gateway" feature and the Endpoints "gateway query url" feature are wired correctly (has-accepted-agreement returns true; the studio-ui gateway proxy enforces origin + session and forwards to the gateway with the API key injected). But a live gateway query for the published subgraph returns the gateway's `subgraph not found` because of this manifest gap — so the end-to-end "real data through the gateway" hop can't be demonstrated until the deployment is routable.
+
+**Repo**: `local-network` owns the root-cause fix. `graph-network-subgraph` owns an optional secondary hardening.
+
+**Fix (canonical, no hack)** — `local-network`: change `make_ipfs_manifest()` in `scripts/deploy-studio-test-subgraphs.py` to emit **YAML** (matching what `graph deploy` uploads and what `make_manifest()` already emits for the build step), instead of `json.dumps`. This makes studio-seeded deployments structurally identical to real ones, so the network subgraph parses `network: hardhat` and the gateway routes them. Because the manifest bytes change, the deployment **CID changes** — the existing QmUvDoZbS7 (immutable JSON) stays unservable; a re-deploy under the fixed script yields a new, routable hash that must be (re)published + (re)allocated.
+
+**Fix (optional hardening)** — `graph-network-subgraph`: make `handleSubgraphDeploymentManifest` parse the manifest robustly (detect a leading `{` and read `network`/`startBlock` via `json.fromBytes`, or use a real YAML parse) instead of string-splitting on YAML-only tokens. graph-node accepts JSON manifests, so the network subgraph should too. Not required for testnet (real manifests are YAML) but prevents the same silent `network=null` drop for any JSON-or-oddly-formatted manifest. Submit upstream PR.
+
+**PR**: not submitted. Root cause verified and located. Canonical fix is the one-function YAML change in local-network.
+
+## BUG-020: indexer rejects all paid queries to an Active allocation whose RAV was already redeemed on-chain ("Allocation already redeemed")
+
+**Classification**: testing-infra / environment corruption from a local-chain reorg. **Not a product bug**, independent of and predating the BUG-019 manifest fix. Logged because it silently blocks gateway→indexer queries and any component that pays the indexer (dipper bootstrap, iisa), and the failure mode is non-obvious.
+
+**Symptom**: Gateway queries to the network subgraph deployment `QmU9fn4xn2WZ2xTBwUswyqxQqt7DmbLTQhm5dQ5sMfXxur` fail with `bad indexers: {0xf4ef6650...: BadResponse(400)}`. indexer-service rejects every TAP receipt for allocation `0x9aA76d737249D307D4e1Ffd35531695e52334B46` with `Receipt error: Issue encountered while performing check: Allocation already redeemed (v2): 0x9aA76d73...`. Because the network subgraph is the deployment dipper/iisa poll through the gateway (client `0x70997970...`), their bootstrap stays stuck and dipper reports `unhealthy`.
+
+**Root cause** (verified): The allocation `0x9aa76d73...` has an **on-chain-redeemed RAV while the allocation is still Active** (in Horizon V2, redeeming a RAV collects query fees and is independent of closing the allocation). indexer-service's V2 receipt check rejects new receipts for a collection whose RAV is already redeemed, so every paid query to that allocation 400s. The redeemed-while-active state is the anomaly; the most plausible origin is the chain reorg this run (head rolled back 57362→57307, recovered by mining forward) reverting an allocation-close after its RAV had been redeemed, leaving the on-chain collector with a redeem for an allocation that is once again Active.
+
+**The check source is ON-CHAIN, not the local DB** (empirically proven, correcting an earlier wrong theory): setting `tap_horizon_ravs.redeemed_at = NULL` for the collection **and** restarting `indexer-service` did **not** clear the rejection — the "already redeemed" verdict is re-derived from on-chain collector/escrow state (or equivalent persistent source), not from `redeemed_at` and not from `tap_horizon_denylist` (which is empty and sender-keyed). The DB edit was reverted.
+
+**Verified**:
+- Nulling `tap_horizon_ravs.redeemed_at` for `collection_id = 0000…0000_9aa76d73…52334b46` then restarting indexer-service → query still `BadResponse(400)`, same `Allocation already redeemed (v2)` log ⇒ source is not that column.
+- `tap_horizon_denylist` is empty (0 rows) and keyed by `sender_address`, not allocation ⇒ not the denylist.
+- graph-network `allocations`: `0x9aa76d73...` is `status: Active`, `createdAtBlockNumber: 124`, `closedAtBlockNumber: null` — Active, never closed; yet its RAV is redeemed ⇒ redeemed-while-active.
+- indexer-service logs: repeated `Allocation already redeemed (v2): 0x9aA76d73...` survive an indexer-service restart.
+- gateway logs: only candidate for `QmU9fn4xn2W...` is allocation `0x9aa76d73...`; `indexer_request ... result=Err(BadResponse("400"))`. dipper bootstrap loops on `GET /api/deployments/id/QmU9fn4xn2W...` → `failed to fetch subgraphs info` (attempt 230+).
+
+**Does NOT block the Studio DIPs gateway-query fix**: a query to any *other* allocation carries a different `collection_id` the collector has no redeem for, so it passes. The re-deployed `QmeHi72t...` got a **fresh** allocation `0x9337feff...` and a paid gateway query returned real data (`block.number 57391`) — proving the BUG-019 fix end-to-end. This bug only blocks paths pinned to the one redeemed allocation (the network subgraph), i.e. dipper/iisa bootstrap and therefore minting a *new* DIPs agreement.
+
+**Repo**: none owns a product fix — this is environment state from a reorg, not code. On-chain "already redeemed" semantics are correct.
+
+**Recovery (environment only — normal indexer ops, no DB editing)**: rotate the allocation. Toggle the indexer-agent rule for `QmU9fn4xn2W...` to `decisionBasis: never` so the agent closes `0x9aa76d73...`, then back to `always` so it opens a **fresh** allocation with a new `collection_id` the collector has never recorded a redeem for — paid queries then pass and dipper bootstraps. (Editing `redeemed_at` was tried and does **not** work — the state is on-chain.) A full `down -v` + re-seed also clears it but destroys all existing publishes/agreements. **Hardening idea (optional, upstream `indexer-rs`)**: when an allocation is observed Active on-chain, don't treat a prior reverted redeem as terminal for that collection; not required for testnet where deep reorgs don't occur.
+
+**PR**: not submitted — environment corruption, no product code owner. Hardening idea noted for `indexer-rs` if reorg resilience is desired.
+
+## BUG-021: studio-ui Playground gateway proxy can't reach the gateway and sends an empty API key — local-network never exports GATEWAY_API_KEY and points the proxy at a host-only URL
+
+**Symptom**: With an Accepted DIPs agreement, the Playground (Feature 2) is supposed to send queries through the server-side proxy `packages/ui/src/pages/api/gateway/query/[deploymentId].ts`, which forwards to the gateway with the studio API key in the auth header so the key is never exposed to the browser. On local-network the proxy fails two ways: (1) it authenticates with an **empty** Bearer token (`auth error: invalid authorization header` from the gateway), and (2) even with a key it targets `http://localhost:7700/api`, which from inside the `studio-ui` container resolves to the container itself, not the gateway — the fetch returns connection-refused (`000`).
+
+**Root cause** (verified): The proxy and the Endpoints display both call the single `getGatewayBase()` in `packages/ui/src/utils/gateway/base.ts`, which returned `process.env.LOCAL_GATEWAY_QUERY_URL || 'http://localhost:7700/api'`. That one URL has to serve two contexts at once and can't: the **client** Endpoints display needs the host-mapped `localhost:7700` (the user copies it and queries from the host), while the **server** Playground proxy runs inside the container and needs the in-network `gateway:7700`. Separately, `local-network/containers/ui/studio/ui.sh` sourced `GATEWAY_API_KEY` from `.env` but only exported it under the inlined alias `STUDIO_CLIENT_SIDE_GATEWAY_API_KEY`; the bare `GATEWAY_API_KEY` the proxy reads (`process.env.GATEWAY_API_KEY`) was never exported, so it was empty in the next-server process → empty Bearer.
+
+**Verified**:
+- In-container `curl http://localhost:7700/...` → `000` (connection refused); `curl http://gateway:7700/api/deployments/id/QmeHi72tDgrZ2XWoVBdKxVEPfzPipNSiHU6Rp5aLskH1Fc` with `Bearer deadbeef…` (len 32) → `{"data":{"_meta":{"block":{"number":57458}}}}` — the in-network host + real key is the working hop.
+- Before the fix, the next-server (`/proc/<pid>/environ`) had no `GATEWAY_API_KEY` and `LOCAL_GATEWAY_QUERY_URL=http://localhost:7700/api` only.
+- `getGatewayBase()` is shared by `SubgraphEndpoints/utils.ts:mapTheGraphNetworkToGateway` (Feature 1, called from the **client** hook `useUrlBuilder`) and `pages/api/gateway/query/[deploymentId].ts:64` (Feature 2, **server**). `LOCAL_GATEWAY_PROXY_URL` is deliberately not in `inlinedEnv.mjs`, so it is `undefined` in the browser and defined only server-side.
+
+**Repo**: `local-network` owns the container-wiring fix; `subgraph-studio` owns the `getGatewayBase()` split (server-only proxy URL).
+
+**Fix (canonical, no hack)**:
+- `local-network/containers/ui/studio/ui.sh`: add `export GATEWAY_API_KEY="${GATEWAY_API_KEY}"` (server-only, not inlined → never shipped to the browser) and add `export LOCAL_GATEWAY_PROXY_URL="http://gateway:7700/api"` alongside the existing host-facing `LOCAL_GATEWAY_QUERY_URL="http://localhost:${GATEWAY_PORT}/api"` (keep both).
+- `subgraph-studio` `packages/ui/src/utils/gateway/base.ts`: **split into two accessors** rather than one shared function. `getGatewayDisplayBase()` (Endpoints display, called from the client hook `useUrlBuilder`) reads only the host-facing `LOCAL_GATEWAY_QUERY_URL` → always `localhost:7700`, identical on SSR and client. `getGatewayBase()` (server proxy only) prefers `LOCAL_GATEWAY_PROXY_URL` → `gateway:7700`. `SubgraphEndpoints/utils.ts:mapTheGraphNetworkToGateway` now calls `getGatewayDisplayBase()`; `pages/api/gateway/query/[deploymentId].ts` keeps `getGatewayBase()`.
+- **Why split, not one shared function:** the app is the Next.js pages router. `pages/subgraph/[name]/[[...tab]].tsx:getServerSideProps` feeds `subgraph.publishedSubgraphs`, which `SubgraphDetails.context.tsx` seeds into the xstate context **synchronously**, so at SSR `publishedNetworks.length > 0` is true and `getGatewayBase()` runs **server-side** where `LOCAL_GATEWAY_PROXY_URL` is defined — a single shared function would bake `gateway:7700` into the Endpoints display HTML (then flip to `localhost` on hydration: mismatch + transient wrong copyable URL). The display accessor never reading the proxy var removes that leak structurally, independent of env-inlining timing.
+
+**Verified after fix**: next-server env now has `GATEWAY_API_KEY` (len 32), `LOCAL_GATEWAY_PROXY_URL=http://gateway:7700/api`, and `LOCAL_GATEWAY_QUERY_URL=http://localhost:7700/api`; in-container gateway query returns block 57458; `base.test.ts` 8/8 pass — `getGatewayBase` prefers the proxy URL, `getGatewayDisplayBase` ignores it so the display can never emit `gateway:7700`.
+
+**PR**: not submitted. local-network change committed to this repo; subgraph-studio `base.ts` + test change needs a PR to that repo (branch `daniel/playground-gateway-query`).
+
+## BUG-022: both DIPs Studio features stay dark on local-network — the indexing-payments subgraph query is disabled because `INDEXING_PAYMENTS_SUBGRAPH_ENABLED` is never exported to next-server
+
+**Symptom**: Even with the gateway wiring fixed (BUG-021) and an Accepted agreement present in the indexing-payments subgraph, neither DIPs feature lights up in the Studio UI: the Endpoints tab keeps showing the dev query URL (Feature 1) and the Playground keeps sending to the dev/upgrade-indexer URL (Feature 2). Both features gate on `hasAcceptedAgreement`, which is always `false`.
+
+**Root cause** (verified): Both features call the client hook `useHasAcceptedIndexingAgreement(deploymentId)` (`packages/ui/src/subgraph/hooks/dips.hooks.ts:37`), which fetches the server route `pages/api/indexing-payments/has-accepted-agreement/[deployment].ts`. That route calls `indexingPaymentsSubgraphClient.subgraphDeploymentHasActiveIndexingAgreements(...)`, which **returns `false` without querying** unless the flag is on (`packages/shared/src/helpers/IndexingPaymentsSubgraph/client.ts:42-44`). The flag is `INDEXING_PAYMENTS_SUBGRAPH_ENABLED = process.env.INDEXING_PAYMENTS_SUBGRAPH_ENABLED === 'true'` (`packages/shared/src/helpers/env.ts:49`) — off by default for prod safety. `local-network/containers/ui/studio/ui.sh` exported neither `INDEXING_PAYMENTS_SUBGRAPH_ENABLED` nor `INDEXING_PAYMENTS_SUBGRAPH_URL`; `.env` carries only `INDEXING_PAYMENTS_SUBGRAPH_COMMIT` (an image-build pin, unrelated). So next-server's process had no flag → `undefined === 'true'` → `false` → short-circuit.
+
+**Verified**:
+- Before the fix, next-server (`/proc/<pid>/environ`) had no `INDEXING_PAYMENTS_*` vars (only `ENVIRONMENT=local`).
+- The data and in-network path already worked: querying `http://studio-query-proxy:4002/query/1/indexing-payments/v0.1.0` from inside the `studio-ui` container returns two `state:Accepted` agreements (`subgraphDeploymentId` `0x61bfb535…47c1de` = `QmUvDoZbS7HJhqb4WzT51LkMDS4bSXWn7C3GfExE1vAjC1`, and `0xecfa1663…c283ff`). `studio-query-proxy` (compose service, `studio` profile) was up; the `shared/env.ts` default URL already points at it, so only the flag was missing.
+
+**Repo**: `local-network` owns the fix — the subgraph-studio code is correct (the flag is intentionally off by default; prod enables it explicitly). No cross-repo PR needed.
+
+**Fix (canonical, no hack)**: `local-network/containers/ui/studio/ui.sh`: `export INDEXING_PAYMENTS_SUBGRAPH_ENABLED=true` and `export INDEXING_PAYMENTS_SUBGRAPH_URL="http://studio-query-proxy:4002/query/1/indexing-payments/v0.1.0"` (explicit even though it matches the shared/env.ts default, for self-documentation). Recreate `studio-ui` so `ui.sh` re-runs (`next dev` reads env at launch; hot-reload doesn't pick up env changes).
+
+**Verified after fix**: next-server env now has `INDEXING_PAYMENTS_SUBGRAPH_ENABLED=true` and the proxy URL on all next pids; `GET /studio/api/indexing-payments/has-accepted-agreement/0x61bfb535…47c1de/` → `{"hasAcceptedAgreement":true}` (HTTP 200), the all-zero control deployment → `{"hasAcceptedAgreement":false}`, and `/agreements/0x61bfb535…/` returns the real agreement record.
+
+**PR**: not submitted. local-network `ui.sh` change committed to this repo.

@@ -7,6 +7,10 @@ set -eu
 
 # Required by studio UI (packages/ui/src/env/inlinedEnv.mjs throws on falsy):
 export STUDIO_CLIENT_SIDE_GATEWAY_API_KEY="${GATEWAY_API_KEY}"
+# Server-side Playground gateway proxy (pages/api/gateway/query/[id].ts) authenticates
+# to the gateway with this. Sourced from .env but must be exported to reach next; not
+# in inlinedEnv, so it stays server-only and is never shipped to the browser.
+export GATEWAY_API_KEY="${GATEWAY_API_KEY}"
 export STUDIO_GRAPHQL_HTTP_URI="http://localhost:${STUDIO_API_PORT}/graphql"
 export STUDIO_GRAPHQL_WS_URI="ws://localhost:${STUDIO_API_PORT}/graphql"
 export BASE_URI="http://localhost:${STUDIO_UI_PORT}"
@@ -40,7 +44,14 @@ read_addr() {
 LOCAL_GNS_ADDRESS="$(read_addr L2GNS subgraph-service)"
 LOCAL_GRAPH_TOKEN_ADDRESS="$(read_addr L2GraphToken horizon)"
 LOCAL_L2_GRAPH_TOKEN_GATEWAY_ADDRESS="$(read_addr L2GraphTokenGateway horizon)"
+# Host-facing display URL (Endpoints tab). Inlined into the client bundle, so it
+# must resolve from the browser on the host, where ${GATEWAY_PORT} is port-mapped.
 export LOCAL_GATEWAY_QUERY_URL="http://localhost:${GATEWAY_PORT}/api"
+# In-network URL for the server-side Playground proxy (pages/api/gateway/query/[id].ts),
+# which runs inside this container and can't reach the host-mapped localhost:${GATEWAY_PORT};
+# it must hit the gateway service directly. The Endpoints display path uses
+# LOCAL_GATEWAY_QUERY_URL above, so it remains host-facing.
+export LOCAL_GATEWAY_PROXY_URL="http://gateway:7700/api"
 export LOCAL_GNS_ADDRESS LOCAL_GRAPH_TOKEN_ADDRESS LOCAL_L2_GRAPH_TOKEN_GATEWAY_ADDRESS
 export GRAPH_NETWORK_LOCAL_GRAPHQL_URI="http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 export INDEXING_PAYMENTS_SUBGRAPH_ENABLED=true
