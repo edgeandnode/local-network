@@ -28,6 +28,11 @@ export ORB_API_KEY="${STUDIO_ORB_API_KEY:-local-stub}"
 export ORB_GROWTH_PLAN_ID="${STUDIO_ORB_GROWTH_PLAN_ID:-local-stub}"
 export ORB_ANALYTICS_PLAN_ID="${STUDIO_ORB_ANALYTICS_PLAN_ID:-local-stub}"
 
+export INDEXING_PAYMENTS_SUBGRAPH_ENABLED=true
+export INDEXING_PAYMENTS_SUBGRAPH_URL="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
+export GATEWAY_API_KEY="${GATEWAY_API_KEY}"
+export LOCAL_GATEWAY_PROXY_URL="http://gateway:7700/api"
+
 if [ $# -eq 0 ]; then
   set -- bash -c "cd /app/packages/shared && bun run db:setup && cd /app/packages/api && exec node ."
 fi
