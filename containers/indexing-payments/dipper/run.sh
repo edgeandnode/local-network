@@ -33,7 +33,9 @@ tap_verifier=$(contract_addr GraphTallyCollector.address horizon)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 recurring_collector=$(contract_addr RecurringCollector.address horizon)
 
-## Config
+## Config -- chain_client.chain_id and chain_client.recurring_collector_address are read
+# only by dipper builds without edgeandnode/dipper#626 (newer builds single-source both).
+# Drop the two keys once DIPPER_VERSION points at a build containing that PR.
 cat >config.json <<-EOF
 {
   "dips": {
