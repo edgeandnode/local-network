@@ -316,6 +316,10 @@ async fn below_minimum_signal_lifecycle() -> Result<()> {
 #[serial(alloc)]
 async fn zero_allocated_tokens_lifecycle() -> Result<()> {
     let net = net()?;
+    if net.contracts.reo.is_none() {
+        eprintln!("REO not deployed, skipping (close path renews REO eligibility)");
+        return Ok(());
+    }
 
     eprintln!("=== RewardsConditionsTestPlan Cycle 3: Zero Allocated Tokens ===");
 

@@ -1,9 +1,24 @@
-# Tests share a single blockchain so state-mutating tests need serial groups.
-# Nextest runs each test as a separate process, so #[serial] (in-process
-# locking) doesn't provide cross-process serialization. Instead we use
-# nextest test groups with max-threads = 1 per group.
+# Test selection is recipe-driven, expressed as nextest profiles.
 #
-# Group mapping (keep in sync with #[serial(...)] annotations in test code):
+# Invoke with the profile matching the active recipe so each test runs
+# under an environment it was designed for. Self-skip checks for missing
+# contracts (e.g. `if net.contracts.reo.is_none() { return Ok(()); }`)
+# stay as defence-in-depth, but they are NOT the selection mechanism —
+# profile filters are.
+#
+#   Recipe              Profile             What runs
+#   ------              -------             ---------
+#   main                main                Smoke set — no-REO-needed tests
+#   baseline            default             Everything except REO-A-specific
+#   indexing-payments   default             Same default set on the DIPs stack
+#   reo-live            reo-live            Only REO-A-wiring tests
+#
+# Tests share a single blockchain so state-mutating tests need serial
+# groups. Nextest runs each test as a separate process, so #[serial]
+# (in-process locking) doesn't provide cross-process serialization;
+# nextest test-groups with max-threads = 1 do.
+#
+# Group mapping (keep in sync with #[serial(...)] annotations in tests):
 #   alloc    — allocation lifecycle, denial, rewards conditions, eligibility
 #   reo      — REO governance config mutations
 #   staking  — stake and provision management
@@ -18,9 +33,23 @@ max-threads = 1
 [test-groups.staking]
 max-threads = 1
 
+# --- default profile (baseline / indexing-payments recipes) ---
+#
+# Runs everything in the workspace EXCEPT the REO-A-specific tests, which
+# require RewardsManager to point at REO-A (only true under reo-live).
+
+[profile.default]
+default-filter = """
+not (
+    test(=eligibility_lifecycle)
+  | test(=rewards_manager_integration)
+  | test(=rewards_view_zero_for_ineligible)
+)
+"""
+
 # alloc group: every test that brings up its own per-test IndexerHandle stack.
-# Serialized because each stack pulls up a fresh postgres+graph-node+agent and
-# concurrent bring-ups race for the graph-node healthcheck window.
+# Serialized because each stack pulls up a fresh postgres+graph-node+agent
+# and concurrent bring-ups race for the graph-node healthcheck window.
 [[profile.default.overrides]]
 filter = """binary(~allocation_lifecycle) \
   | binary(~reward_collection) \
@@ -30,7 +59,7 @@ filter = """binary(~allocation_lifecycle) \
   | (binary(~rewards_conditions) - test(=reclaim_unauthorized_reverts))"""
 test-group = "alloc"
 
-# reo group: REO governance config mutations (not reads/reverts)
+# reo group: REO governance config mutations (not reads/reverts).
 [[profile.default.overrides]]
 filter = """test(=contract_not_paused) \
   | test(=renew_single_indexer) \
@@ -45,7 +74,66 @@ filter = """test(=contract_not_paused) \
   | test(=rewards_view_zero_for_ineligible)"""
 test-group = "reo"
 
-# staking group: stake and provision management
+# staking group: stake and provision management.
 [[profile.default.overrides]]
 filter = "binary(~stake_management) | binary(~provision_management)"
 test-group = "staking"
+
+# --- main profile (main recipe) ---
+#
+# Smoke set: tests that don't depend on REO / IssuanceAllocator /
+# RecurringAgreementManager at all. `main` recipe runs with
+# GIP0088_ENABLED=0 so those contracts aren't deployed. Tests run here
+# should NOT need to self-skip — they were never going to interact with
+# the missing components in the first place.
+#
+# Excludes:
+# - reo_governance (entirely REO)
+# - eligibility (REO-A specific)
+# - reward_collection / rewards_conditions / allocation_lifecycle (path
+#   exercises REO renewal even if guarded; cleaner to skip than to rely
+#   on the guards)
+# - network_state::reo_contract_state (asserts REO presence)
+
+[profile.main]
+default-filter = """
+  (binary(~network_state) - test(=reo_contract_state))
+  | binary(~query_fees)
+  | binary(~indexer_handle_smoke)
+  | binary(~stake_management)
+  | binary(~provision_management)
+  | binary(~subgraph_denial)
+"""
+
+# Reuse the default profile's group filters — they still apply to the
+# subset of tests this profile selects.
+[[profile.main.overrides]]
+filter = "binary(~indexer_handle_smoke) | binary(~subgraph_denial)"
+test-group = "alloc"
+
+[[profile.main.overrides]]
+filter = "binary(~stake_management) | binary(~provision_management)"
+test-group = "staking"
+
+# --- reo-live profile (reo-live recipe) ---
+#
+# The three tests that assert RewardsManager → REO-A wiring or REO-A
+# reward-view gating. Under baseline (MockREO) these assertions are
+# meaningless / misleading.
+
+[profile.reo-live]
+default-filter = """
+    test(=eligibility_lifecycle)
+  | test(=rewards_manager_integration)
+  | test(=rewards_view_zero_for_ineligible)
+"""
+
+# All three reo-live tests share REO-A and chain state (eligibility_lifecycle
+# also advances epochs/time on the shared clock) — serialize.
+[[profile.reo-live.overrides]]
+filter = """
+    test(=eligibility_lifecycle)
+  | test(=rewards_manager_integration)
+  | test(=rewards_view_zero_for_ineligible)
+"""
+test-group = "alloc"

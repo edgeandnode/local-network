@@ -53,6 +53,28 @@ impl IndexerHandle {
         eprintln!("[IndexerHandle {test_id}] address={address}");
         eprintln!("[IndexerHandle {test_id}] mnemonic=\"{mnemonic}\"");
 
+        // Tear down any orphan stack with this project name before bringing
+        // up a fresh one. A prior run that died during `compose up` (or was
+        // killed) never reaches our `Drop`, so containers can linger across
+        // nextest invocations — the new run then reuses a now-degraded
+        // graph-node and fails with "dependency failed to start: container
+        // … is unhealthy". `down -v` is a fast no-op when nothing matches.
+        let _ = Command::new("docker")
+            .current_dir(&repo_root)
+            .args([
+                "compose",
+                "-f",
+                COMPOSE_FILE,
+                "--project-name",
+                &project_name,
+                "--env-file",
+                ".env",
+                "down",
+                "-v",
+                "--remove-orphans",
+            ])
+            .status();
+
         let status = Command::new("docker")
             .current_dir(&repo_root)
             .args([

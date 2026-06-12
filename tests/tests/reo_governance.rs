@@ -63,10 +63,9 @@ async fn deployment_parameters() -> Result<()> {
     Ok(())
 }
 
-/// ReoTestPlan 1.4: RewardsManager points to the REO contract.
-///
-/// Self-skips under the default `mock-reo` wiring (RM points at MockREO);
-/// run via `just up reo-live` to exercise the REO-A integration assertion.
+/// ReoTestPlan 1.4: RewardsManager.providerEligibilityOracle points at REO-A.
+/// Selected by the `reo-live` profile only — under baseline RM points at
+/// MockREO and this assertion is meaningless.
 #[tokio::test]
 async fn rewards_manager_integration() -> Result<()> {
     let net = net()?;
@@ -77,10 +76,6 @@ async fn rewards_manager_integration() -> Result<()> {
             return Ok(());
         }
     };
-    if net.is_mock_reo_live()? {
-        eprintln!("MockREO is wired; skipping (use `just up reo-live` to exercise)");
-        return Ok(());
-    }
 
     eprintln!("=== ReoTestPlan 1.4: RewardsManager Integration ===");
 
@@ -687,19 +682,16 @@ async fn access_control_unauthorized() -> Result<()> {
 /// displaying unclaimable rewards.
 ///
 /// Saves and restores the original validation state.
-/// Self-skips under the default `mock-reo` wiring (RM points at MockREO, so
-/// reward views don't gate on REO-A's renewal-period mechanics); run via
-/// `just up reo-live` to exercise the REO-A view-gating assertion.
+///
+/// Selected by the `reo-live` profile only — under baseline RM points at
+/// MockREO so reward views don't gate on REO-A's renewal-period mechanics
+/// and this assertion is meaningless.
 #[tokio::test]
 #[serial(reo)]
 async fn rewards_view_zero_for_ineligible() -> Result<()> {
     let net = net()?;
     if net.contracts.reo.is_none() {
         eprintln!("REO not deployed, skipping");
-        return Ok(());
-    }
-    if net.is_mock_reo_live()? {
-        eprintln!("MockREO is wired; skipping (use `just up reo-live` to exercise)");
         return Ok(());
     }
 

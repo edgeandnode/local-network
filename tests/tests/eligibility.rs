@@ -17,21 +17,24 @@ fn net() -> Result<TestNetwork> {
     TestNetwork::from_default_env()
 }
 
-/// Self-skips under the default `mock-reo` wiring: the test drives REO-A's
-/// period mechanics (renew / expire / re-renew) and `reo_is_eligible` reads
-/// REO-A, but with MockREO wired to RewardsManager the reward gating on
-/// `closeAllocation` goes through the mock instead — so Set 3's
-/// "close reverts for an ineligible indexer" never holds. Run via
-/// `just up reo-live` to exercise the REO-A deny-by-default path.
+/// Exercises REO-A's deny-by-default flow: Set 2 (eligible → close → rewards),
+/// Set 3 (ineligible → close reverts), Set 4 (re-renew → rewards). Requires
+/// RewardsManager to be wired to REO-A — only true under the `reo-live`
+/// recipe.
+///
+/// History: the Set 3 → Set 4 cleanup close previously reverted "reliably"
+/// with "Indexer not eligible for rewards" despite a fresh `reo_renew_indexer`.
+/// That was not chain-time aging out the eligibility window (debug confirmed
+/// `block.timestamp` is unchanged across renew→close) — it was an orphaned
+/// per-test indexer-agent stack from a prior run interfering. The pre-up
+/// `docker compose down -v --remove-orphans` in `IndexerHandle::new` removes
+/// that orphan, and the cleanup close now succeeds within the eligibility
+/// window.
 #[tokio::test]
 async fn eligibility_lifecycle() -> Result<()> {
     let net = net()?;
     if net.contracts.reo.is_none() {
         eprintln!("REO not deployed, skipping all eligibility tests");
-        return Ok(());
-    }
-    if net.is_mock_reo_live()? {
-        eprintln!("MockREO is wired; skipping (use `just up reo-live` to exercise)");
         return Ok(());
     }
     let indexer = IndexerHandle::new("eligibility").await?;
