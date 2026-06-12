@@ -11,9 +11,16 @@ done
 # -- Symlink Hardhat address books to config directory --
 # Hardhat reads/writes addresses-local-network.json; symlinks let those
 # writes land in /opt/config/ without individual Docker file mounts.
-ln -sf /opt/config/horizon.json /opt/contracts/packages/horizon/addresses-local-network.json
-ln -sf /opt/config/subgraph-service.json /opt/contracts/packages/subgraph-service/addresses-local-network.json
-ln -sf /opt/config/issuance.json /opt/contracts/packages/issuance/addresses-local-network.json
+# Guarded per package: the baseline contract image (mainnet-deployed
+# surface) ships no issuance package.
+for pkg_book in horizon:horizon.json subgraph-service:subgraph-service.json issuance:issuance.json; do
+  pkg="${pkg_book%%:*}"; book="${pkg_book#*:}"
+  if [ -d "/opt/contracts/packages/${pkg}" ]; then
+    ln -sf "/opt/config/${book}" "/opt/contracts/packages/${pkg}/addresses-local-network.json"
+  else
+    echo "Package ${pkg} not present in this contracts image — skipping address-book symlink"
+  fi
+done
 
 # ============================================================
 # Phase 1: Graph protocol contracts
@@ -92,6 +99,24 @@ if [ -n "$rewards_manager" ]; then
     cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
       --private-key="${GOVERNOR_SECRET}" \
       "${rewards_manager}" "setIssuancePerBlock(uint256)" "${target_issuance}"
+  fi
+fi
+
+# -- Ensure the subgraph availability oracle matches the role-named account --
+# The mainnet-deployed protocol config hardcodes a stale SAO address (ganache
+# mnemonic index 4); local-network's accounts use the hardhat test mnemonic.
+# Idempotent governance fixup, same pattern as issuancePerBlock above.
+if [ -n "$rewards_manager" ] && [ -n "${SUBGRAPH_AVAILABILITY_ORACLE_ADDRESS:-}" ]; then
+  current_sao=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+    "${rewards_manager}" "subgraphAvailabilityOracle()(address)" 2>/dev/null | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
+  wanted_sao=$(echo "${SUBGRAPH_AVAILABILITY_ORACLE_ADDRESS}" | tr '[:upper:]' '[:lower:]')
+  if [ "$current_sao" = "$wanted_sao" ]; then
+    echo "  subgraphAvailabilityOracle already set to ${SUBGRAPH_AVAILABILITY_ORACLE_ADDRESS}"
+  else
+    echo "  Setting subgraphAvailabilityOracle to ${SUBGRAPH_AVAILABILITY_ORACLE_ADDRESS} (was ${current_sao})"
+    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
+      --private-key="${GOVERNOR_SECRET}" \
+      "${rewards_manager}" "setSubgraphAvailabilityOracle(address)" "${SUBGRAPH_AVAILABILITY_ORACLE_ADDRESS}"
   fi
 fi
 

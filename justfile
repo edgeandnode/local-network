@@ -6,7 +6,8 @@ default:
 
 # Resolve the active recipe (or specify one) into .env. `docker compose`
 # picks .env up automatically — after this, bare `docker compose` commands
-# work without --env-file.
+# work without --env-file. (.env.local is baked into the resolved .env;
+# {{env_files}} layering below covers post-resolve .env.local edits.)
 # Recipe selection: $RECIPE → .recipe.local → .recipe → "baseline".
 resolve recipe="":
     ./scripts/resolve-recipe.sh {{recipe}}
@@ -30,7 +31,7 @@ recipe-active:
 # first arg to override; remaining args forward to compose.
 up recipe="" *args="":
     ./scripts/resolve-recipe.sh {{recipe}}
-    docker compose up -d --build {{args}}
+    docker compose {{env_files}} up -d --build {{args}}
 
 # Tear the compose stack down.
 down *args:
@@ -43,7 +44,7 @@ logs *services:
 # Rebuild and restart specific services (or all if no args). Useful after
 # editing run.sh / Dockerfile in any container.
 rebuild *services:
-    docker compose up -d --build {{services}}
+    docker compose {{env_files}} up -d --build {{services}}
 
 # Connect the current container to the compose network so service hostnames resolve
 connect:
@@ -93,7 +94,7 @@ restart:
 reset:
     -docker ps -a --filter "name=^local-network-test-" -q | xargs -r docker rm -f
     -COMPOSE_PROFILES=$(docker compose config --profiles | paste -sd,) \
-        docker compose down -v --remove-orphans
+        docker compose {{env_files}} down -v --remove-orphans
     -docker volume ls -q --filter "name=^local-network_" | xargs -r docker volume rm
 
 # Stop containers whose service is no longer in the active profile set —

@@ -93,16 +93,22 @@ get_deployment() {
 
 indexing_payments_deployment=$(get_deployment indexing-payments)
 block_oracle_deployment=$(get_deployment block-oracle)
-if [ -z "${indexing_payments_deployment}" ]; then
-  echo "ERROR: indexing-payments subgraph deployment not found — chain_listener will stall" >&2
-  exit 1
-fi
 if [ -z "${block_oracle_deployment}" ]; then
   echo "ERROR: block-oracle subgraph deployment not found — epoch sync will lag" >&2
   exit 1
 fi
-echo "Marking indexing-payments (${indexing_payments_deployment}) and block-oracle (${block_oracle_deployment}) as offchain"
-export INDEXER_AGENT_OFFCHAIN_SUBGRAPHS="${indexing_payments_deployment},${block_oracle_deployment}"
+offchain_subgraphs="${block_oracle_deployment}"
+if [ -n "${indexing_payments_deployment}" ]; then
+  offchain_subgraphs="${indexing_payments_deployment},${offchain_subgraphs}"
+elif [ "${INDEXING_PAYMENTS_ENABLED:-0}" = "1" ]; then
+  # Only the DIPs overlay depends on this subgraph (dipper's chain_listener
+  # reads it). On the baseline contract surface (no RecurringCollector)
+  # subgraph-deploy skips it, which is fine — the agent runs without it.
+  echo "ERROR: indexing-payments subgraph deployment not found — chain_listener will stall" >&2
+  exit 1
+fi
+echo "Marking offchain subgraphs: ${offchain_subgraphs}"
+export INDEXER_AGENT_OFFCHAIN_SUBGRAPHS="${offchain_subgraphs}"
 
 # The agent constructs an indexing-payments SubgraphClient unconditionally
 # (Network.create:100). Without an endpoint or deployment-id, it crashes

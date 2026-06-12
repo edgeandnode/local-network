@@ -8,9 +8,9 @@
 #
 #   Recipe              Profile             What runs
 #   ------              -------             ---------
-#   main                main                Smoke set — no-REO-needed tests
-#   baseline            default             Everything except REO-A-specific
-#   indexing-payments   default             Same default set on the DIPs stack
+#   baseline            default             Smoke set — mainnet-deployed surface, no GIP-0088
+#   gip-0088            gip-0088            Everything except REO-A-specific
+#   indexing-payments   gip-0088            Same gip-0088 set on the DIPs stack
 #   reo-live            reo-live            Only REO-A-wiring tests
 #
 # Tests share a single blockchain so state-mutating tests need serial
@@ -36,14 +36,29 @@ max-threads = 1
 [test-groups.staking]
 max-threads = 1
 
-# --- default profile (baseline / indexing-payments recipes) ---
+# --- default profile (baseline recipe) ---
 #
-# Runs everything in the workspace EXCEPT the REO-A-specific tests, which
-# require RewardsManager to point at REO-A (only true under reo-live).
+# Smoke set: tests that don't depend on REO / IssuanceAllocator /
+# RecurringAgreementManager at all. The baseline recipe runs with
+# GIP0088_ENABLED=0 on the mainnet-deployed contract surface, so those
+# contracts aren't deployed. Tests run here should NOT need to self-skip —
+# they were never going to interact with the missing components in the
+# first place.
+#
+# Excludes:
+# - reo_governance (entirely REO)
+# - eligibility (REO-A specific)
+# - reward_collection / rewards_conditions / allocation_lifecycle (path
+#   exercises REO renewal even if guarded; cleaner to skip than to rely
+#   on the guards)
+# - dips_lifecycle (needs indexing-payments services + GIP-0088 contracts)
+# - network_state::reo_contract_state (asserts REO presence)
+# - subgraph_denial::accumulator_freeze_and_reclaim (uses the GIP-0088
+#   reward-reclaim functions, absent on the deployed RewardsManager)
 
 [profile.default]
-# Reliability floor (inherited by the main / reo-live profiles for any key
-# they don't override). These are E2E tests on a live stack: a per-test
+# Reliability floor (inherited by the gip-0088 / reo-live profiles for any
+# key they don't override). These are E2E tests on a live stack: a per-test
 # IndexerHandle bring-up plus epoch/time advances legitimately runs a few
 # minutes (eligibility_lifecycle ~220s), so the threshold is generous — it
 # exists to kill a genuinely hung test (e.g. a close stuck on a stalled
@@ -53,6 +68,32 @@ max-threads = 1
 # bring-up errors are already retried in-process (see indexer.rs).
 slow-timeout = { period = "120s", terminate-after = 5 }
 
+default-filter = """
+  (binary(~network_state) - test(=reo_contract_state))
+  | binary(~query_fees)
+  | binary(~indexer_handle_smoke)
+  | binary(~stake_management)
+  | binary(~provision_management)
+  | (binary(~subgraph_denial) - test(=accumulator_freeze_and_reclaim))
+"""
+
+# Group filters for the subset of tests this profile selects. (These also
+# serve as the fallback overrides for the other profiles: nextest evaluates
+# the selected profile's overrides first, then the default profile's.)
+[[profile.default.overrides]]
+filter = "binary(~indexer_handle_smoke) | binary(~subgraph_denial)"
+test-group = "alloc"
+
+[[profile.default.overrides]]
+filter = "binary(~stake_management) | binary(~provision_management)"
+test-group = "staking"
+
+# --- gip-0088 profile (gip-0088 / indexing-payments recipes) ---
+#
+# Runs everything in the workspace EXCEPT the REO-A-specific tests, which
+# require RewardsManager to point at REO-A (only true under reo-live).
+
+[profile.gip-0088]
 default-filter = """
 not (
     test(=eligibility_lifecycle)
@@ -64,7 +105,7 @@ not (
 # alloc group: every test that brings up its own per-test IndexerHandle stack.
 # Serialized because each stack pulls up a fresh postgres+graph-node+agent
 # and concurrent bring-ups race for the graph-node healthcheck window.
-[[profile.default.overrides]]
+[[profile.gip-0088.overrides]]
 filter = """binary(~allocation_lifecycle) \
   | binary(~reward_collection) \
   | binary(~eligibility) \
@@ -81,7 +122,7 @@ test-group = "alloc"
 # costs a little parallelism, never a state race. (rewards_manager_integration
 # / rewards_view_zero_for_ineligible are reo-live-only and filtered out of
 # this profile, so they're harmless here.)
-[[profile.default.overrides]]
+[[profile.gip-0088.overrides]]
 filter = """binary(~reo_governance) \
   - test(=deployment_parameters) \
   - test(=unauthorized_renewal_reverts) \
@@ -89,50 +130,14 @@ filter = """binary(~reo_governance) \
 test-group = "reo"
 
 # staking group: stake and provision management.
-[[profile.default.overrides]]
-filter = "binary(~stake_management) | binary(~provision_management)"
-test-group = "staking"
-
-# --- main profile (main recipe) ---
-#
-# Smoke set: tests that don't depend on REO / IssuanceAllocator /
-# RecurringAgreementManager at all. `main` recipe runs with
-# GIP0088_ENABLED=0 so those contracts aren't deployed. Tests run here
-# should NOT need to self-skip — they were never going to interact with
-# the missing components in the first place.
-#
-# Excludes:
-# - reo_governance (entirely REO)
-# - eligibility (REO-A specific)
-# - reward_collection / rewards_conditions / allocation_lifecycle (path
-#   exercises REO renewal even if guarded; cleaner to skip than to rely
-#   on the guards)
-# - network_state::reo_contract_state (asserts REO presence)
-
-[profile.main]
-default-filter = """
-  (binary(~network_state) - test(=reo_contract_state))
-  | binary(~query_fees)
-  | binary(~indexer_handle_smoke)
-  | binary(~stake_management)
-  | binary(~provision_management)
-  | binary(~subgraph_denial)
-"""
-
-# Reuse the default profile's group filters — they still apply to the
-# subset of tests this profile selects.
-[[profile.main.overrides]]
-filter = "binary(~indexer_handle_smoke) | binary(~subgraph_denial)"
-test-group = "alloc"
-
-[[profile.main.overrides]]
+[[profile.gip-0088.overrides]]
 filter = "binary(~stake_management) | binary(~provision_management)"
 test-group = "staking"
 
 # --- reo-live profile (reo-live recipe) ---
 #
 # The three tests that assert RewardsManager → REO-A wiring or REO-A
-# reward-view gating. Under baseline (MockREO) these assertions are
+# reward-view gating. Under gip-0088 (MockREO) these assertions are
 # meaningless / misleading.
 
 [profile.reo-live]

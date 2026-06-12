@@ -50,6 +50,14 @@ deploy_indexing_payments() {
     return
   fi
 
+  # The mainnet-deployed contract surface (baseline recipe) has no
+  # RecurringCollector — nothing for this subgraph to index.
+  if ! jq -e '."1337".RecurringCollector.address // empty' /opt/config/horizon.json >/dev/null 2>&1 \
+    || [ -z "$(jq -r '."1337".RecurringCollector.address // empty' /opt/config/horizon.json)" ]; then
+    echo "SKIP: Indexing-payments subgraph (no RecurringCollector in this deployment)"
+    return
+  fi
+
   subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
   recurring_collector=$(contract_addr RecurringCollector.address horizon)
 

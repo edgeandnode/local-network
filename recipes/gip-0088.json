@@ -1,0 +1,17 @@
+{
+  "description": "Baseline + full GIP-0088 contract deployment (REO + IssuanceAllocator + RecurringAgreementManager on the audit-fix-3 ABI) via a post-audit contract image (gip-0088.env swaps CONTRACTS_VERSION and sets GIP0088_ENABLED=1). No indexing-payments services. Mock REO wired by default for tests; REO-A still deployed and available. Profile set: block-oracle + explorer + rewards-eligibility.",
+  "fragments": [
+    "base.env",
+    "services.env",
+    "gip-0088.env",
+    "accounts-role-named.env",
+    "mock-reo.env"
+  ],
+  "env": {
+    "COMPOSE_PROFILES": "block-oracle,explorer,rewards-eligibility"
+  },
+  "compose_files": [
+    "docker-compose.yaml"
+  ],
+  "test_profile": "gip-0088"
+}
