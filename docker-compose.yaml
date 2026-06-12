@@ -99,7 +99,7 @@ services:
     build:
       context: containers/core/graph-contracts
       args:
-        CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
+        CONTRACTS_VERSION: ${CONTRACTS_VERSION}
     depends_on:
       chain: { condition: service_healthy }
     volumes:
