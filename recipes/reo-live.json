@@ -1,0 +1,15 @@
+{
+  "description": "Baseline with the production REO wiring (REO_MOCK=0 — RewardsManager.providerEligibilityOracle points at RewardsEligibilityOracleA, not the mock). Use to exercise the REO-A governance tests that assert RM↔REO-A integration (`rewards_manager_integration`, `rewards_view_zero_for_ineligible`) — these skip under the mock-reo default.",
+  "fragments": [
+    "base.env",
+    "services.env",
+    "accounts-role-named.env"
+  ],
+  "env": {
+    "COMPOSE_PROFILES": "block-oracle,explorer,rewards-eligibility",
+    "REO_MOCK": "0"
+  },
+  "compose_files": [
+    "docker-compose.yaml"
+  ]
+}

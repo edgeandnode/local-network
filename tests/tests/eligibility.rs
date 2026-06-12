@@ -17,12 +17,21 @@ fn net() -> Result<TestNetwork> {
     TestNetwork::from_default_env()
 }
 
+/// Self-skips under the default `mock-reo` wiring: the test drives REO-A's
+/// period mechanics (renew / expire / re-renew) and `reo_is_eligible` reads
+/// REO-A, but with MockREO wired to RewardsManager the reward gating on
+/// `closeAllocation` goes through the mock instead — so Set 3's
+/// "close reverts for an ineligible indexer" never holds. Run via
+/// `just up reo-live` to exercise the REO-A deny-by-default path.
 #[tokio::test]
-#[ignore = "close_allocation didn't revert when the test indexer was set ineligible — looks like the agent didn't observe the MockREO un-eligibility before close (TODO: add explicit wait or query REO directly)"]
 async fn eligibility_lifecycle() -> Result<()> {
     let net = net()?;
     if net.contracts.reo.is_none() {
         eprintln!("REO not deployed, skipping all eligibility tests");
+        return Ok(());
+    }
+    if net.is_mock_reo_live()? {
+        eprintln!("MockREO is wired; skipping (use `just up reo-live` to exercise)");
         return Ok(());
     }
     let indexer = IndexerHandle::new("eligibility").await?;

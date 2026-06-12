@@ -142,10 +142,25 @@ async fn close_allocation_collects_rewards() -> Result<()> {
         "agent-mediated close should collect non-zero rewards (got {rewards_str})",
     );
 
-    let alloc_data = net.query_allocation(&alloc_id).await?;
-    assert_eq!(
-        alloc_data["status"].as_str(),
-        Some("Closed"),
+    // The network subgraph indexes the close asynchronously, so poll until
+    // it reflects the Closed status rather than asserting immediately (an
+    // immediate read races graph-node and intermittently sees "Active").
+    let closed = net
+        .poll_until(
+            std::time::Duration::from_secs(60),
+            std::time::Duration::from_secs(2),
+            || async {
+                net.mine_blocks(1).await?;
+                let alloc_data = net.query_allocation(&alloc_id).await?;
+                Ok(alloc_data["status"]
+                    .as_str()
+                    .filter(|s| *s == "Closed")
+                    .map(str::to_string))
+            },
+        )
+        .await;
+    assert!(
+        closed.is_ready(),
         "allocation should be Closed in the network subgraph",
     );
 
