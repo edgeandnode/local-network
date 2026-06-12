@@ -70,6 +70,7 @@ filter = """binary(~allocation_lifecycle) \
   | binary(~eligibility) \
   | binary(~indexer_handle_smoke) \
   | binary(~subgraph_denial) \
+  | binary(~dips_lifecycle) \
   | (binary(~rewards_conditions) - test(=reclaim_unauthorized_reverts))"""
 test-group = "alloc"
 

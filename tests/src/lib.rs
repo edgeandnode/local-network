@@ -4,6 +4,7 @@
 //! (chain RPC, subgraph, gateway, indexer management API, contract calls).
 
 pub mod cast;
+pub mod dips;
 pub mod dump;
 pub mod graphql;
 pub mod indexer;

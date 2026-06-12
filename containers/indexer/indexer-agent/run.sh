@@ -111,4 +111,39 @@ export INDEXER_AGENT_OFFCHAIN_SUBGRAPHS="${indexing_payments_deployment},${block
 # --enable-dips so the spec is fully populated.
 export INDEXER_AGENT_INDEXING_PAYMENTS_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
 
+# Full DIPs lifecycle: when the indexing-payments overlay is active, enable the
+# agent's on-chain DIPs loop — it reads RecurringCollector agreements from the
+# indexing-payments subgraph (endpoint above) and accepts/collects them
+# on-chain. Gated on INDEXING_PAYMENTS_ENABLED so baseline/main (which pin the
+# non-DIPs agent image lacking the flag) never pass it; requires the main-dips
+# agent image (INDEXER_AGENT_VERSION=local). Reaches yargs via the
+# INDEXER_AGENT_ env prefix.
+if [ "${INDEXING_PAYMENTS_ENABLED:-0}" = "1" ]; then
+  echo "DIPs enabled — agent will accept/collect RecurringCollector agreements on-chain"
+  export INDEXER_AGENT_ENABLE_DIPS=true
+  # The agent requires --dipper-endpoint when --enable-dips is set (it's the
+  # dipper endpoint the DipsManager uses for collection receipts). Point it at
+  # dipper's indexer-facing RPC; accept happens on-chain off the subgraph, so
+  # this is exercised at collection time.
+  export INDEXER_AGENT_DIPPER_ENDPOINT="http://dipper:${DIPPER_INDEXER_RPC_PORT}"
+  # The DIPs agent (main-dips) builds a TAP SubgraphClient unconditionally in
+  # Network.create; an unset --tap-subgraph-endpoint leaves it as an empty {}
+  # and crashes ("Cannot read properties of undefined (reading 'status')").
+  # This stack has no dedicated TAP subgraph (legacy TAP v1 isn't deployed) —
+  # Horizon TAP/escrow entities live in the network subgraph, so point it there.
+  export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
+  # The agent's connectContracts() uses @semiotic-labs/tap-contracts-bindings,
+  # whose static address map has no entry for chain 1337 ("no deployed
+  # contracts"). Provide a --tap-address-book mapping the Horizon equivalents:
+  # Escrow=PaymentsEscrow, TAPVerifier=GraphTallyCollector. AllocationIDTracker
+  # is legacy TAP v1 (absent on Horizon); the binding is only constructed (not
+  # called) on the Horizon/DIPs path, so a zero placeholder suffices.
+  tap_verifier=$(contract_addr GraphTallyCollector.address horizon)
+  tap_escrow=$(contract_addr PaymentsEscrow.address horizon)
+  cat > /tmp/tap-address-book.json <<EOF
+{ "1337": { "Escrow": "${tap_escrow}", "TAPVerifier": "${tap_verifier}", "AllocationIDTracker": "0x0000000000000000000000000000000000000000" } }
+EOF
+  export INDEXER_AGENT_TAP_ADDRESS_BOOK=/tmp/tap-address-book.json
+fi
+
 node ./dist/index.js start

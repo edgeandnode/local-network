@@ -22,8 +22,6 @@ cat >config.json <<-EOF
   "dips": {
     "data_service": "${subgraph_service}",
     "recurring_collector": "${recurring_collector}",
-    "max_initial_tokens": "1000000000000000000",
-    "max_ongoing_tokens_per_second": "1000000000000000",
     "max_seconds_per_collection": 86400,
     "min_seconds_per_collection": 3600,
     "duration_seconds": null,
