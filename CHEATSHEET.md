@@ -129,4 +129,3 @@ curl "http://localhost:7700/api/subgraphs/id/BFr2mx7FgkJ36Y6pE5BiXs1KmNUmVDCnL82
 ```bash
 docker exec -it redpanda rpk topic consume gateway_client_query_results --brokers="localhost:9092"
 ```
-

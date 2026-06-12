@@ -1,0 +1,130 @@
+# Per-test indexer stack — instantiated by IndexerHandle as its own compose project.
+#
+# Usage from Rust (IndexerHandle::new):
+#   docker compose \
+#     -f compose/test-indexer.yaml \
+#     --project-name local-network-test-<test_id> \
+#     --env-file .env \
+#     up -d
+#
+# Each per-test compose project gets:
+#   - its own postgres + graph-node + indexer-agent (independent of the main stack)
+#   - shared access to main's chain + ipfs via the cross-stack network
+#   - shared read-only access to main's config-local volume (contract address books)
+#
+# Service-name DNS isolation: services here are renamed (`test-graph-node`,
+# `test-indexer-agent`, …) so they don't advertise the main-stack hostnames
+# (`graph-node`, `indexer-agent`) on the cross-stack network. The devcontainer
+# joins both networks; if multiple per-test stacks reused the main service
+# names, devcontainer DNS lookups for `graph-node` would round-robin across
+# instances and miss the host's deployments (e.g. block-oracle).
+#
+# `aliases: []` on cross-stack does NOT drop the default service-name alias —
+# Docker Compose always registers the service name. Renaming is the only clean
+# way to keep cross-stack DNS unambiguous for the devcontainer.
+#
+# The per-test containers still need to resolve the legacy hostnames among
+# themselves (the indexer-agent run.sh hardcodes `http://graph-node:8000` etc.),
+# so each service adds the legacy name as an alias on its own `default` network
+# only — never on cross-stack.
+#
+# Per-test indexer identity is passed via env vars: TEST_INDEXER_ADDRESS,
+# TEST_INDEXER_SECRET, TEST_INDEXER_MNEMONIC. The agent's run.sh prefers these
+# over the .env defaults (see indexer-agent/run.sh).
+
+networks:
+  default:
+  cross-stack:
+    name: cross-stack
+    external: true
+
+volumes:
+  config-local:
+    name: local-network_config-local
+    external: true
+
+services:
+  test-postgres:
+    image: postgres:17-alpine
+    command: postgres -c 'max_connections=200'
+    volumes:
+      - ../containers/core/postgres/setup.sql:/docker-entrypoint-initdb.d/setup.sql:ro
+    environment:
+      POSTGRES_INITDB_ARGS: "--encoding UTF8 --locale=C"
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: postgres
+    healthcheck: { interval: 1s, retries: 30, test: pg_isready -U postgres }
+    restart: on-failure:3
+    networks:
+      default:
+        aliases: [postgres]
+
+  test-graph-node:
+    build:
+      context: ../containers/indexer/graph-node
+      args:
+        GRAPH_NODE_VERSION: ${GRAPH_NODE_VERSION}
+    depends_on:
+      test-postgres: { condition: service_healthy }
+    stop_signal: SIGKILL
+    volumes:
+      - ../shared:/opt/shared:ro
+      - ../.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    healthcheck:
+      { interval: 1s, retries: 60, test: curl -f http://127.0.0.1:8030 }
+    restart: on-failure:3
+    networks:
+      default:
+        # Legacy alias so the per-test indexer-agent's hardcoded
+        # `http://graph-node:8000` URLs resolve to OUR graph-node within
+        # this project's default network.
+        aliases: [graph-node]
+      # cross-stack reaches chain + ipfs (the host stack's chain RPC, ipfs).
+      # No aliases here — we MUST NOT advertise `graph-node` on cross-stack;
+      # the devcontainer is on cross-stack and would race host vs. per-test.
+      cross-stack:
+
+  test-subgraph-deploy:
+    image: local-network-subgraph-deploy:latest
+    pull_policy: never
+    depends_on:
+      test-graph-node: { condition: service_healthy }
+    volumes:
+      - ../shared:/opt/shared:ro
+      - ../.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    networks:
+      default:
+        aliases: [subgraph-deploy]
+      cross-stack:
+
+  test-indexer-agent:
+    image: local-network-indexer-agent:latest
+    pull_policy: never
+    platform: linux/amd64
+    depends_on:
+      test-subgraph-deploy: { condition: service_completed_successfully }
+    stop_signal: SIGKILL
+    volumes:
+      - ../shared:/opt/shared:ro
+      - ../.env:/opt/config/.env:ro
+      - config-local:/opt/config:ro
+    healthcheck:
+      { interval: 5s, retries: 120, test: curl -f http://127.0.0.1:7600/ }
+    restart: on-failure:3
+    environment:
+      # Per-test indexer identity — see indexer-agent/run.sh override block.
+      TEST_INDEXER_ADDRESS: ${TEST_INDEXER_ADDRESS}
+      TEST_INDEXER_SECRET: ${TEST_INDEXER_SECRET}
+      TEST_INDEXER_MNEMONIC: ${TEST_INDEXER_MNEMONIC}
+      # Manual allocation mode is appropriate for per-test agents: tests
+      # explicitly drive create/close cycles, and we don't want the
+      # auto-reconciler racing them. Unlike the main stack's removed
+      # manual-allocation.yaml workaround (which broke start-indexing's
+      # initial-allocation loop), per-test stacks don't run start-indexing.
+      INDEXER_AGENT_ALLOCATION_MANAGEMENT: manual
+    networks:
+      default:
+        aliases: [indexer-agent]
+      cross-stack:

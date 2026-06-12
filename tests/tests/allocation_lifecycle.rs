@@ -1,195 +1,175 @@
 //! Allocation Lifecycle Tests (BaselineTestPlan Cycles 4-5, 7)
 //!
-//! Exercises the allocation management and revenue collection workflow:
-//!   close existing allocation → verify → create new allocation → advance → close → verify
+//! Exercises the allocation management and revenue collection workflow.
+//! Allocation-mutating tests use a per-test `IndexerHandle` so they don't
+//! race the production indexer's auto-reconciler. Tests that observe the
+//! production stack (gateway routing) keep using `TestNetwork` directly.
 //!
-//! Mapping to BaselineTestPlan:
-//!   - `close_and_recreate_allocation` → Cycle 4.2 (create) + 5.2 (close + rewards)
-//!   - `close_allocation_collects_rewards` → Cycle 5.2 (agent-mediated close with reward assertion)
-//!   - `gateway_query_serving` → Cycle 5.1 (query serving through gateway)
-//!
-//! The management API mutations (`createAllocation`, `closeAllocation`) emulate
-//! what `graph indexer allocations create/close` does. The close path internally
-//! triggers a multicall: collect(IndexingRewards) + stopService.
+//! Mapping:
+//!   - `close_and_recreate_allocation`     → Cycle 4.2 (create) + 5.2 (close)
+//!   - `close_allocation_collects_rewards` → Cycle 5.2 (close + reward assertion)
+//!   - `gateway_query_serving`             → Cycle 5.1 (query serving — production)
 
 use anyhow::{Context, Result};
 use local_network_tests::TestNetwork;
+use local_network_tests::indexer::IndexerHandle;
 use serial_test::serial;
 
 fn net() -> Result<TestNetwork> {
     TestNetwork::from_default_env()
 }
 
-/// BaselineTestPlan 4.2 + 5.2: Create and close allocations.
-///
-/// Emulates `graph indexer allocations create` and `graph indexer allocations close`.
+/// BaselineTestPlan 4.2 + 5.2: create → advance → close → recreate.
 #[tokio::test]
 #[serial(alloc)]
 async fn close_and_recreate_allocation() -> Result<()> {
     let net = net()?;
+    let indexer = IndexerHandle::new("close-recreate").await?;
 
-    // Ensure we have an active allocation (recovers if a prior test panicked)
-    let (deployment, _) = net.ensure_active_allocation().await?;
+    // Pick any signaled deployment — main and the per-test graph-node both
+    // index the network subgraph from the same chain.
+    let deployments = net.query_deployments_with_signal().await?;
+    let deployment = deployments
+        .as_array()
+        .and_then(|d| d.first())
+        .and_then(|d| d["ipfsHash"].as_str())
+        .context("no signaled deployments found in network subgraph")?
+        .to_string();
+    eprintln!("Using deployment {deployment}");
 
-    // Collect all active allocation IDs for this deployment so we close them all
-    let allocs = net.get_allocations().await?;
-    let allocs = allocs.as_array().context("expected allocation array")?;
-    let active_ids: Vec<String> = allocs
-        .iter()
-        .filter(|a| {
-            a["closedAtEpoch"].is_null()
-                && a["subgraphDeployment"].as_str() == Some(deployment.as_str())
-        })
-        .filter_map(|a| a["id"].as_str().map(String::from))
-        .collect();
+    let create = indexer.create_allocation(&deployment, "0.01").await?;
+    let alloc_id = create["allocation"]
+        .as_str()
+        .context("createAllocation missing allocation id")?
+        .to_string();
+    eprintln!("Created allocation {alloc_id}");
 
-    // Advance 1 epoch so allocations are old enough to close
-    // (pre-existing allocations are already many epochs old, 1 is sufficient)
-    eprintln!("--- Advancing 1 epoch ---");
-    let new_epoch = net.advance_epochs(1).await?;
-    eprintln!("  Now at epoch {new_epoch}");
+    net.advance_epochs(1).await?;
 
-    // Close all active allocations for this deployment
-    for id in &active_ids {
-        eprintln!("--- Closing allocation {id} ---");
-        let close_result = net.close_allocation(id).await?;
-        let rewards = close_result["indexingRewards"].as_str().unwrap_or("0");
-        eprintln!("  indexingRewards: {rewards}");
-        assert_eq!(
-            close_result["allocation"].as_str().unwrap_or(""),
-            id,
-            "Closed allocation ID should match"
-        );
+    // closeAllocation calls collect() which reverts if the indexer is
+    // ineligible. Refresh eligibility before close.
+    if net.contracts.reo.is_some() {
+        net.reo_renew_indexer(&indexer.address)?;
     }
 
-    // Create a new allocation for the same deployment (emulates: graph indexer allocations create)
-    eprintln!("--- Creating new allocation for {deployment} ---");
-    let amount = "0.01"; // GRT (management API takes GRT, not wei)
-    let create_result = net.create_allocation(&deployment, amount).await?;
-    let new_alloc_id = create_result["allocation"]
-        .as_str()
-        .context("createAllocation should return allocation ID")?;
-    eprintln!("  Created allocation: {new_alloc_id}");
-
-    assert!(
-        !new_alloc_id.is_empty(),
-        "Allocation ID should be non-empty"
-    );
+    let close = indexer.close_allocation(&alloc_id).await?;
+    eprintln!("Close result: {close}");
     assert_eq!(
-        create_result["deployment"].as_str().unwrap_or(""),
-        deployment,
-        "Deployment should match"
+        close["allocation"].as_str(),
+        Some(alloc_id.as_str()),
+        "closed allocation id should match",
     );
 
-    // Advance 2 more epochs and close the new allocation
-    eprintln!("--- Advancing 2 epochs ---");
-    net.advance_epochs(2).await?;
+    // The agent's pre-flight check for createAllocation queries its own state
+    // for active allocations on the deployment. Even after a successful close,
+    // the network subgraph view (which the agent re-queries on createAllocation)
+    // can lag a few seconds behind the close tx. Poll until the closed
+    // allocation is no longer reported active.
+    //
+    // `indexerAllocations` filters to status=Active server-side and nests the
+    // deployment as { id, stakedTokens, signalledTokens } — match on the
+    // nested .id.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    loop {
+        let allocs = indexer.get_allocations().await?;
+        let still_active = allocs
+            .as_array()
+            .map(|a| {
+                a.iter().any(|alloc| {
+                    alloc["subgraphDeployment"]["id"].as_str() == Some(deployment.as_str())
+                })
+            })
+            .unwrap_or(false);
+        if !still_active {
+            break;
+        }
+        if std::time::Instant::now() >= deadline {
+            anyhow::bail!("agent still reports active allocation on {deployment} after close");
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
 
-    eprintln!("--- Closing new allocation {new_alloc_id} ---");
-    let close_result = net.close_allocation(new_alloc_id).await?;
-    let rewards = close_result["indexingRewards"].as_str().unwrap_or("0");
-    eprintln!("  indexingRewards: {rewards}");
-
-    assert_eq!(
-        close_result["allocation"].as_str().unwrap_or(""),
-        new_alloc_id,
-        "Closed allocation ID should match"
-    );
-
-    // Re-create the allocation to restore network state
-    eprintln!("--- Restoring allocation for {deployment} ---");
-    net.create_allocation(&deployment, "0.01").await?;
+    let new = indexer.create_allocation(&deployment, "0.005").await?;
+    let new_id = new["allocation"].as_str().context("new allocation id")?;
+    eprintln!("Recreated allocation {new_id}");
+    assert!(!new_id.is_empty(), "new allocation id should be non-empty");
 
     Ok(())
 }
 
-/// BaselineTestPlan 5.2: Close allocation via agent and verify indexingRewards > 0.
-///
-/// The indexer-agent's close flow does a multicall: collect(IndexingRewards) + stopService.
-/// This test verifies that the agent-mediated close produces non-zero rewards.
-/// Emulates `graph indexer allocations close` with reward verification.
+/// BaselineTestPlan 5.2: agent-mediated close (collect+stopService multicall)
+/// produces non-zero indexingRewards.
 #[tokio::test]
 #[serial(alloc)]
-#[ignore = "flakes when other allocation tests run earlier in the serial(alloc) group; passes in isolation and on a fresh stack"]
 async fn close_allocation_collects_rewards() -> Result<()> {
     let net = net()?;
+    let indexer = IndexerHandle::new("close-collects").await?;
 
-    // Find an active allocation (recovers if a prior test left none)
-    let (deployment, alloc_id) = net.ensure_active_allocation().await?;
-
-    eprintln!("=== Close-collects-rewards test (BaselineTestPlan 5.2) ===");
-    eprintln!("  Allocation: {alloc_id}");
-    eprintln!("  Deployment: {deployment}");
-
-    // Close ALL active allocations for this deployment so we can recreate cleanly.
-    // indexer-agent may auto-create extra allocations on the same deployment.
-    let allocs = net.get_allocations().await?;
-    let allocs = allocs.as_array().context("expected allocation array")?;
-    let active_ids: Vec<String> = allocs
-        .iter()
-        .filter(|a| {
-            a["closedAtEpoch"].is_null()
-                && a["subgraphDeployment"].as_str() == Some(deployment.as_str())
-        })
-        .filter_map(|a| a["id"].as_str().map(String::from))
-        .collect();
-
-    net.advance_epochs(1).await?;
-    for id in &active_ids {
-        eprintln!("  Closing active allocation {id}");
-        net.close_allocation(id).await?;
-    }
-
-    let result = net.create_allocation(&deployment, "0.01").await?;
-    let fresh_alloc = result["allocation"]
-        .as_str()
-        .context("expected allocation ID")?
+    let deployments = net.query_deployments_with_signal().await?;
+    let deployment = deployments
+        .as_array()
+        .and_then(|d| d.first())
+        .and_then(|d| d["ipfsHash"].as_str())
+        .context("no signaled deployments found")?
         .to_string();
-    eprintln!("  Fresh allocation: {fresh_alloc}");
 
-    // Advance epochs so rewards accumulate
+    let create = indexer.create_allocation(&deployment, "0.01").await?;
+    let alloc_id = create["allocation"]
+        .as_str()
+        .context("missing allocation id")?
+        .to_string();
+    eprintln!("Created allocation {alloc_id}");
+
     net.advance_epochs(2).await?;
 
-    // Ensure indexer is eligible (eligibility may expire during epoch advancement)
+    // REO eligibility may expire during epoch advancement; renew before close
+    // so collect() doesn't revert.
     if net.contracts.reo.is_some() {
-        net.reo_renew_indexer(&net.indexer_address)?;
+        net.reo_renew_indexer(&indexer.address)?;
         assert!(
-            net.reo_is_eligible(&net.indexer_address)?,
-            "Indexer must be eligible before close"
+            net.reo_is_eligible(&indexer.address)?,
+            "indexer must be eligible before close",
         );
     }
 
-    // Close via agent — this triggers collect(IndexingRewards) + stopService multicall
-    eprintln!("  Closing allocation via agent...");
-    let close_result = net.close_allocation(&fresh_alloc).await?;
-    let rewards_str = close_result["indexingRewards"].as_str().unwrap_or("0");
+    let close = indexer.close_allocation(&alloc_id).await?;
+    let rewards_str = close["indexingRewards"].as_str().unwrap_or("0");
     let rewards: f64 = rewards_str.parse().unwrap_or(0.0);
-    eprintln!("  indexingRewards: {rewards_str} ({rewards:.2} GRT)");
+    eprintln!("Close result: rewards={rewards_str} ({rewards:.2} GRT)");
 
     assert!(
         rewards > 0.0,
-        "Agent-mediated close should collect non-zero rewards. \
-         Got indexingRewards={rewards_str}"
+        "agent-mediated close should collect non-zero rewards (got {rewards_str})",
     );
 
-    // Verify closed allocation in subgraph
-    let alloc_data = net.query_allocation(&fresh_alloc).await?;
-    assert_eq!(
-        alloc_data["status"].as_str().unwrap_or(""),
-        "Closed",
-        "Allocation should be Closed in subgraph"
+    // The network subgraph indexes the close asynchronously, so poll until
+    // it reflects the Closed status rather than asserting immediately (an
+    // immediate read races graph-node and intermittently sees "Active").
+    let closed = net
+        .poll_until(
+            std::time::Duration::from_secs(60),
+            std::time::Duration::from_secs(2),
+            || async {
+                net.mine_blocks(1).await?;
+                let alloc_data = net.query_allocation(&alloc_id).await?;
+                Ok(alloc_data["status"]
+                    .as_str()
+                    .filter(|s| *s == "Closed")
+                    .map(str::to_string))
+            },
+        )
+        .await;
+    assert!(
+        closed.is_ready(),
+        "allocation should be Closed in the network subgraph",
     );
-
-    // Restore allocation (no epoch advance needed — creating doesn't require maturity)
-    net.ensure_active_allocation().await?;
-    eprintln!("  Restored allocation for {deployment}");
 
     Ok(())
 }
 
-/// BaselineTestPlan 5.1: Send test queries through gateway.
-///
-/// Emulates the `query_test.sh` script from the test plan.
+/// BaselineTestPlan 5.1: queries through the gateway succeed against the
+/// production indexer (the gateway routes by allocation in the network
+/// subgraph; it doesn't know about per-test indexers).
 #[tokio::test]
 #[serial(alloc)]
 async fn gateway_query_serving() -> Result<()> {

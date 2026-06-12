@@ -13,7 +13,7 @@ elapsed() { echo "[+$((SECONDS - t0))s] $*"; }
 if curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ allocations(where:{status:Active}) { indexer { id } } }" }' \
-  | grep -qi "${RECEIVER_ADDRESS}"
+  | grep -qi "${INDEXER_ADDRESS}"
 then
   echo "Active allocations found, ensuring curation signal on all deployments..."
 
@@ -151,7 +151,7 @@ elapsed "Waiting for active allocation in network subgraph..."
 while ! curl -s "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \
   -d '{"query": "{ allocations(where:{status:Active}) { indexer { id } } }" }' \
-  | grep -qi "${RECEIVER_ADDRESS}"
+  | grep -qi "${INDEXER_ADDRESS}"
 do
   sleep 2
 done

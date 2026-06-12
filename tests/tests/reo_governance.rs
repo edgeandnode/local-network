@@ -63,7 +63,9 @@ async fn deployment_parameters() -> Result<()> {
     Ok(())
 }
 
-/// ReoTestPlan 1.4: RewardsManager points to the REO contract.
+/// ReoTestPlan 1.4: RewardsManager.providerEligibilityOracle points at REO-A.
+/// Selected by the `reo-live` profile only — under baseline RM points at
+/// MockREO and this assertion is meaningless.
 #[tokio::test]
 async fn rewards_manager_integration() -> Result<()> {
     let net = net()?;
@@ -78,7 +80,7 @@ async fn rewards_manager_integration() -> Result<()> {
     eprintln!("=== ReoTestPlan 1.4: RewardsManager Integration ===");
 
     let configured_reo = net.rewards_manager_reo_address()?;
-    eprintln!("  RewardsManager.getRewardsEligibilityOracle(): {configured_reo}");
+    eprintln!("  RewardsManager.getProviderEligibilityOracle(): {configured_reo}");
     eprintln!("  Expected REO address: {reo}");
 
     assert_eq!(
@@ -132,6 +134,14 @@ async fn renew_single_indexer() -> Result<()> {
     };
 
     eprintln!("=== ReoTestPlan 3.2: Renew Single Indexer ===");
+
+    // renewIndexerEligibility only updates state and emits
+    // IndexerEligibilityRenewed when `indexerEligibilityTimestamps[indexer]
+    // < block.timestamp` (RewardsEligibilityOracle.sol). A preceding reo
+    // test may have renewed this indexer in the same wall-clock second, in
+    // which case the renewal is a genuine no-op. Advance chain time so the
+    // renewal definitely moves the timestamp forward.
+    net.advance_time(2).await?;
 
     let before_oracle = net.reo_last_oracle_update()?;
     let before_renewal = net.reo_renewal_time(&net.indexer_address)?;
@@ -331,6 +341,13 @@ async fn enable_validation_eligible_stays() -> Result<()> {
 /// ReoTestPlan 4.4: Eligibility expires after period.
 ///
 /// Reduces the period to 60s, renews, waits, verifies expiry, then restores.
+///
+/// Uses a synthetic address rather than `net.indexer_address`: under the
+/// reo-live recipe the eligibility-oracle-node polls every 10s and renews
+/// real indexers on REO-A, which would re-renew the production indexer
+/// inside the test's wait window and race the expiry check. The
+/// oracle-node never touches a non-indexer address, so its renewal stays
+/// frozen and expiry is deterministic.
 #[tokio::test]
 #[serial(reo)]
 async fn eligibility_expires_after_period() -> Result<()> {
@@ -342,6 +359,10 @@ async fn eligibility_expires_after_period() -> Result<()> {
 
     eprintln!("=== ReoTestPlan 4.4: Eligibility Expires After Period ===");
 
+    // Synthetic address — never a real indexer, so the eligibility-oracle-node
+    // leaves it alone.
+    let subject = "0x00000000000000000000000000000000ee110044";
+
     let original_period = net.reo_eligibility_period()?;
     let original_validation = net.reo_validation_enabled()?;
 
@@ -350,23 +371,30 @@ async fn eligibility_expires_after_period() -> Result<()> {
     net.reo_set_eligibility_period(60)?;
     eprintln!("  Set eligibilityPeriod to 60s");
 
-    // Renew indexer
-    net.reo_renew_indexer(&net.indexer_address)?;
+    // Renew the synthetic subject. Verify the renewal recorded via direct
+    // state read rather than `isEligible`: a concurrent test in another
+    // group (e.g. `provision_lifecycle`'s `advance_time(thawing_period+60)`)
+    // can jump chain time mid-flight, aging the synthetic out of its 60s
+    // window before we check `isEligible` — making this intermediate
+    // assertion fail even though the renewal itself was fine.
+    net.reo_renew_indexer(subject)?;
+    let renewal_time = net.reo_renewal_time(subject)?;
     assert!(
-        net.reo_is_eligible(&net.indexer_address)?,
-        "Should be eligible immediately after renewal"
+        renewal_time > 0,
+        "Renewal should record a timestamp for the synthetic subject"
     );
 
-    // Advance past the 60s period
+    // Advance past the 60s period. The final expiry assertion below is
+    // robust to concurrent chain-time jumps — additional time only makes
+    // the subject more ineligible.
     net.advance_time(65).await?;
 
-    let eligible = net.reo_is_eligible(&net.indexer_address)?;
+    let eligible = net.reo_is_eligible(subject)?;
     eprintln!("  isEligible after 65s: {eligible}");
 
     // Restore BEFORE asserting to prevent state leakage on failure
     net.reo_set_eligibility_period(original_period)?;
     net.reo_set_validation(original_validation)?;
-    net.reo_renew_indexer(&net.indexer_address)?;
     eprintln!("  Restored period={original_period}s, validation={original_validation}");
 
     assert!(!eligible, "Should be ineligible after period expires");
@@ -471,9 +499,16 @@ async fn oracle_renewal_resets_timeout() -> Result<()> {
 
 // ── Cycle 7: Emergency Operations ──
 
-/// ReoTestPlan 7.1: Pause blocks writes, view functions still work.
+/// ReoTestPlan 7.1: Pause does not gate REO writes — only the pause
+/// state itself toggles. View functions keep working while paused.
 ///
-/// Pauses, verifies writes revert, reads still work, then unpauses.
+/// Verified against the audit-fix-3 REO ABI: neither `setEligibilityValidation`
+/// (OPERATOR_ROLE) nor `renewIndexerEligibility` (ORACLE_ROLE) carry a
+/// whenNotPaused modifier — pause is a signal for off-chain consumers, not a
+/// hard write gate. The previous version of this test mis-attributed
+/// access-control reverts to pause (it signed setEligibilityValidation with
+/// the deployer key, which holds ORACLE_ROLE+GOVERNOR_ROLE but NOT
+/// OPERATOR_ROLE, so the call reverted regardless of pause state).
 #[tokio::test]
 #[serial(reo)]
 async fn pause_blocks_writes() -> Result<()> {
@@ -486,7 +521,7 @@ async fn pause_blocks_writes() -> Result<()> {
         }
     };
 
-    eprintln!("=== ReoTestPlan 7.1: Pause Blocks Writes ===");
+    eprintln!("=== ReoTestPlan 7.1: Pause Does Not Gate REO Writes ===");
 
     // Pause
     net.reo_pause()?;
@@ -498,39 +533,40 @@ async fn pause_blocks_writes() -> Result<()> {
     eprintln!("  isEligible (while paused): {eligible}");
     // No assertion on the value — just that it doesn't revert
 
-    // Governance write should revert while paused
-    let gov_blocked = !net.cast_send_may_revert(
-        &net.account0_secret,
+    // Governance write — setEligibilityValidation requires OPERATOR_ROLE
+    // (held by the operator key, not the deployer).
+    let gov_ok = net.cast_send_may_revert(
+        &net.operator_secret,
         &reo,
         "setEligibilityValidation(bool)",
         &[if net.reo_validation_enabled()? { "true" } else { "false" }],
     )?;
-    eprintln!("  setEligibilityValidation while paused blocked: {gov_blocked}");
+    eprintln!("  setEligibilityValidation while paused succeeded: {gov_ok}");
 
-    // Oracle write (renewIndexerEligibility) may or may not be paused
-    // depending on the contract version
+    // Oracle write — renewIndexerEligibility requires ORACLE_ROLE (the
+    // deployer holds it via the local-network role grants in
+    // graph-contracts/run.sh; oracle key would work too).
     let array = format!("[{}]", net.indexer_address);
-    let renewal_blocked = !net.cast_send_may_revert(
-        &net.account0_secret,
+    let renewal_ok = net.cast_send_may_revert(
+        &net.deployer_secret,
         &reo,
         "renewIndexerEligibility(address[],bytes)",
         &[&array, "0x"],
     )?;
-    eprintln!("  renewIndexerEligibility while paused blocked: {renewal_blocked}");
+    eprintln!("  renewIndexerEligibility while paused succeeded: {renewal_ok}");
 
     // Unpause BEFORE asserting to prevent leaving contract paused on failure
     net.reo_unpause()?;
     assert!(!net.reo_is_paused()?, "Should be unpaused");
     eprintln!("  Unpaused: true");
 
-    // Writes should work again
+    // Writes should still work after unpause
     net.reo_renew_indexer(&net.indexer_address)?;
     eprintln!("  Renewal after unpause: OK");
 
-    assert!(
-        gov_blocked || renewal_blocked,
-        "At least one write function should revert while paused"
-    );
+    // Both writes succeed while paused — REO has no whenNotPaused guards.
+    assert!(gov_ok, "setEligibilityValidation should succeed while paused");
+    assert!(renewal_ok, "renewIndexerEligibility should succeed while paused");
 
     Ok(())
 }
@@ -646,6 +682,10 @@ async fn access_control_unauthorized() -> Result<()> {
 /// displaying unclaimable rewards.
 ///
 /// Saves and restores the original validation state.
+///
+/// Selected by the `reo-live` profile only — under baseline RM points at
+/// MockREO so reward views don't gate on REO-A's renewal-period mechanics
+/// and this assertion is meaningless.
 #[tokio::test]
 #[serial(reo)]
 async fn rewards_view_zero_for_ineligible() -> Result<()> {
@@ -679,9 +719,19 @@ async fn rewards_view_zero_for_ineligible() -> Result<()> {
     let rewards_eligible = net.rewards_pending(alloc_id)?;
     eprintln!("  Pending rewards (eligible): {rewards_eligible}");
 
-    // Make indexer ineligible: set short period and advance time
-    net.reo_set_eligibility_period(60)?;
-    net.advance_time(65).await?;
+    // Make indexer ineligible: shorten the period, then advance the chain
+    // past renewalTime + period. We advance by the actual gap rather than a
+    // fixed delta because renewIndexerEligibility can stamp renewalTime on a
+    // clock ahead of the block-header clock that advance_time moves (chain-time
+    // skew that accumulates on a long-lived or restored stack), in which case a
+    // fixed +65s never closes the gap and the indexer stays eligible.
+    let short_period = 60u64;
+    net.reo_set_eligibility_period(short_period)?;
+    let renewal = net.reo_renewal_time(&net.indexer_address)?;
+    let now = net.get_block_timestamp()?;
+    let advance = renewal.saturating_sub(now) + short_period + 30;
+    eprintln!("  advancing {advance}s (renewal={renewal} now={now}) to lapse eligibility");
+    net.advance_time(advance).await?;
 
     let ineligible = !net.reo_is_eligible(&net.indexer_address)?;
 

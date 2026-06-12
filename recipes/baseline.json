@@ -1,0 +1,15 @@
+{
+  "description": "Default local-network stack on the mainnet-deployed contract surface: the graph-contracts image deploys the protocol as it exists on mainnet (Phase 1/2 only — no REO / IssuanceAllocator / RecurringAgreementManager; Phase 3 skipped via GIP0088_ENABLED=0). Upstream stable image versions for all services; no rewards-eligibility or indexing-payments components. This is what `just up` gives a fresh checkout. Use the gip-0088 recipe for the post-audit GIP-0088 deployment.",
+  "fragments": [
+    "base.env",
+    "services.env",
+    "accounts-role-named.env"
+  ],
+  "env": {
+    "COMPOSE_PROFILES": "block-oracle,explorer"
+  },
+  "compose_files": [
+    "docker-compose.yaml"
+  ],
+  "test_profile": "default"
+}

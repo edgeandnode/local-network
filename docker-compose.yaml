@@ -1,3 +1,8 @@
+# Recipe-resolution sentinel. `LOCAL_NETWORK_RECIPE` is emitted into .env by
+# scripts/resolve-recipe.sh; if .env is absent or hand-edited without it, this
+# substitution halts compose with a clear pointer to `just resolve`.
+x-recipe-sentinel: ${LOCAL_NETWORK_RECIPE:?Run "just resolve" (or "just up [recipe]") first to generate .env from a recipe in recipes/}
+
 services:
   chain:
     container_name: chain
@@ -10,6 +15,7 @@ services:
     restart: on-failure:3
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
+    networks: [default, cross-stack]
 
   block-explorer:
     container_name: block-explorer
@@ -47,6 +53,7 @@ services:
         ipfs daemon
     healthcheck: { interval: 1s, retries: 50, test: ipfs id }
     restart: on-failure:3
+    networks: [default, cross-stack]
 
   postgres:
     container_name: postgres
@@ -92,7 +99,7 @@ services:
     build:
       context: containers/core/graph-contracts
       args:
-        CONTRACTS_COMMIT: ${CONTRACTS_COMMIT}
+        CONTRACTS_VERSION: ${CONTRACTS_VERSION}
     depends_on:
       chain: { condition: service_healthy }
     volumes:
@@ -135,6 +142,7 @@ services:
     platform: linux/amd64
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
+      subgraph-deploy: { condition: service_completed_successfully }
     ports: ["${INDEXER_MANAGEMENT_PORT}:7600"]
     stop_signal: SIGKILL
     volumes:
@@ -152,6 +160,7 @@ services:
       args:
         NETWORK_SUBGRAPH_COMMIT: ${NETWORK_SUBGRAPH_COMMIT}
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
+        INDEXING_PAYMENTS_SUBGRAPH_VERSION: ${INDEXING_PAYMENTS_SUBGRAPH_VERSION}
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
@@ -174,6 +183,7 @@ services:
   redpanda:
     container_name: redpanda
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+    user: root
     ports:
       - ${REDPANDA_KAFKA_EXTERNAL_PORT}:29092
       - ${REDPANDA_ADMIN_PORT}:9644
@@ -242,7 +252,7 @@ services:
     build:
       context: containers/core/gateway
       args:
-        GATEWAY_COMMIT: ${GATEWAY_COMMIT}
+        GATEWAY_VERSION: ${GATEWAY_VERSION}
     depends_on:
       indexer-service: { condition: service_healthy }
       redpanda: { condition: service_healthy }
@@ -270,6 +280,7 @@ services:
       subgraph-deploy: { condition: service_completed_successfully }
     ports:
       - "${INDEXER_SERVICE_PORT}:7601"
+      - "${INDEXER_SERVICE_DIPS_PORT}:${INDEXER_SERVICE_DIPS_PORT}"
     stop_signal: SIGKILL
     volumes:
       - ./shared:/opt/shared:ro
@@ -309,7 +320,7 @@ services:
     build:
       context: containers/oracles/eligibility-oracle-node
       args:
-        ELIGIBILITY_ORACLE_COMMIT: ${ELIGIBILITY_ORACLE_COMMIT}
+        ELIGIBILITY_ORACLE_NODE_VERSION: ${ELIGIBILITY_ORACLE_NODE_VERSION}
     depends_on:
       redpanda: { condition: service_healthy }
       gateway: { condition: service_healthy }
@@ -319,7 +330,7 @@ services:
       - config-local:/opt/config:ro
     environment:
       RUST_LOG: eligibility_oracle=debug
-      BLOCKCHAIN_PRIVATE_KEY: ${ACCOUNT0_SECRET}
+      BLOCKCHAIN_PRIVATE_KEY: ${DEPLOYER_SECRET}
     restart: on-failure:3
 
   iisa-scoring:
@@ -332,7 +343,7 @@ services:
       redpanda: { condition: service_healthy }
     environment:
       REDPANDA_BOOTSTRAP_SERVERS: "redpanda:9092"
-      REDPANDA_TOPIC: gateway_queries
+      REDPANDA_TOPIC: gateway_queries${KAFKA_TOPIC_ENVIRONMENT:+_${KAFKA_TOPIC_ENVIRONMENT}}
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
       IISA_SCORING_INTERVAL: "600"
     volumes:
@@ -414,3 +425,12 @@ volumes:
   redpanda-data:
   iisa-scores:
   config-local:
+
+# Network shared with per-test indexer compose projects (compose/test-indexer.yaml).
+# Only services that test stacks need to reach (chain, ipfs) attach to this. Services
+# the test stack runs its OWN copy of (graph-node, postgres, indexer-agent, etc.) stay
+# off cross-stack so the test container's DNS lookup resolves to its own instance.
+networks:
+  default:
+  cross-stack:
+    name: cross-stack

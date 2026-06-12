@@ -11,6 +11,7 @@
 
 use anyhow::Result;
 use local_network_tests::TestNetwork;
+use local_network_tests::polling::PollResult;
 use serial_test::serial;
 
 fn net() -> Result<TestNetwork> {
@@ -69,20 +70,32 @@ async fn provision_lifecycle() -> Result<()> {
     eprintln!("--- 3.3: Thaw from provision ---");
     net.provision_thaw(amount)?;
 
-    // Verify thawing state via subgraph
-    net.mine_blocks(2).await?;
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    let provisions = net.query_provisions(&net.indexer_address).await?;
-    let thawing = provisions
-        .as_array()
-        .and_then(|p| p.first())
-        .and_then(|p| p["tokensThawing"].as_str())
-        .unwrap_or("0");
+    // Verify thawing state via subgraph. The network subgraph indexes the
+    // Thaw event asynchronously, so poll until it catches up — a fixed
+    // mine-2-blocks/sleep-2s wait races graph-node's indexing and flakes.
+    let thawing = net
+        .poll_until(
+            std::time::Duration::from_secs(60),
+            std::time::Duration::from_secs(2),
+            || async {
+                net.mine_blocks(1).await?;
+                let provisions = net.query_provisions(&net.indexer_address).await?;
+                let thawing = provisions
+                    .as_array()
+                    .and_then(|p| p.first())
+                    .and_then(|p| p["tokensThawing"].as_str())
+                    .map(str::to_string);
+                Ok(thawing.filter(|t| t != "0"))
+            },
+        )
+        .await;
+    let thawing = match thawing {
+        PollResult::Ready(t) => t,
+        PollResult::TimedOut => {
+            panic!("tokensThawing should be non-zero after thaw (subgraph never indexed it)")
+        }
+    };
     eprintln!("  tokensThawing (subgraph): {thawing}");
-    assert!(
-        thawing != "0",
-        "tokensThawing should be non-zero after thaw"
-    );
 
     // Get thawing period
     let thawing_period = net.provision_thawing_period().await?;

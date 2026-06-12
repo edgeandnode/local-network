@@ -86,7 +86,7 @@ yarn test
 - The test script changes directories to `$INDEXER_AGENT_SOURCE_ROOT` during execution
 - Test output files are created in the directory where you run the script
 - After debugging, you might be in `$INDEXER_AGENT_SOURCE_ROOT` instead of the local-network root
-- Use absolute paths when in doubt: `/home/pablo/repos/local-network/scripts/test-indexer-agent.sh`
+- Use absolute paths when in doubt
 
 ### Understanding Test Output
 

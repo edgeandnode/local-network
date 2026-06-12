@@ -1,0 +1,18 @@
+{
+  "description": "gip-0088 + WIP indexing-payments overlay: dipper, IISA, indexing-payments subgraph, and dips-fork indexer-rs (indexer-service + tap-agent). Layers gip-0088.env (post-audit contract image, Phase 3 enabled) and indexing-payments.env on top of services.env. Profile set adds indexing-payments. Mock REO wired by default for tests; REO-A still deployed and available. NOTE: pins several `local` image tags (dips-fork indexer-agent/indexer-rs, dipper, indexing-payments subgraph) that must be built from their source repos — this recipe is not pull-and-run for a fresh checkout; baseline and gip-0088 are.",
+  "fragments": [
+    "base.env",
+    "services.env",
+    "gip-0088.env",
+    "indexing-payments.env",
+    "accounts-role-named.env",
+    "mock-reo.env"
+  ],
+  "env": {
+    "COMPOSE_PROFILES": "explorer,rewards-eligibility,indexing-payments"
+  },
+  "compose_files": [
+    "docker-compose.yaml"
+  ],
+  "test_profile": "gip-0088"
+}
