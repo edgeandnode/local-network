@@ -48,10 +48,12 @@ EOF
 recipe_arg=""
 out_path="$ROOT/.env"
 print_only=0
+print_recipe=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --out) out_path=$2; shift 2 ;;
     --print) print_only=1; shift ;;
+    --print-recipe) print_recipe=1; shift ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "unknown flag: $1" >&2; usage >&2; exit 2 ;;
     *) recipe_arg=$1; shift ;;
@@ -78,6 +80,13 @@ if [ ! -f "$recipe_file" ]; then
   echo "available:" >&2
   ls -1 "$RECIPES_DIR"/*.json 2>/dev/null | sed 's,.*/,  ,; s,\.json$,,' >&2
   exit 1
+fi
+
+# --print-recipe: just resolve the selected recipe name and exit (no .env
+# write). Lets other scripts share this single selection-precedence logic.
+if [ "$print_recipe" -eq 1 ]; then
+  printf '%s\n' "$recipe"
+  exit 0
 fi
 
 # --- Source fragments + apply overrides via a clean subshell ---

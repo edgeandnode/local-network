@@ -20,12 +20,21 @@
 
 set -euo pipefail
 
-IN=${1:-"_snapshots/current"}
 log() { echo "  $*" >&2; }
+
+# Default input is the fingerprint-resolved slot for the active recipe (FRESH
+# if inputs match, else the latest bake with a STALE warning). Pass an explicit
+# path to override.
+if [ -n "${1:-}" ]; then
+  IN=$1
+elif ! IN=$(./scripts/baseline-resolve.sh); then
+  echo "  bake one first:  just up && just bake-snapshot" >&2
+  exit 1
+fi
 
 if [ ! -d "$IN" ]; then
   echo "error: snapshot directory not found: $IN" >&2
-  echo "  run 'just bake-snapshot' first to create one." >&2
+  echo "  bake one first:  just up && just bake-snapshot" >&2
   exit 1
 fi
 if [ ! -f "$IN/manifest.json" ]; then
@@ -76,43 +85,51 @@ for v in $volumes; do
     sh -c 'cd /dst && tar -xzf -' < "$archive"
 done
 
-# Restore recipe selector if captured --------------------------------------
-[ -f "$IN/.recipe" ] && cp "$IN/.recipe" .recipe || true
-[ -f "$IN/.recipe.local" ] && cp "$IN/.recipe.local" .recipe.local || true
+# Align the recipe selector (gitignored .recipe.local) with the restored
+# recipe so later bare `just up` / `docker compose` use the matching env.
+printf '%s\n' "$recipe" > .recipe.local
 
-# Bring the stack back up --------------------------------------------------
-log "bringing stack up..."
-./scripts/resolve-recipe.sh >/dev/null
+# Bring the stack back up using the .env restored above — materialised at
+# bake time for THIS recipe. Do NOT re-resolve from the selector here: a
+# no-arg `resolve-recipe.sh` regenerates .env from .recipe and can switch
+# recipes out from under the restored volumes (the bug that brought a
+# restored reo-live snapshot up as indexing-payments — mock REO + dips
+# against reo-live state). If the snapshot had no .env, line ~62 already
+# resolved it from the manifest recipe.
+log "bringing stack up (recipe=$recipe)..."
 docker compose --env-file .env up -d 2>&1 | grep -E "Started|Created|Error" >&2 || true
 
-# Advance chain time to host wall clock if behind ---------------------------
-# After restore, anvil's last block timestamp is whatever was on chain at bake
-# time — possibly hours or days behind real-world time. Off-chain components
-# log in real time, so a chain stuck in the past confuses receipts, log
-# correlation, period-expiry tests, etc. Push chain time forward to host
-# wall clock. Forward-only: evm_setNextBlockTimestamp rejects backward moves,
-# so on the rare case where host clock is *behind* chain time (clock skew,
-# bake-on-faster-machine), we skip.
-log "checking chain time vs host clock..."
-# Wait briefly for chain RPC to be responsive.
+# Realign chain time after restore -----------------------------------------
+# The resumed chain restarts near real wall-clock, but the restored contract
+# state can hold timestamps far ahead of that: tests advance chain time via
+# evm_increaseTime, and that offset doesn't survive the node restart. Left
+# alone, stored timestamps (eligibility renewals, thaw deadlines, escrow, …)
+# sit "in the future" relative to the block clock — block.timestamp never
+# catches up, so period/expiry logic silently misbehaves.
+#
+# Advance the block clock to max(host wall-clock, baked chain head) + buffer:
+# never behind any restored on-chain timestamp, and at least real time so
+# off-chain components stay coherent. Forward-only by construction.
+log "realigning chain time..."
 for _ in 1 2 3 4 5; do
-  if docker exec chain cast block-number --rpc-url=http://127.0.0.1:8545 >/dev/null 2>&1; then
-    break
-  fi
+  docker exec chain cast block-number --rpc-url=http://127.0.0.1:8545 >/dev/null 2>&1 && break
   sleep 2
 done
 current_chain_ts=$(docker exec chain sh -c "cast block latest --rpc-url=http://127.0.0.1:8545" 2>/dev/null \
   | awk '/^timestamp/ {print $2; exit}')
+baked_head=$(jq -r '.chain_head_ts // 0' "$IN/manifest.json")
 host_ts=$(date -u +%s)
+target=$host_ts
+[ "$baked_head" -gt "$target" ] 2>/dev/null && target=$baked_head
+target=$((target + 10)) # buffer past the last baked block
 if [ -z "$current_chain_ts" ] || ! [ "$current_chain_ts" -eq "$current_chain_ts" ] 2>/dev/null; then
   log "couldn't read chain timestamp — skipping time alignment"
-elif [ "$host_ts" -gt "$current_chain_ts" ]; then
-  delta=$((host_ts - current_chain_ts))
-  log "advancing chain time by ${delta}s ($current_chain_ts → $host_ts)"
-  docker exec chain sh -c "cast rpc evm_setNextBlockTimestamp $host_ts --rpc-url=http://127.0.0.1:8545" >/dev/null 2>&1
+elif [ "$target" -gt "$current_chain_ts" ]; then
+  log "advancing chain time $current_chain_ts → $target (host=$host_ts baked_head=$baked_head)"
+  docker exec chain sh -c "cast rpc evm_setNextBlockTimestamp $target --rpc-url=http://127.0.0.1:8545" >/dev/null 2>&1
   docker exec chain sh -c "cast rpc anvil_mine 0x1 --rpc-url=http://127.0.0.1:8545" >/dev/null 2>&1
 else
-  log "chain time already at or ahead of host clock (chain=$current_chain_ts host=$host_ts) — no adjustment"
+  log "chain time $current_chain_ts already ≥ target $target — no adjustment"
 fi
 
 echo "Restored snapshot from $IN" >&2

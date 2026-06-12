@@ -11,5 +11,6 @@
   },
   "compose_files": [
     "docker-compose.yaml"
-  ]
+  ],
+  "test_profile": "default"
 }

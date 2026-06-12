@@ -23,8 +23,39 @@
 
 set -euo pipefail
 
-OUT=${1:-"_snapshots/current"}
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# --force/--rebake bakes even on a cache hit; a positional arg is an explicit
+# output dir (bypasses fingerprint keying entirely).
+force=0
+out_arg=""
+for a in "$@"; do
+  case "$a" in
+    --force | --rebake) force=1 ;;
+    *) out_arg=$a ;;
+  esac
+done
+
+# Recipe the running stack was brought up with — read from the materialised
+# .env (its LOCAL_NETWORK_RECIPE sentinel) so the snapshot is keyed to what's
+# actually running. Falls back to the recipe selector, then "baseline".
+recipe=$(grep -E '^LOCAL_NETWORK_RECIPE=' .env 2>/dev/null | head -1 | cut -d'"' -f2)
+[ -z "$recipe" ] && recipe=$(./scripts/resolve-recipe.sh --print-recipe 2>/dev/null || echo baseline)
+
+# Fingerprint the inputs that produced this stack, and slot the snapshot under
+# _snapshots/<recipe>/<fingerprint>/ so distinct states (branches, contract
+# bumps, mode toggles) coexist and a stale cache can't be silently reused. An
+# explicit positional path overrides the keyed slot.
+fp=$(./scripts/baseline-fingerprint.sh "$recipe")
+OUT=${out_arg:-"_snapshots/$recipe/$fp"}
+
+# Cache hit: this exact fingerprint is already baked — skip unless --force.
+if [ -z "$out_arg" ] && [ "$force" -eq 0 ] && [ -f "$OUT/manifest.json" ]; then
+  echo "cache hit: recipe '$recipe' fingerprint '$fp' already baked at $OUT" >&2
+  echo "  (nothing changed since the last bake; use --force to rebake)" >&2
+  echo "$OUT"
+  exit 0
+fi
 
 # Volumes we know about (compose-declared). Ordered roughly by importance.
 VOLUMES=(
@@ -51,12 +82,6 @@ esac
 
 mkdir -p "$OUT"
 
-# Resolve recipe + project --------------------------------------------------
-recipe=""
-[ -f .recipe.local ] && recipe=$(head -n1 .recipe.local | tr -d '[:space:]')
-[ -z "$recipe" ] && [ -f .recipe ] && recipe=$(head -n1 .recipe | tr -d '[:space:]')
-[ -z "$recipe" ] && recipe="baseline"
-
 # Project name — compose uses the directory name by default. Capture it
 # from a known container's labels rather than guessing.
 project=$(docker inspect chain --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null || echo "local-network")
@@ -66,6 +91,16 @@ git_dirty="false"
 git diff-index --quiet HEAD -- 2>/dev/null || git_dirty="true"
 
 log "recipe=$recipe project=$project sha=$git_sha dirty=$git_dirty"
+
+# Chain head timestamp at bake time (while the chain is still up). Tests can
+# advance chain time far past real time via evm_increaseTime, so contract
+# storage may hold timestamps well ahead of wall-clock. Restore uses this to
+# advance the resumed chain past them, so no on-chain timestamp ends up "in
+# the future" relative to the block clock after restart.
+chain_head_ts=$(docker exec chain cast block latest --field timestamp \
+  --rpc-url=http://127.0.0.1:8545 2>/dev/null | tr -dc '0-9' || true)
+[ -z "$chain_head_ts" ] && chain_head_ts=0
+log "chain_head_ts=$chain_head_ts"
 
 # Stop services for consistent capture --------------------------------------
 log "stopping stack for consistent volume capture..."
@@ -108,6 +143,8 @@ cp .env "$OUT/.env" 2>/dev/null || true
   echo "{"
   echo "  \"baked_at\": \"$TS\","
   echo "  \"recipe\": \"$recipe\","
+  echo "  \"fingerprint\": \"$fp\","
+  echo "  \"chain_head_ts\": $chain_head_ts,"
   echo "  \"project\": \"$project\","
   echo "  \"git_sha\": \"$git_sha\","
   echo "  \"git_dirty\": $git_dirty,"
@@ -125,6 +162,12 @@ cp .env "$OUT/.env" 2>/dev/null || true
   echo "  \"images_file\": \"images.txt\""
   echo "}"
 } > "$OUT/manifest.json"
+
+# Record this fingerprint as the recipe's latest bake (used as the STALE
+# fallback by baseline-resolve.sh). Only for fingerprint-keyed slots.
+if [ -z "$out_arg" ]; then
+  printf '%s\n' "$fp" > "_snapshots/$recipe/latest"
+fi
 
 # Resume the stack ----------------------------------------------------------
 log "restarting stack..."

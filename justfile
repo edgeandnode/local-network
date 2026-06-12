@@ -55,14 +55,19 @@ dump-state *args:
     ./scripts/dump-state.sh {{args}}
 
 # Snapshot the running stack for fast restore later.
-# Default output: _snapshots/current/. Stack must be up + healthy + ready.
+# Default output: _snapshots/<active-recipe>/. Stack must be up + healthy + ready.
 bake-snapshot *args:
     ./scripts/bake-snapshot.sh {{args}}
 
 # Restore the stack from a previously-baked snapshot. Destructive on the
-# named volumes — wipes current state. Default input: _snapshots/current/.
+# named volumes — wipes current state. Default: the fingerprint-resolved slot
+# for the active recipe (FRESH if inputs match, else latest with a STALE warning).
 restore-snapshot *args:
     ./scripts/restore-snapshot.sh {{args}}
+
+# List baked baselines (recipe / fingerprint / age / size; * = current fingerprint).
+baseline-list:
+    ./scripts/baseline-list.sh
 
 # Mine N blocks (default 1), advancing time by 12s per block
 mine count="1":
@@ -113,3 +118,12 @@ stop-orphans:
 # Run integration tests (forwards args to tests/justfile)
 test *args:
     just -f tests/justfile test {{args}}
+
+# Run a recipe's test set from a CLEAN baked baseline: resolve recipe →
+# restore _snapshots/<recipe>/ → nextest with the recipe's test_profile.
+# Reset hygiene so runs don't drift on accumulated stack state. Bake first
+# with `just up <recipe> && just bake-snapshot`.
+#   just test-set                 # active recipe
+#   just test-set reo-live        # explicit recipe (+ extra nextest args)
+test-set *args:
+    ./scripts/test-set.sh {{args}}

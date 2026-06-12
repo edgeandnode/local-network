@@ -18,9 +18,12 @@
 # (in-process locking) doesn't provide cross-process serialization;
 # nextest test-groups with max-threads = 1 do.
 #
-# Group mapping (keep in sync with #[serial(...)] annotations in tests):
+# Group membership is binary-scoped and fail-safe: each group serializes a
+# whole binary and opts OUT only proven read-/revert-only tests, so a newly
+# added mutating test is serialized by default (forgetting the opt-out costs
+# parallelism, never a state race).
 #   alloc    — allocation lifecycle, denial, rewards conditions, eligibility
-#   reo      — REO governance config mutations
+#   reo      — REO governance (reo_governance binary)
 #   staking  — stake and provision management
 #   (none)   — read-only / revert-only tests run freely in parallel
 
@@ -39,6 +42,17 @@ max-threads = 1
 # require RewardsManager to point at REO-A (only true under reo-live).
 
 [profile.default]
+# Reliability floor (inherited by the main / reo-live profiles for any key
+# they don't override). These are E2E tests on a live stack: a per-test
+# IndexerHandle bring-up plus epoch/time advances legitimately runs a few
+# minutes (eligibility_lifecycle ~220s), so the threshold is generous — it
+# exists to kill a genuinely hung test (e.g. a close stuck on a stalled
+# agent) that would otherwise block its serial group forever, not to police
+# slow-but-healthy runs. No `retries`: these tests mutate shared chain state,
+# so a blind re-run can mask real flakiness rather than surface it; transient
+# bring-up errors are already retried in-process (see indexer.rs).
+slow-timeout = { period = "120s", terminate-after = 5 }
+
 default-filter = """
 not (
     test(=eligibility_lifecycle)
@@ -59,19 +73,18 @@ filter = """binary(~allocation_lifecycle) \
   | (binary(~rewards_conditions) - test(=reclaim_unauthorized_reverts))"""
 test-group = "alloc"
 
-# reo group: REO governance config mutations (not reads/reverts).
+# reo group: REO governance state mutations. Serialize the whole
+# reo_governance binary by default and opt OUT only the proven read- /
+# revert-only tests (which mutate nothing). This is fail-safe: a newly
+# added governance test serializes automatically — forgetting the list
+# costs a little parallelism, never a state race. (rewards_manager_integration
+# / rewards_view_zero_for_ineligible are reo-live-only and filtered out of
+# this profile, so they're harmless here.)
 [[profile.default.overrides]]
-filter = """test(=contract_not_paused) \
-  | test(=renew_single_indexer) \
-  | test(=batch_renewal) \
-  | test(=zero_address_skipped) \
-  | test(=oracle_renewal_resets_timeout) \
-  | test(=enable_validation_eligible_stays) \
-  | test(=eligibility_expires_after_period) \
-  | test(=timeout_failopen) \
-  | test(=pause_blocks_writes) \
-  | test(=disable_validation_emergency) \
-  | test(=rewards_view_zero_for_ineligible)"""
+filter = """binary(~reo_governance) \
+  - test(=deployment_parameters) \
+  - test(=unauthorized_renewal_reverts) \
+  - test(=access_control_unauthorized)"""
 test-group = "reo"
 
 # staking group: stake and provision management.

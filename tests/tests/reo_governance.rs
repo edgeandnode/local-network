@@ -719,9 +719,19 @@ async fn rewards_view_zero_for_ineligible() -> Result<()> {
     let rewards_eligible = net.rewards_pending(alloc_id)?;
     eprintln!("  Pending rewards (eligible): {rewards_eligible}");
 
-    // Make indexer ineligible: set short period and advance time
-    net.reo_set_eligibility_period(60)?;
-    net.advance_time(65).await?;
+    // Make indexer ineligible: shorten the period, then advance the chain
+    // past renewalTime + period. We advance by the actual gap rather than a
+    // fixed delta because renewIndexerEligibility can stamp renewalTime on a
+    // clock ahead of the block-header clock that advance_time moves (chain-time
+    // skew that accumulates on a long-lived or restored stack), in which case a
+    // fixed +65s never closes the gap and the indexer stays eligible.
+    let short_period = 60u64;
+    net.reo_set_eligibility_period(short_period)?;
+    let renewal = net.reo_renewal_time(&net.indexer_address)?;
+    let now = net.get_block_timestamp()?;
+    let advance = renewal.saturating_sub(now) + short_period + 30;
+    eprintln!("  advancing {advance}s (renewal={renewal} now={now}) to lapse eligibility");
+    net.advance_time(advance).await?;
 
     let ineligible = !net.reo_is_eligible(&net.indexer_address)?;
 

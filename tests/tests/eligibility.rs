@@ -11,6 +11,7 @@
 
 use anyhow::{Context, Result};
 use local_network_tests::TestNetwork;
+use local_network_tests::dump::dump_on_failure;
 use local_network_tests::indexer::IndexerHandle;
 
 fn net() -> Result<TestNetwork> {
@@ -38,7 +39,12 @@ async fn eligibility_lifecycle() -> Result<()> {
         return Ok(());
     }
     let indexer = IndexerHandle::new("eligibility").await?;
+    // Snapshot the live stack if the body fails unexpectedly, before the
+    // IndexerHandle Drop tears the per-test stack down.
+    dump_on_failure("eligibility_lifecycle", lifecycle(&net, &indexer)).await
+}
 
+async fn lifecycle(net: &TestNetwork, indexer: &IndexerHandle) -> Result<()> {
     let deployments = net.query_deployments_with_signal().await?;
     let deployment = deployments
         .as_array()
@@ -46,6 +52,19 @@ async fn eligibility_lifecycle() -> Result<()> {
         .and_then(|d| d["ipfsHash"].as_str())
         .context("no signaled deployments")?
         .to_string();
+
+    // Widen the eligibility period for the whole test. The agent's close
+    // pipeline mines many blocks (12s of chain time each), so a default 300s
+    // window can lapse between a renewal and the collect tx inside a single
+    // close — making the post-renew closes (Set 2 / Set 4 / the Set 3→4
+    // cleanup) intermittently revert with "not eligible for rewards". A wider
+    // window (1h ≫ a close's worth of blocks) can't be outrun by one close;
+    // Set 3 still proves expiry by advancing a single jump (advance_time) past
+    // it. Stay well BELOW the oracle-update timeout (86400s) — expiring that
+    // instead trips REO-A's fail-open (oracle-down ⇒ everyone eligible), which
+    // would defeat Set 3. Restored at the end.
+    let default_period = net.reo_eligibility_period()?;
+    net.reo_set_eligibility_period(3_600)?;
 
     // ── Set 2: Eligible → close → rewards > 0 ──
     eprintln!("=== Set 2: Eligible indexer closes allocation ===");
@@ -102,7 +121,7 @@ async fn eligibility_lifecycle() -> Result<()> {
     // Deny-by-default: closeAllocation reverts when ineligible (the agent's
     // multicall calls collect, which checks REO.isEligible and reverts if
     // false). Verify the revert + that no rewards landed in stake.
-    let stake_before = indexer.staked_tokens(&net)?;
+    let stake_before = indexer.staked_tokens(net)?;
     let close_err = match indexer.close_allocation(&alloc_id).await {
         Err(e) => e,
         Ok(ok) => panic!("Set 3: expected close to revert for ineligible indexer, got {ok}"),
@@ -113,7 +132,7 @@ async fn eligibility_lifecycle() -> Result<()> {
         "Set 3: expected eligibility error, got: {close_msg}",
     );
     eprintln!("  Set 3: close correctly reverted with eligibility error");
-    let stake_after = indexer.staked_tokens(&net)?;
+    let stake_after = indexer.staked_tokens(net)?;
     assert!(
         stake_after <= stake_before,
         "Set 3: stake should not change when rewards are denied (before={stake_before} after={stake_after})",
@@ -154,6 +173,11 @@ async fn eligibility_lifecycle() -> Result<()> {
         .parse()
         .unwrap_or(0.0);
     eprintln!("  Set 4 rewards: {recovery_rewards:.2} GRT");
+
+    // Restore the eligibility period before asserting, so a failed assertion
+    // doesn't leak the widened window to later tests in the serial group.
+    net.reo_set_eligibility_period(default_period)?;
+
     assert!(
         recovery_rewards > 0.0,
         "Set 4: re-eligible indexer should receive rewards",

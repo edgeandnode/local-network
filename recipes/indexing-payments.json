@@ -7,9 +7,11 @@
     "accounts-role-named.env",
     "mock-reo.env"
   ],
-  "env": {    "COMPOSE_PROFILES": "explorer,rewards-eligibility,indexing-payments"
+  "env": {
+    "COMPOSE_PROFILES": "explorer,rewards-eligibility,indexing-payments"
   },
   "compose_files": [
     "docker-compose.yaml"
-  ]
+  ],
+  "test_profile": "default"
 }
