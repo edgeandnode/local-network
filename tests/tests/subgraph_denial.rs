@@ -59,7 +59,6 @@ async fn test_deployment_id(net: &TestNetwork) -> Result<String> {
 /// Restores the original denial state after testing.
 #[tokio::test]
 #[serial(alloc)]
-#[ignore = "graph-network deployment becomes unavailable mid-suite on gip-88 (TODO: triage)"]
 async fn denial_state_management() -> Result<()> {
     let net = net()?;
 
@@ -139,7 +138,6 @@ async fn denial_state_management() -> Result<()> {
 /// Restores the original state after testing.
 #[tokio::test]
 #[serial(alloc)]
-#[ignore = "graph-network deployment becomes unavailable mid-suite on gip-88 (TODO: triage)"]
 async fn accumulator_freeze_and_reclaim() -> Result<()> {
     let net = net()?;
 
@@ -336,7 +334,6 @@ async fn denial_lifecycle() -> Result<()> {
 /// Verify accumulators handle quick transitions correctly.
 #[tokio::test]
 #[serial(alloc)]
-#[ignore = "graph-network deployment becomes unavailable mid-suite on gip-88 (TODO: triage)"]
 async fn edge_rapid_deny_undeny() -> Result<()> {
     let net = net()?;
 

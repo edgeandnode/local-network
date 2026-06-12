@@ -21,7 +21,7 @@ fn net() -> Result<TestNetwork> {
 
 /// BaselineTestPlan 4.2 + 5.2: create → advance → close → recreate.
 #[tokio::test]
-#[ignore = "createAllocation hits 'nonce has already been used' on a per-test agent — looks like a chain-side nonce race vs indexer-agent's tx pipeline (TODO: triage)"]
+#[serial(alloc)]
 async fn close_and_recreate_allocation() -> Result<()> {
     let net = net()?;
     let indexer = IndexerHandle::new("close-recreate").await?;
@@ -62,17 +62,21 @@ async fn close_and_recreate_allocation() -> Result<()> {
 
     // The agent's pre-flight check for createAllocation queries its own state
     // for active allocations on the deployment. Even after a successful close,
-    // the agent's view can lag a few seconds. Poll until the closed allocation
-    // is no longer reported active.
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    // the network subgraph view (which the agent re-queries on createAllocation)
+    // can lag a few seconds behind the close tx. Poll until the closed
+    // allocation is no longer reported active.
+    //
+    // `indexerAllocations` filters to status=Active server-side and nests the
+    // deployment as { id, stakedTokens, signalledTokens } — match on the
+    // nested .id.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
     loop {
         let allocs = indexer.get_allocations().await?;
         let still_active = allocs
             .as_array()
             .map(|a| {
                 a.iter().any(|alloc| {
-                    alloc["closedAtEpoch"].is_null()
-                        && alloc["subgraphDeployment"].as_str() == Some(deployment.as_str())
+                    alloc["subgraphDeployment"]["id"].as_str() == Some(deployment.as_str())
                 })
             })
             .unwrap_or(false);
@@ -96,7 +100,7 @@ async fn close_and_recreate_allocation() -> Result<()> {
 /// BaselineTestPlan 5.2: agent-mediated close (collect+stopService multicall)
 /// produces non-zero indexingRewards.
 #[tokio::test]
-#[ignore = "allocation doesn't show as Closed in the network subgraph after agent-mediated close — likely subgraph indexing lag (TODO: increase wait or assert via on-chain state)"]
+#[serial(alloc)]
 async fn close_allocation_collects_rewards() -> Result<()> {
     let net = net()?;
     let indexer = IndexerHandle::new("close-collects").await?;

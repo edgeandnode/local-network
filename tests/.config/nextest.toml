@@ -18,12 +18,14 @@ max-threads = 1
 [test-groups.staking]
 max-threads = 1
 
-# alloc group: allocation lifecycle, reward collection, eligibility,
-# subgraph denial, and rewards conditions (except revert-only tests)
+# alloc group: every test that brings up its own per-test IndexerHandle stack.
+# Serialized because each stack pulls up a fresh postgres+graph-node+agent and
+# concurrent bring-ups race for the graph-node healthcheck window.
 [[profile.default.overrides]]
 filter = """binary(~allocation_lifecycle) \
   | binary(~reward_collection) \
   | binary(~eligibility) \
+  | binary(~indexer_handle_smoke) \
   | binary(~subgraph_denial) \
   | (binary(~rewards_conditions) - test(=reclaim_unauthorized_reverts))"""
 test-group = "alloc"

@@ -43,8 +43,8 @@ impl IndexerHandle {
 
         let (mnemonic, address, secret) = generate_wallet()?;
         let project_name = format!("local-network-test-{}", sanitize(test_id));
-        let agent_container = format!("{project_name}-indexer-agent-1");
-        let graph_node_container = format!("{project_name}-graph-node-1");
+        let agent_container = format!("{project_name}-test-indexer-agent-1");
+        let graph_node_container = format!("{project_name}-test-graph-node-1");
         let management_url = format!("http://{agent_container}:7600");
         let subgraph_url =
             format!("http://{graph_node_container}:8000/subgraphs/name/graph-network");
@@ -137,7 +137,7 @@ impl IndexerHandle {
 
     /// Poll the agent container's healthcheck until healthy or `timeout` elapses.
     fn wait_for_agent_healthy(&self, timeout: Duration) -> Result<()> {
-        let container = format!("{}-indexer-agent-1", self.project_name);
+        let container = format!("{}-test-indexer-agent-1", self.project_name);
         let start = Instant::now();
         let mut last_status = String::new();
         loop {
@@ -237,7 +237,10 @@ impl IndexerHandle {
         // to settle after a close, especially on chains that have been
         // advanced by other tests. The wrapper keeps retrying transient
         // errors so callers don't have to special-case the agent's recovery.
-        let deadline = Instant::now() + Duration::from_secs(180);
+        // Upstream agent's transactions.ts sleeps 30s internally on nonce
+        // errors before returning IE058, so each effective retry costs ~30s.
+        // 300s ≈ 9-10 attempts, enough to outwait the agent's tx pipeline.
+        let deadline = Instant::now() + Duration::from_secs(300);
         loop {
             match self.management_query(&query).await {
                 Ok(resp) => {
@@ -263,25 +266,49 @@ impl IndexerHandle {
     /// Close an allocation. The `force=true` path needs an explicit block
     /// number from the indexer's own graph-node (otherwise auto-resolution
     /// returns null).
+    ///
+    /// Retries on transient agent-state errors: "No active allocation with
+    /// provided id found" appears when the agent's allocation cache hasn't
+    /// caught up to the chain yet (the per-test graph-node lags the chain
+    /// after epoch advancement), and the chain-side nonce errors that the
+    /// agent's tx pipeline can produce under load.
     pub async fn close_allocation(&self, allocation_id: &str) -> Result<Value> {
-        let block_number = self.subgraph_block_number().await?;
-        let query = format!(
-            r#"mutation {{
-                closeAllocation(
-                    allocation: "{allocation_id}",
-                    blockNumber: {block_number},
-                    force: true,
-                    protocolNetwork: "{PROTOCOL_NETWORK}"
-                ) {{
-                    allocation allocatedTokens indexingRewards
-                }}
-            }}"#
-        );
-        let resp = self.management_query(&query).await?;
-        resp["data"]["closeAllocation"]
-            .as_object()
-            .context("closeAllocation returned null")?;
-        Ok(resp["data"]["closeAllocation"].clone())
+        // 300s budget — see comment on create_allocation; the agent's upstream
+        // transactions.ts sleeps 30s on nonce errors so each retry is expensive.
+        let deadline = Instant::now() + Duration::from_secs(300);
+        loop {
+            let block_number = self.subgraph_block_number().await?;
+            let query = format!(
+                r#"mutation {{
+                    closeAllocation(
+                        allocation: "{allocation_id}",
+                        blockNumber: {block_number},
+                        force: true,
+                        protocolNetwork: "{PROTOCOL_NETWORK}"
+                    ) {{
+                        allocation allocatedTokens indexingRewards
+                    }}
+                }}"#
+            );
+            match self.management_query(&query).await {
+                Ok(resp) => {
+                    resp["data"]["closeAllocation"]
+                        .as_object()
+                        .context("closeAllocation returned null")?;
+                    return Ok(resp["data"]["closeAllocation"].clone());
+                }
+                Err(e) => {
+                    let msg = format!("{e:#}");
+                    let transient = msg.contains("No active allocation with provided id found")
+                        || msg.contains("nonce has already been used");
+                    if !transient || Instant::now() >= deadline {
+                        return Err(e);
+                    }
+                    eprintln!("[close_allocation] transient error, retrying: {msg}");
+                    tokio::time::sleep(Duration::from_secs(3)).await;
+                }
+            }
+        }
     }
 
     /// List allocations known to this indexer's management API.

@@ -193,7 +193,6 @@ async fn reclaim_unauthorized_reverts() -> Result<()> {
 /// Saves and restores the original threshold.
 #[tokio::test]
 #[serial(alloc)]
-#[ignore = "graph-network deployment becomes unavailable mid-suite on gip-88 (TODO: triage)"]
 async fn below_minimum_signal_lifecycle() -> Result<()> {
     let net = net()?;
 
@@ -315,7 +314,6 @@ async fn below_minimum_signal_lifecycle() -> Result<()> {
 /// allocation resumes from stored baseline.
 #[tokio::test]
 #[serial(alloc)]
-#[ignore = "graph-network deployment becomes unavailable mid-suite on gip-88 (TODO: triage)"]
 async fn zero_allocated_tokens_lifecycle() -> Result<()> {
     let net = net()?;
 
@@ -551,7 +549,6 @@ async fn poi_allocation_too_young() -> Result<()> {
 /// and returns consistent values.
 #[tokio::test]
 #[serial(alloc)]
-#[ignore = "graph-network deployment becomes unavailable mid-suite on gip-88 (TODO: triage)"]
 async fn observability_accumulator_growth() -> Result<()> {
     let net = net()?;
 
