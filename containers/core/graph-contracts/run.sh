@@ -372,6 +372,32 @@ if [ -n "${reo_address:-}" ]; then
   fi
 fi
 
+# Grant AGREEMENT_MANAGER_ROLE to the dipper signer (DEPLOYER) — the indexer's DIPs
+# trust gate only accepts proposals from a role holder. Admin chain is GOVERNOR ->
+# OPERATOR -> AGREEMENT_MANAGER, none held post-deploy, so grant both. Idempotent.
+if [ -n "${ram_address:-}" ]; then
+  operator_role=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" "${ram_address}" "OPERATOR_ROLE()(bytes32)")
+  am_role=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" "${ram_address}" "AGREEMENT_MANAGER_ROLE()(bytes32)")
+
+  op_has=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" "${ram_address}" \
+    "hasRole(bytes32,address)(bool)" "${operator_role}" "${OPERATOR_ADDRESS}" 2>/dev/null || echo false)
+  if [ "$op_has" != "true" ]; then
+    echo "  Granting OPERATOR_ROLE on RAM to ${OPERATOR_ADDRESS} (signed by GOVERNOR)"
+    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --private-key="${GOVERNOR_SECRET}" \
+      "${ram_address}" "grantRole(bytes32,address)" "${operator_role}" "${OPERATOR_ADDRESS}"
+  fi
+
+  am_has=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" "${ram_address}" \
+    "hasRole(bytes32,address)(bool)" "${am_role}" "${DEPLOYER_ADDRESS}" 2>/dev/null || echo false)
+  if [ "$am_has" = "true" ]; then
+    echo "  AGREEMENT_MANAGER_ROLE already granted to ${DEPLOYER_ADDRESS}"
+  else
+    echo "  Granting AGREEMENT_MANAGER_ROLE to ${DEPLOYER_ADDRESS} (dipper signer, signed by OPERATOR)"
+    cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --private-key="${OPERATOR_SECRET}" \
+      "${ram_address}" "grantRole(bytes32,address)" "${am_role}" "${DEPLOYER_ADDRESS}"
+  fi
+fi
+
 # -- Optional: wire MockRewardsEligibilityOracle as RM's providerEligibilityOracle --
 # REO_MOCK=1 (default in .env) replaces REO-A with the mock so tests can
 # self-toggle eligibility (mock.setEligible(bool) signed by indexer's own key).
