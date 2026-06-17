@@ -1,22 +1,30 @@
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim AS builder
 ARG BLOCK_ORACLE_COMMIT
 
-# Runtime + build dependencies
 RUN apt-get update \
-  && apt-get install -y curl git jq libssl-dev pkg-config build-essential \
+  && apt-get install -y curl git libssl-dev pkg-config build-essential \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Rust and build block-oracle binary
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+ENV PATH="/root/.cargo/bin:${PATH}"
 
-WORKDIR /opt
+WORKDIR /build
 RUN git clone https://github.com/graphprotocol/block-oracle && \
-  cd block-oracle && git checkout ${BLOCK_ORACLE_COMMIT} && . ~/.bashrc && cargo build -p block-oracle && \
-  cp target/debug/block-oracle . && rm -rf target
+  cd block-oracle && git checkout ${BLOCK_ORACLE_COMMIT}
 
-# Clean up build-only dependencies
-RUN apt-get purge -y pkg-config build-essential git && apt-get autoremove -y && \
-  rm -rf /var/lib/apt/lists/*
+WORKDIR /build/block-oracle
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cargo/git \
+    --mount=type=cache,target=/build/block-oracle/target \
+    cargo build -p block-oracle && \
+    cp target/debug/block-oracle /usr/local/bin/block-oracle
 
+FROM debian:bookworm-slim
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl jq libssl3 ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/local/bin/block-oracle /usr/local/bin/block-oracle
+WORKDIR /opt
 COPY --chmod=755 ./run.sh /opt/run.sh
 ENTRYPOINT ["bash", "/opt/run.sh"]
