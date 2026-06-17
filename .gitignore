@@ -30,6 +30,9 @@ Thumbs.db
 # Rust build artifacts
 tests/target/
 
+# Generated compose overrides (scripts/gen-extra-indexers.py)
+compose/extra-indexers.yaml
+
 # State dumps from scripts/dump-state.sh (captured for offline debugging)
 _dumps/
 
