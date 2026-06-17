@@ -156,4 +156,36 @@ do
   sleep 2
 done
 
+# Authorize the dipper signer (DEPLOYER) on RecurringCollector. It uses the
+# Authorizable pattern: an unauthorized signer's EIP-712 RCA is rejected on-chain
+# with RecurringCollectorInvalidSigner(), so DIPs acceptance fails without this.
+recurring_collector=$(contract_addr RecurringCollector.address horizon 2>/dev/null) || recurring_collector=""
+if [ -n "$recurring_collector" ]; then
+  is_authorized=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
+    "${recurring_collector}" 'isAuthorized(address,address)(bool)' \
+    "${DEPLOYER_ADDRESS}" "${DEPLOYER_ADDRESS}" 2>/dev/null) || is_authorized="false"
+  if [ "$is_authorized" = "true" ]; then
+    elapsed "DEPLOYER already authorized on RecurringCollector"
+  else
+    elapsed "Authorizing DEPLOYER as signer on RecurringCollector..."
+    proof_deadline=$(($(date +%s) + 86400))
+    msg_hash=$(cast keccak "$(cast abi-encode --packed 'f(uint256,address,string,uint256,address)' \
+      "${CHAIN_ID}" "${recurring_collector}" 'authorizeSignerProof' "${proof_deadline}" "${DEPLOYER_ADDRESS}")")
+    proof=$(cast wallet sign --private-key="${DEPLOYER_SECRET}" "${msg_hash}")
+    if cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 --private-key="${DEPLOYER_SECRET}" \
+      "${recurring_collector}" 'authorizeSigner(address,uint256,bytes)' \
+      "${DEPLOYER_ADDRESS}" "${proof_deadline}" "${proof}"; then
+      elapsed "DEPLOYER authorized on RecurringCollector"
+    else
+      elapsed "WARNING: Failed to authorize DEPLOYER on RecurringCollector"
+    fi
+  fi
+fi
+
+# Switch automine -> interval mining now deploys are done, so block-oracle,
+# graph-node and time-based DIPs collection get steady blocks.
+block_time="${BLOCK_TIME:-1}"
+elapsed "Enabling interval mining (${block_time}s blocks)..."
+cast rpc --rpc-url="http://chain:${CHAIN_RPC_PORT}" evm_setIntervalMining "${block_time}" > /dev/null
+
 elapsed "Allocations active, done"
