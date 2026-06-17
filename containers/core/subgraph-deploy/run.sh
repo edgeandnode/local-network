@@ -60,6 +60,7 @@ deploy_indexing_payments() {
 
   subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
   recurring_collector=$(contract_addr RecurringCollector.address horizon)
+  recurring_agreement_manager=$(contract_addr RecurringAgreementManager.address issuance)
 
   cd /opt/indexing-payments-subgraph
   cat > /tmp/indexing-payments-config.json <<-CONF
@@ -67,6 +68,7 @@ deploy_indexing_payments() {
 	  "network": "hardhat",
 	  "subgraphServiceAddress": "${subgraph_service}",
 	  "recurringCollectorAddress": "${recurring_collector}",
+	  "recurringAgreementManagerAddress": "${recurring_agreement_manager}",
 	  "startBlock": 0
 	}
 	CONF
