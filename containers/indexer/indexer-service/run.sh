@@ -79,6 +79,10 @@ if [ "${INDEXING_PAYMENTS_ENABLED:-0}" = "1" ]; then
 
 	[dips.additional_networks]
 	hardhat = "1337"
+
+	[subgraphs.indexing_payments]
+	query_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
+	syncing_interval_secs = 60
 	EOF
 fi
 cat config.toml
