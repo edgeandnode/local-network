@@ -61,6 +61,12 @@ cat >config.json <<-EOF
     "secret_key": "${DEPLOYER_SECRET}",
     "chain_id": 1337
   },
+  "chain_client": {
+    "enabled": true,
+    "providers": ["http://chain:${CHAIN_RPC_PORT}"],
+    "subgraph_service_address": "${subgraph_service}",
+    "indexing_payments_subgraph_url": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
+  },
   "iisa": {
     "endpoint": "http://iisa:8080",
     "request_timeout": 30,
