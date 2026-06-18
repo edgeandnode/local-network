@@ -1,6 +1,6 @@
 ---
 name: fresh-deploy
-description: Full nuke-and-rebuild of the local-network Docker Compose stack on the deploy VM (`lnet-test`) — wipes containers, volumes, images, networks, the local-network clone itself, then re-clones from origin, resolves the `indexing-payments` recipe, rebuilds with --pull, brings the stack up via `just up indexing-payments`, and waits for dipper healthy. Use when the user asks for a fresh deploy, full reset, redeploy from scratch, after merging branch changes, or when debugging stuck state. Also use after the user runs `git pull` on a branch whose container code has changed.
+description: Full nuke-and-rebuild of the local-network Docker Compose stack on the deploy VM (`lnet-test`) — wipes containers, volumes, images, networks, the local-network clone itself, then re-clones from origin, builds the per-service `:local` images from their source repos, resolves the `indexing-payments` recipe, builds and brings the stack up via `just up indexing-payments` (no --pull), and waits for dipper healthy. Use when the user asks for a fresh deploy, full reset, redeploy from scratch, after merging branch changes, or when debugging stuck state. Also use after the user runs `git pull` on a branch whose container code has changed.
 ---
 
 # Fresh Deploy
@@ -16,8 +16,10 @@ If your deploy target is local docker on the Mac instead of the VM, drop the `ss
 ## Prerequisites
 
 - SSH access to `lnet-test` (passwordless `sudo` is needed once during teardown for `rm -rf` of the clone, since some files in `tests/target/` are owned by root from container builds bind-mounted as root).
-- The `indexing-payments` recipe pulls private GHCR images (dipper, IISA, eligibility-oracle-node, the dips-fork indexer-rs), so the VM's Docker must be logged in to `ghcr.io` for the build to succeed.
-- The branch to deploy must already be pushed to origin. The skill clones from origin, never from a local Mac checkout.
+- `just` must be installed on the VM at `/usr/local/bin/just` (on the non-interactive SSH PATH). It drives recipe resolution and bring-up. If absent: `curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | sudo bash -s -- --to /usr/local/bin`.
+- The `indexing-payments` recipe is NOT pull-and-run. It pins several `:local` image tags — dipper, the dips-fork indexer-rs (service + tap-agent), the dips-fork indexer-agent, and the indexing-payments subgraph — that must be built from their source repos (see "Build the `:local` source images" below). Only `IISA` (a pinned published version) and `eligibility-oracle-node` are GHCR pulls, so the VM's Docker must still be logged in to `ghcr.io` for those and for base images.
+- The VM's git must be authenticated to clone the private `edgeandnode/dipper` repo: run `gh auth login` then `gh auth setup-git` on the VM (the `graphprotocol/*` source repos are public). Without this the dipper `:local` build can't fetch its source.
+- The branch to deploy must already be pushed to origin. The skill clones from origin, never from a local Mac checkout. The `:local` source branches must be pushed too (the VM clones them from origin) — or transferred to the VM another way if a branch is local-only.
 
 ## Steps
 
@@ -39,7 +41,7 @@ This wipes containers and named volumes (chain state, postgres DBs, IPFS data, r
 
 ### 2. Wipe all docker images that this stack uses
 
-We want a true cold rebuild — no cached `local-network-*` images, no stale GHCR pulls, no pre-pulled bases. The next `build --pull` re-fetches everything.
+We want a true cold rebuild — no cached `local-network-*` images, no stale GHCR pulls, no pre-pulled bases. The subsequent build re-fetches base images and rebuilds the local-network service images. Note: this wipe does NOT match the `:local` source images (dipper-service, indexer-service-rs, indexer-tap-agent, indexer-agent, indexing-payments-subgraph, dipper-cli) — they persist across deploys unless removed by hand, and are (re)built from source in the new step below. On a brand-new VM they're absent and must be built before the stack can come up.
 
 ```bash
 ssh lnet-test 'docker images --format "{{.Repository}}:{{.Tag}}" | grep "^local-network-" | xargs -r docker rmi -f 2>&1 | tail -5
@@ -70,6 +72,27 @@ cd /home/mainuser/local-network && git rev-parse --short HEAD"
 
 `local-network` itself is anonymously cloneable; no credentials needed. Avoid `--depth 1` — a shallow clone makes later `git fetch origin <other-branch>` operations awkward.
 
+### 4b. Build the `:local` source images (indexing-payments recipe only)
+
+The `indexing-payments` recipe pins five service images plus the CLI to `:local`. These are NOT in any registry — build them from their source repos on the VM (build on the VM, not the arm64 Mac, so the images are linux/amd64). The `:local` tag is exactly what local-network's Dockerfile `FROM` lines consume. Confirm the branch for each repo with the user — these are active DIPs branches that change often; the `config/indexing-payments.env` comments name intended branches but may lag.
+
+| Source repo | Branch (confirm with user) | `just build-image` produces |
+|---|---|---|
+| `edgeandnode/dipper` (private — needs VM git auth) | dipper DIPs branch | `dipper-service:local` |
+| `graphprotocol/indexer-rs` | dips branch | `indexer-service-rs:local` + `indexer-tap-agent:local` |
+| `graphprotocol/indexer` | dips agent branch | `indexer-agent:local` (+ `indexer-cli:local`) |
+| `graphprotocol/indexing-payments-subgraph` | branch with RAM-role + `canceledBy` schema | `indexing-payments-subgraph:local` |
+
+Clone each repo at the agreed branch under `/home/mainuser/`, then run `just build-image` in each (it just runs `docker compose build` and tags `:local`). The two Rust builds (dipper, indexer-rs) are the long poles; with limited VM RAM, run them sequentially or pair one Rust build with one light build — never two Rust builds at once. Verify the produced names match local-network's `FROM` refs: `grep -rhnE "FROM .*(dipper|indexer-service-rs|indexer-tap-agent|indexer-agent|indexing-payments-subgraph)" containers/`.
+
+`dipper-cli:local` is separate — the dipper repo's `build-image` only builds the service. Build the CLI from its own Dockerfile in the dipper repo (same source as the running server, so the CLI and server never drift):
+
+```bash
+ssh lnet-test 'cd /home/mainuser/dipper && docker build -f Dockerfile.dipper-cli -t ghcr.io/edgeandnode/dipper-cli:local .'
+```
+
+This step is the bulk of a fresh deploy's wall-clock (~10 min for all of it). It must complete before the stack build in step 7 — otherwise the local-network service images that `FROM` these `:local` tags fail with `not found`.
+
 ### 5. Drop any stale extra-indexers overlay (skip on a fresh clone)
 
 A fresh clone has no `.env` at all — it's gitignored and regenerated by `just up`/`just resolve` from the active recipe, so any prior `/add-indexers` `COMPOSE_FILE` entry never survives a clone. The extra-indexers overlay yaml is gitignored too. This step only matters if you reuse an existing checkout: `gen-extra-indexers.py 0` deletes the overlay file if present and strips the entry from a stale `.env`, and is a no-op otherwise. On a truly fresh clone you can skip it.
@@ -86,19 +109,19 @@ The `eligibility-oracle-node` Dockerfile is now a thin wrapper: `FROM ghcr.io/ed
 
 The `indexing-payments` recipe enables the `rewards-eligibility` profile, so this service is in scope for the build. If `ELIGIBILITY_ORACLE_NODE_VERSION` isn't pinned to a published tag, the `FROM` line can't resolve and the build for this one service fails; the rest of the stack is unaffected. If you hit that, set the version pin (or add `eligibility-oracle-node` to a profile you leave off) — it isn't needed for the DIPs flow.
 
-### 7. Resolve the recipe and build with --pull
+### 7. Resolve the recipe and build (no --pull)
 
 The stack is driven by `just` + recipes now: a recipe selects which env fragments compose, which compose profiles enable, and which image versions pin. DIPs lives in the `indexing-payments` recipe, which turns on the `indexing-payments` profile (without it `dipper`, `iisa`, and `iisa-scoring` never start) and layers the GIP-0088 contract image plus the DIPs services on top of the base stack. This branch already commits `.recipe` = `indexing-payments`, so a bare `just up` would pick it, but pass it explicitly to be unambiguous.
 
-First resolve the recipe so `.env` exists, then do the cold build with `--pull`:
+First resolve the recipe so `.env` exists, then do the cold build — without `--pull` (see below):
 
 ```bash
-ssh lnet-test 'cd /home/mainuser/local-network && just resolve indexing-payments && docker compose build --pull'
+ssh lnet-test 'cd /home/mainuser/local-network && just resolve indexing-payments && docker compose build'
 ```
 
 `just resolve` writes `.env` from the recipe (it's gitignored and regenerated every time). The build takes ~10–15 minutes on a cold cache. The long poles are `gateway` and `block-oracle` (Rust compiles from source) plus `graph-contracts` (clones the contracts repo at the pinned commit). The thin-wrapper services (`chain`, `graph-node`, `indexer-agent`, `indexer-service`, `tap-agent`, `dipper`, etc.) finish in seconds because their Dockerfiles are just `FROM ghcr.io/...` plus a few apt packages and a copy of run.sh.
 
-`--pull` refreshes the FROM-line base images; without it, the daemon would skip the pull for layers it remembers (irrelevant here since step 2 wiped them, but harmless to be explicit). The `indexing-payments` recipe also pins several `:local` image tags (dips-fork indexer-rs, dipper, indexing-payments subgraph) — those are built from their source repos and pulled from GHCR rather than rebuilt here.
+Do NOT use `--pull` here. With `--pull`, Docker tries to refresh every `FROM`-line image including the `:local` source images from step 4b — but those exist only in the VM's local image store, never in a registry, so the pull fails with `not found` and aborts the whole build. (This is the classic fresh-deploy failure for this recipe: the build dies on `ghcr.io/graphprotocol/indexing-payments-subgraph:local: not found` or similar.) A plain `docker compose build` consumes the local `:local` images as-is and still pulls any absent base images (postgres, kubo, redpanda) on first use — which is all that's needed since step 2 wiped them.
 
 ### 8. Bring up the stack
 
@@ -106,13 +129,15 @@ ssh lnet-test 'cd /home/mainuser/local-network && just resolve indexing-payments
 ssh lnet-test 'cd /home/mainuser/local-network && just up indexing-payments'
 ```
 
-`just up indexing-payments` re-resolves the recipe (refreshing `.env` and the `indexing-payments` profile) and then runs `docker compose up -d --build`. Since step 7 already did the cold `--pull` build, this `up` just brings everything online. Compose handles the dependency order automatically: chain → graph-contracts → graph-node → subgraph-deploy → indexer-agent → indexer-service / tap-agent / dipper / gateway, with the graph-tally services, IISA services, and one-shots interleaved as their depends_on conditions are met.
+`just up indexing-payments` re-resolves the recipe (refreshing `.env` and the `indexing-payments` profile) and then runs `docker compose up -d --build`. Since step 7 already did the cold build, this `up` just brings everything online. Compose handles the dependency order automatically: chain → graph-contracts → graph-node → subgraph-deploy → indexer-agent → indexer-service / tap-agent / dipper / gateway, with the graph-tally services, IISA services, and one-shots interleaved as their depends_on conditions are met.
 
-Then pull the on-demand `dipper-cli` image so `/send-indexing-request` can use it without building from source. It's in the `tools` profile (kept out of `up`) and pinned to the same `DIPPER_VERSION` as the running server, so the CLI and server never drift:
+Make sure the on-demand `dipper-cli` image exists so `/send-indexing-request` can use it. It's in the `tools` profile (kept out of `up`) and pinned to the same `DIPPER_VERSION` as the running server, so the CLI and server never drift. When `DIPPER_VERSION` is a published tag, pull it:
 
 ```bash
 ssh lnet-test 'cd /home/mainuser/local-network && docker compose --profile tools pull dipper-cli'
 ```
+
+But under the `indexing-payments` recipe `DIPPER_VERSION=local`, so this pull fails with `dipper-cli:local: not found` — build it from source instead (the `Dockerfile.dipper-cli` command in step 4b).
 
 ### 9. Stream per-service health to the user
 
