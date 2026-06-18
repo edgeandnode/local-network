@@ -126,7 +126,7 @@ done
 
 ### 8. Set `always` indexing rules on each extra agent
 
-Without an explicit rule, extras allocate to nothing, so the gateway never routes queries to them, the IISA cronjob excludes them from scoring (no Redpanda history), and indexer-2+ become invisible to the rest of the stack. Fix it by setting an `always` rule on each extra's indexer-management API.
+Without an explicit rule, extras allocate to nothing, so the gateway never routes queries to them and indexer-2+ become invisible to the rest of the stack. Fix it by setting an `always` rule on each extra's indexer-management API.
 
 Each extra's management port maps to host `17600 + suffix * 10` (suffix 2 → 17620, suffix 3 → 17630, etc.). The indexer-management API listens on `7600` inside the container.
 
@@ -154,7 +154,7 @@ Each agent's reconciliation loop fires roughly every 15 seconds in local-dev mod
 
 ### 9. Poll for allocations, then drive query traffic to the extras
 
-The gateway's candidate-selection algorithm strongly favors the highest-staked indexer (= primary). Without intervention, extras get no queries and IISA scores them with no data. Workaround: pause the primary's `indexer-service` briefly so gateway routes to extras, then unpause.
+The gateway's candidate-selection algorithm strongly favors the highest-staked indexer (= primary). Without intervention, extras get no queries, so their query history never lands in Redpanda. Workaround: pause the primary's `indexer-service` briefly so gateway routes to extras, then unpause.
 
 Before pausing, set an offchain rule on the primary's agent to protect the `indexing-payments` subgraph (BUG-014 — without this the agent will mark indexing-payments unhealthy when it sees the paused service and pause the subgraph; reconciliation re-pauses it on resume because there's no offchain rule to override).
 
@@ -212,15 +212,17 @@ The `set-offchain-rule.py` script and `check-subgraph-sync.py` are part of the l
 
 Replace `N` in `TOTAL_EXPECTED=$((1 + N))` with the actual extras count before running the heredoc, since the heredoc is `'REMOTE'`-quoted (no local interpolation).
 
-### 10. Trigger an IISA score refresh
+### 10. Check IISA scores
 
-The cronjob image runs scoring once and exits. After populating Redpanda with query history above, run a fresh scoring pass:
+IISA on this branch is two services started by the `indexing-payments` profile: `iisa-scoring` (a long-running loop, built from `containers/indexing-payments/iisa/Dockerfile.scoring`) writes the scores file, and `iisa` (the HTTP API on port 8080) serves it. There is no `iisa-cronjob` and no one-shot scoring command.
+
+`iisa-scoring` writes seed scores on startup, then loops on `IISA_SCORING_INTERVAL` (default 600s). The Redpanda-based recompute is still a TODO in `scoring.py` (`try_compute_scores` logs the message count and keeps the current scores), so the seed file is what IISA actually serves. The seed contains only the primary indexer (`containers/indexing-payments/iisa/seed_scores.json`), so on this branch extras will not appear in IISA scores no matter how much query traffic step 9 drives — that is expected, not a failure.
+
+Inspect what IISA currently serves:
 
 ```bash
-ssh lnet-test 'cd /home/mainuser/local-network && docker compose run --rm iisa-cronjob' 2>&1 | tail -10
+ssh lnet-test 'curl -s http://localhost:8080/health'
 ```
-
-Look at the last log line — `Scoring complete: mode=..., indexers=N, ...` — to confirm. Exit codes: `0` success, `1` scoring/push failure, `2` missing push token. The `indexers=N` count should equal `1 + extras`. If it's lower, the gateway hasn't routed to all indexers yet — send more queries (step 9) and retry.
 
 ### 11. Report
 
@@ -228,7 +230,7 @@ Summarize for the user:
 
 - All running indexers with container names, addresses, and health (`ssh lnet-test 'docker ps --format "{{.Names}}\t{{.Status}}" | grep -E "indexer-(agent|service)"'`).
 - Indexers visible in the network subgraph with URLs (output of step 7).
-- IISA score count (last log line of step 10).
+- Note that IISA scores stay seed-based (primary only) on this branch — extras won't appear there (step 10).
 
 ## Constraints
 

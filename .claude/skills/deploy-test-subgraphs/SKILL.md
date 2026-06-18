@@ -10,7 +10,7 @@ Publish N subgraphs to GNS on the running local network. Each subgraph is built 
 
 ## Targets
 
-Both `scripts/deploy-test-subgraph.py` and `scripts/network-status.py` reach `localhost:5001` (IPFS), `localhost:8545` (chain RPC), `localhost:8000` and `localhost:8030` (graph-node). On a Mac+VM setup these endpoints only resolve correctly **on the VM**, so run via SSH. Both scripts also shell out to `cast` (Foundry) and `npx graph` (Graph CLI), so the VM needs Foundry and Node.js >= 20.18.1 installed once. Locally on Mac with the stack on Mac, drop the `ssh lnet-test` wrapper and run the same commands directly.
+`scripts/deploy-test-subgraph.py` reaches `localhost:5001` (IPFS) and `localhost:8545` (chain RPC), and execs into the `indexer-agent` container (`docker compose exec -T indexer-agent`) to read the resolved contract addresses from `/opt/config/horizon.json` and `/opt/config/subgraph-service.json`, so the stack must be up first. It also shells out to `cast` (Foundry) and `npx graph` (Graph CLI). `scripts/network-status.py` additionally reaches `localhost:8000` and `localhost:8030` (graph-node). On a Mac+VM setup these endpoints only resolve correctly **on the VM**, so run via SSH, and the VM needs Foundry and Node.js >= 20.18.1 installed once. Locally on Mac with the stack on Mac, drop the `ssh lnet-test` wrapper and run the same commands directly.
 
 VM path: `/home/mainuser/local-network`.
 

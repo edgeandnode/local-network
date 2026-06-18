@@ -10,33 +10,13 @@ Register an indexing request with dipper and monitor the full DIPs pipeline: IIS
 
 ## Targets
 
-The dipper stack runs on the `lnet-test` VM. The `dipper-cli` Rust binary is built on the Mac (where the dipper repo lives) and stays Mac-side — no cross-compile or scp. To reach dipper's admin RPC at `:9000` from the Mac, open an SSH local-forward to the VM (it's exposed externally by compose, but a tunnel is the cleanest portable approach). Helper scripts in the local-network repo run on the VM via SSH.
+The dipper stack runs on the `lnet-test` VM. Both the trigger and the status check go through `scripts/dipper-cli.sh`, the repo's wrapper around the `dipper-cli` Rust binary. The wrapper runs on the VM: it sources the resolved env (so it reaches the local dipper at `:9000` and signs with the right key), and builds the binary from a local dipper clone on first run. Point it at that clone with `DIPPER_SOURCE_ROOT`. Helper scripts in the local-network repo also run on the VM via SSH.
 
-For a local-only docker setup, drop the SSH wrappers and tunnel; everything else is identical.
+For a local-only docker setup, drop the SSH wrappers; everything else is identical.
 
 ## Steps
 
-### 1. Build the dipper CLI (Mac)
-
-Builds for the Mac's native arch — used as a client only, doesn't need to match the VM's arch.
-
-```bash
-cargo build --manifest-path /Users/samuel/Documents/github/dipper/Cargo.toml --bin dipper-cli --release
-```
-
-Always use the absolute path to the dipper repo and binary; never `cd` to the dipper repo, since later commands run from `/Users/samuel/Documents/github/local-network`.
-
-### 2. Open an SSH tunnel to dipper's admin RPC
-
-`dipper-cli` defaults to `http://localhost:9000`. The tunnel lets the Mac binary reach the VM's dipper without changing flags or hostnames. Idempotent — if it's already up, the second invocation is a no-op (port in use).
-
-```bash
-ssh -L 9000:localhost:9000 -fN lnet-test 2>/dev/null || true
-```
-
-Tear it down at the end of the session (or leave it; harmless idle).
-
-### 3. Verify dipper is healthy (on the VM)
+### 1. Verify dipper is healthy (on the VM)
 
 ```bash
 ssh lnet-test 'docker compose -f /home/mainuser/local-network/docker-compose.yaml ps dipper --format "{{.Status}}"'
@@ -44,9 +24,9 @@ ssh lnet-test 'docker compose -f /home/mainuser/local-network/docker-compose.yam
 
 Expect `Up ... (healthy)`. If not, run the `fresh-deploy` skill.
 
-### 4. Ensure indexers have Redpanda query history
+### 2. Ensure indexers have Redpanda query history
 
-The IISA cronjob only scores indexers that have query history. Without it, scoring runs in degraded mode or excludes indexers the gateway hasn't routed to. Send queries through the gateway (which lives on the VM) to populate Redpanda for every indexer with allocations:
+IISA is two services: `iisa` (the HTTP scoring API on `:8080`) and `iisa-scoring` (a continuous loop that reads the `gateway_queries` Redpanda topic and writes `indexer_scores.json` to a shared volume that `iisa` serves). The scoring loop only scores indexers that have query history. Without it, scoring runs in degraded mode or excludes indexers the gateway hasn't routed to. Send queries through the gateway (which lives on the VM) to populate Redpanda for every indexer with allocations:
 
 ```bash
 ssh lnet-test bash <<'REMOTE'
@@ -62,15 +42,15 @@ done
 REMOTE
 ```
 
-Then trigger a fresh IISA scoring run on the VM:
+`iisa-scoring` runs continuously (it re-scores every `IISA_SCORING_INTERVAL` seconds, 600 by default), so once the queries above land in Redpanda the next loop picks them up on its own. To force a fresh pass without waiting, restart it and watch its logs on the VM:
 
 ```bash
-ssh lnet-test 'cd /home/mainuser/local-network && docker compose run --rm iisa-cronjob' 2>&1 | tail -10
+ssh lnet-test 'cd /home/mainuser/local-network && docker compose restart iisa-scoring && docker compose logs --tail 20 -f iisa-scoring' 2>&1 | tail -20
 ```
 
-The cronjob runs once and exits. Exit codes: `0` success, `1` scoring/push failure, `2` missing push token. The last log line `Scoring complete: mode=..., indexers=N, ...` reports the outcome. The `indexers` count should equal the total number of indexers with allocations. If it's lower, send more queries and retry.
+The loop writes `indexer_scores.json` to the volume that the `iisa` API reads. The log line reporting the scored indexer count should match the total number of indexers with allocations. If it's lower, send more queries and let the loop run again.
 
-### 5. Send the indexing request (Mac binary, tunnelled to VM dipper)
+### 3. Send the indexing request (wrapper on the VM)
 
 If the skill was invoked with an argument (e.g. `/send-indexing-request QmSQq...`), use that as the deployment ID. Otherwise resolve the current graph-network deployment hash dynamically — it changes whenever the schema, ABI, or mapping does, so a hardcoded value goes stale on every contract rebuild and indexer-service then rejects the proposal with `SubgraphManifestUnavailable`:
 
@@ -81,24 +61,27 @@ DEPLOYMENT=$(ssh lnet-test 'curl -s http://localhost:8000/subgraphs/name/graph-n
   | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['_meta']['deployment'])")
 ```
 
+The agreement is triggered through dipper's admin RPC, not the Redpanda `dips-signal.sh` path — dipper on this branch has no signal consumer that starts agreements, so producing to the `indexing-requirements` topic does nothing. The blessed trigger is the `scripts/dipper-cli.sh` wrapper, which sources the repo's env and signs with the correct key automatically.
+
 Dipper's admin API is declarative: a single mutating method, `set-target-candidates`, takes the desired indexer count for a given `(deployment, chain)` tuple. The first call inserts a new request row; subsequent calls with a different `--num-candidates` value update it in place (grow or shrink). `--num-candidates 0` cancels. There is no separate `register`/`cancel` subcommand any more.
 
+Run the wrapper on the VM, where it talks to the local dipper and reads `INDEXER_SECRET` from the resolved env:
+
 ```bash
-/Users/samuel/Documents/github/dipper/target/release/dipper-cli indexings set-target-candidates \
-  --server-url http://localhost:9000 \
-  --signing-key "0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573" \
+ssh lnet-test 'cd /home/mainuser/local-network && DIPPER_SOURCE_ROOT=/home/mainuser/dipper \
+  scripts/dipper-cli.sh indexings set-target-candidates \
   <DEPLOYMENT_ID> \
   1337 \
-  --num-candidates 3
+  --num-candidates 3'
 ```
 
 `--num-candidates` is optional; omit it to let dipper use its configured maximum. Three is a sensible default for local testing — picks 3 of the 5 available indexers and exercises the full pipeline without saturating the stack.
 
-The signing key belongs to RECEIVER (`0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3`). Dipper's admin RPC allowlist only accepts this address; ACCOUNT0's key returns 403.
+The wrapper signs with `INDEXER_SECRET`, which recovers to `INDEXER_ADDRESS` (`0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3`) — the only address in dipper's `gateway_operator_allowlist`. Hardcoding a different key, or signing with an address that isn't `INDEXER_ADDRESS`, returns 403.
 
 On success, the CLI prints a UUID — the indexing request ID.
 
-To list available deployments to use a different one, query graph-node's status endpoint (also tunnel-friendly, but easier to ask graph-node directly via its container):
+To list available deployments to use a different one, query graph-node's status endpoint directly via its container:
 
 ```bash
 ssh lnet-test 'docker compose -f /home/mainuser/local-network/docker-compose.yaml exec graph-node \
@@ -107,7 +90,7 @@ ssh lnet-test 'docker compose -f /home/mainuser/local-network/docker-compose.yam
   http://localhost:8030/graphql'
 ```
 
-### 6. Monitor the pipeline (on the VM)
+### 4. Monitor the pipeline (on the VM)
 
 ```bash
 ssh lnet-test 'cd /home/mainuser/local-network && python3 scripts/monitor-dips-pipeline.py <REQUEST_ID>'
@@ -125,31 +108,21 @@ ssh lnet-test 'cd /home/mainuser/local-network && python3 scripts/check-subgraph
 
 Then re-run the monitor.
 
-### 7. Check request status (Mac binary, tunnelled)
+### 5. Check request status (wrapper on the VM)
 
 ```bash
-/Users/samuel/Documents/github/dipper/target/release/dipper-cli indexings status \
-  --server-url http://localhost:9000 \
-  --signing-key "0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573" \
-  <REQUEST_ID>
+ssh lnet-test 'cd /home/mainuser/local-network && DIPPER_SOURCE_ROOT=/home/mainuser/dipper \
+  scripts/dipper-cli.sh indexings status <REQUEST_ID>'
 ```
-
-### 8. (Optional) Tear down the SSH tunnel
-
-```bash
-pkill -f "ssh -L 9000:localhost:9000.*lnet-test" 2>/dev/null || true
-```
-
-Leaving the tunnel open is also fine — it's a quiet idle connection.
 
 ## Reference
 
 | Detail | Value |
 |--------|-------|
-| Admin RPC port | 9000 (tunnelled to localhost) |
-| Indexer RPC port | 9001 (also exposed, not used by this skill) |
-| Signing key | RECEIVER: `0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573` |
-| Signing address | `0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3` |
+| Admin RPC port | 9000 (`DIPPER_ADMIN_RPC_PORT`) |
+| Indexer RPC port | 9001 (`DIPPER_INDEXER_RPC_PORT`, not used by this skill) |
+| Signing key | `INDEXER_SECRET`: `0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573` |
+| Signing address | `INDEXER_ADDRESS`: `0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3` (the only entry in dipper's `gateway_operator_allowlist`) |
 | Chain ID | 1337 (hardhat) |
 | Default deployment | Resolved dynamically from graph-network's `_meta.deployment` (override via skill argument) |
 

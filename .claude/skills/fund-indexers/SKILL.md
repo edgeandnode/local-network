@@ -6,15 +6,15 @@ argument-hint: "[amount-in-grt]"
 
 # Fund Indexers for DIPs Collection
 
-Deposit GRT into `PaymentsEscrow` with `(payer=ACCOUNT0, collector=RecurringCollector, receiver=<indexer>)` for each registered indexer, so DIPs `collect()` calls don't revert with `PaymentsEscrowInsufficientBalance`.
+Deposit GRT into `PaymentsEscrow` with `(payer=DEPLOYER, collector=RecurringCollector, receiver=<indexer>)` for each registered indexer, so DIPs `collect()` calls don't revert with `PaymentsEscrowInsufficientBalance`. DEPLOYER is the role-named account dipper signs RCAs with (`DEPLOYER_SECRET` in the resolved `.env`), so it is the on-chain payer that `RecurringCollector.collect()` draws from.
 
 ## Why this is needed
 
-In production, the consumer (e.g., Subgraph Studio) calls `PaymentsEscrow.deposit()` before issuing DIPs offers. In local-network nobody plays the consumer's escrow-funding role by default — there is no `dips-escrow-manager` init container equivalent for the `RecurringCollector` side, only the existing `graph-tally-escrow-manager` which funds `GraphTallyCollector` (TAP query payments).
+In production, the consumer (e.g., Subgraph Studio) calls `PaymentsEscrow.deposit()` before issuing DIPs offers. In local-network nobody funds the escrow on the `RecurringCollector` side by default — there is no init container for it. The existing `graph-tally-escrow-manager` only funds `GraphTallyCollector` (TAP query payments), and the extra-indexer setup script likewise deposits only against `GraphTallyCollector`. Neither touches the `RecurringCollector` escrow that DIPs draws from, so funding it is manual — this skill.
 
 Without this skill, every DIPs `collect()` reverts with `PaymentsEscrowInsufficientBalance(balance: 0, minBalance: ...)`, indexers retry forever, `tokensCollected` stays 0, and the payment side of the DIPs flow can never be observed end-to-end.
 
-This skill plays the consumer role from ACCOUNT0 (which is also dipper's signer / the on-chain payer). The deposit is keyed by `(payer, collector, receiver)` — a single balance per indexer covers all agreements between that payer and that indexer, no matter how many or which deployments. There is no per-agreement top-up step.
+This skill funds the escrow from DEPLOYER — dipper's RCA signer, which is the payer recorded in each agreement. The deposit is keyed by `(payer, collector, receiver)` — a single balance per indexer covers all agreements between that payer and that indexer, no matter how many or which deployments. There is no per-agreement top-up step.
 
 ## Targets
 
@@ -32,11 +32,12 @@ The default is intentionally large — for test purposes the exact number doesn'
 
 The whole flow is a single ssh-bash heredoc that:
 
-1. Resolves contract addresses from horizon.json (GRT, PaymentsEscrow, RecurringCollector).
-2. Queries the network subgraph for current indexer addresses (anyone registered with a non-empty URL).
-3. Approves `PaymentsEscrow` to pull GRT from ACCOUNT0 (max approval, idempotent — once-per-session in practice).
-4. Loops the indexers and calls `PaymentsEscrow.deposit(RC, indexer, amount)` for each, signed by ACCOUNT0.
-5. Reads back `getBalance(ACCOUNT0, RC, indexer)` for each to confirm.
+1. Sources the resolved `.env` for `DEPLOYER_ADDRESS` / `DEPLOYER_SECRET` (the role-named payer dipper signs as).
+2. Resolves contract addresses from horizon.json (GRT, PaymentsEscrow, RecurringCollector).
+3. Queries the network subgraph for current indexer addresses (anyone registered with a non-empty URL).
+4. Approves `PaymentsEscrow` to pull GRT from DEPLOYER (max approval, idempotent — once-per-session in practice).
+5. Loops the indexers and calls `PaymentsEscrow.deposit(RC, indexer, amount)` for each, signed by DEPLOYER.
+6. Reads back `getBalance(DEPLOYER, RC, indexer)` for each to confirm.
 
 ```bash
 AMOUNT_GRT=${ARG1:-1000000}
@@ -45,11 +46,16 @@ set -eo pipefail
 AMOUNT_GRT=$1
 AMOUNT_WEI=$(python3 -c "print($AMOUNT_GRT * 10**18)")
 
+# DEPLOYER is dipper's RCA signer (the on-chain payer). Pull its address and
+# secret from the resolved .env rather than hardcoding — same source the other
+# host scripts (query-balance.sh, dipper-cli.sh) use.
+. /home/mainuser/local-network/.env
+PAYER=$DEPLOYER_ADDRESS
+SECRET=$DEPLOYER_SECRET
+
 GRT=$(docker exec graph-node cat /opt/config/horizon.json | jq -r '."1337".L2GraphToken.address')
 PE=$(docker exec graph-node cat /opt/config/horizon.json | jq -r '."1337".PaymentsEscrow.address')
 RC=$(docker exec graph-node cat /opt/config/horizon.json | jq -r '."1337".RecurringCollector.address')
-ACCOUNT0=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-SECRET=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 RPC=http://localhost:8545
 
 # Run cast send and fail loud if the tx didn't reach "status 1 (success)".
@@ -88,7 +94,7 @@ done
 
 echo "--- final balances (wei) ---"
 for I in $INDEXERS; do
-  BAL=$(cast call "$PE" 'getBalance(address,address,address)(uint256)' "$ACCOUNT0" "$RC" "$I" --rpc-url "$RPC")
+  BAL=$(cast call "$PE" 'getBalance(address,address,address)(uint256)' "$PAYER" "$RC" "$I" --rpc-url "$RPC")
   printf "%-44s  %s\n" "$I" "$BAL"
 done
 REMOTE
@@ -111,6 +117,6 @@ ssh lnet-test 'curl -s -X POST -H "Content-Type: application/json" \
 ## Notes
 
 - **Idempotent**: re-running just adds more GRT to the existing balance — no state corruption, no double-spend risk.
-- **One deposit per indexer**, not per agreement — the on-chain balance is keyed by `(payer, collector, receiver)`. All of ACCOUNT0's DIPs agreements with one indexer draw from the same pool, regardless of which deployment they're for.
+- **One deposit per indexer**, not per agreement — the on-chain balance is keyed by `(payer, collector, receiver)`. All of DEPLOYER's DIPs agreements with one indexer draw from the same pool, regardless of which deployment they're for.
 - **Permanent fix instead of this skill**: add a `dips-escrow-manager` init container modeled after `graph-tally-escrow-manager`, run automatically at stack-up. This skill is the operator-driven equivalent useful before that container exists, or when you want to top up specific amounts outside the init flow.
 - **The approve step is one-time per session** in practice: max approval persists until used or revoked. Re-running the skill does send the approve tx again (harmless, gas-cheap on hardhat).
