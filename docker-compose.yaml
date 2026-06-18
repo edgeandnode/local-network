@@ -408,6 +408,16 @@ services:
         ]
     restart: on-failure:3
 
+  # dipper-cli runs on demand (docker compose run --rm dipper-cli ...), pinned to the
+  # same image as the dipper server so they never drift. The `tools` profile keeps it
+  # out of `up`; /fresh-deploy pulls it. Key + admin URL come from the env below.
+  dipper-cli:
+    image: ghcr.io/edgeandnode/dipper-cli:${DIPPER_VERSION}
+    profiles: [tools]
+    environment:
+      INDEXING_SERVER_URL: "http://dipper:${DIPPER_ADMIN_RPC_PORT}/"
+      INDEXING_SIGNING_KEY: "${INDEXER_SECRET}"
+
   # --- Readiness check ---
 
   ready:
@@ -427,9 +437,8 @@ volumes:
   config-local:
 
 # Network shared with per-test indexer compose projects (compose/test-indexer.yaml).
-# Only services that test stacks need to reach (chain, ipfs) attach to this. Services
-# the test stack runs its OWN copy of (graph-node, postgres, indexer-agent, etc.) stay
-# off cross-stack so the test container's DNS lookup resolves to its own instance.
+# Only services test stacks must reach (chain, ipfs) attach here; services the test
+# stack runs its own copy of stay off it, so the test container's DNS resolves locally.
 networks:
   default:
   cross-stack:

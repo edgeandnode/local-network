@@ -108,6 +108,12 @@ ssh lnet-test 'cd /home/mainuser/local-network && just up indexing-payments'
 
 `just up indexing-payments` re-resolves the recipe (refreshing `.env` and the `indexing-payments` profile) and then runs `docker compose up -d --build`. Since step 7 already did the cold `--pull` build, this `up` just brings everything online. Compose handles the dependency order automatically: chain → graph-contracts → graph-node → subgraph-deploy → indexer-agent → indexer-service / tap-agent / dipper / gateway, with the graph-tally services, IISA services, and one-shots interleaved as their depends_on conditions are met.
 
+Then pull the on-demand `dipper-cli` image so `/send-indexing-request` can use it without building from source. It's in the `tools` profile (kept out of `up`) and pinned to the same `DIPPER_VERSION` as the running server, so the CLI and server never drift:
+
+```bash
+ssh lnet-test 'cd /home/mainuser/local-network && docker compose --profile tools pull dipper-cli'
+```
+
 ### 9. Stream per-service health to the user
 
 The user typically wants to see services come up one at a time, not just a final dump. Use a polling loop that emits one line per state-change. Example pattern (run on the Mac, polls the VM):

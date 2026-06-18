@@ -10,7 +10,7 @@ Register an indexing request with dipper and monitor the full DIPs pipeline: IIS
 
 ## Targets
 
-The dipper stack runs on the `lnet-test` VM. Both the trigger and the status check go through `scripts/dipper-cli.sh`, the repo's wrapper around the `dipper-cli` Rust binary. The wrapper runs on the VM: it sources the resolved env (so it reaches the local dipper at `:9000` and signs with the right key), and builds the binary from a local dipper clone on first run. Point it at that clone with `DIPPER_SOURCE_ROOT`. Helper scripts in the local-network repo also run on the VM via SSH.
+The dipper stack runs on the `lnet-test` VM. Both the trigger and the status check go through `scripts/dipper-cli.sh`, which runs the published `dipper-cli` image via `docker compose run --rm dipper-cli` — pinned in lockstep with the dipper server and pulled during `/fresh-deploy`, so there's no local clone or build. The compose service supplies the signing key and admin-RPC URL, so the wrapper just forwards your arguments. Helper scripts in the local-network repo also run on the VM via SSH.
 
 For a local-only docker setup, drop the SSH wrappers; everything else is identical.
 
@@ -65,10 +65,10 @@ The agreement is triggered through dipper's admin RPC, not the Redpanda `dips-si
 
 Dipper's admin API is declarative: a single mutating method, `set-target-candidates`, takes the desired indexer count for a given `(deployment, chain)` tuple. The first call inserts a new request row; subsequent calls with a different `--num-candidates` value update it in place (grow or shrink). `--num-candidates 0` cancels. There is no separate `register`/`cancel` subcommand any more.
 
-Run the wrapper on the VM, where it talks to the local dipper and reads `INDEXER_SECRET` from the resolved env:
+Run the wrapper on the VM — it runs the `dipper-cli` image on the compose network, reaching dipper by service name and signing with `INDEXER_SECRET` from the resolved env:
 
 ```bash
-ssh lnet-test 'cd /home/mainuser/local-network && DIPPER_SOURCE_ROOT=/home/mainuser/dipper \
+ssh lnet-test 'cd /home/mainuser/local-network && \
   scripts/dipper-cli.sh indexings set-target-candidates \
   <DEPLOYMENT_ID> \
   1337 \
@@ -111,8 +111,7 @@ Then re-run the monitor.
 ### 5. Check request status (wrapper on the VM)
 
 ```bash
-ssh lnet-test 'cd /home/mainuser/local-network && DIPPER_SOURCE_ROOT=/home/mainuser/dipper \
-  scripts/dipper-cli.sh indexings status <REQUEST_ID>'
+ssh lnet-test 'cd /home/mainuser/local-network && scripts/dipper-cli.sh indexings status <REQUEST_ID>'
 ```
 
 ## Reference
