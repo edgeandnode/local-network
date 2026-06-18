@@ -7,4 +7,4 @@ set -eu
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR/.."
 
-exec docker compose run --rm dipper-cli "$@"
+exec docker compose --profile tools run --rm dipper-cli "$@"
