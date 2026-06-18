@@ -32,28 +32,30 @@ COMPOSE_PROFILES=block-oracle,explorer,indexing-payments
 COMPOSE_FILE=docker-compose.yaml
 # indexer components versions
 GRAPH_NODE_VERSION=latest
-INDEXER_AGENT_VERSION=sha-8b0dd31
-INDEXER_SERVICE_RS_VERSION=sha-7ae6fc9
-INDEXER_TAP_AGENT_VERSION=sha-7ae6fc9
+INDEXER_AGENT_VERSION=sha-8b0dd31               # PR #1234 (mb9/start-dips-sync-on-offchain-accept)
+INDEXER_SERVICE_RS_VERSION=sha-7ae6fc9          # PR #1052 (mb9/reject-replayed-dips-proposals)
+INDEXER_TAP_AGENT_VERSION=sha-7ae6fc9           # PR #1052 (same indexer-rs monorepo commit)
 
 # indexing-payments image versions (requires GHCR auth — see README)
-DIPPER_VERSION=sha-0d53d9a
-IISA_VERSION=latest
-IISA_CRONJOB_VERSION=latest
+DIPPER_VERSION=sha-0d53d9a                      # release 0.1.4 (latest main)
+IISA_VERSION=latest                             # moving tag — not reproducible; pin a sha if needed
 
 # gateway components versions
 GATEWAY_COMMIT=29fa2968439723548ff67926575a6cfb73876e7c
 GRAPH_TALLY_AGGREGATOR_VERSION=v0.7.1
 GRAPH_TALLY_ESCROW_MANAGER_VERSION=v2.0.0
 
-# eligibility oracle (clone-and-build — requires published repo)
-# ELIGIBILITY_ORACLE_COMMIT=84710857394d3419f83dcbf6687a91f415cc1625 Commented out because `eligibility-oracle-node` repo is not published. 
+# eligibility oracle: pulled from GHCR via ELIGIBILITY_ORACLE_NODE_VERSION (set by the recipe
+# fragment). Built only under the rewards-eligibility profile; a mock REO is wired by default,
+# so a missing tag fails just that one service, not the whole stack.
 
 # network components versions
 BLOCK_ORACLE_COMMIT=3a3a425ff96130c3842cee7e43d06bbe3d729aed
-CONTRACTS_COMMIT=b771aa54f340ce899249d594c424ec47705ce07e # deployment/testnet/2026-06-09/gip-0088 HEAD as of June 17th 2026
-NETWORK_SUBGRAPH_COMMIT=master # latest
-INDEXING_PAYMENTS_SUBGRAPH_COMMIT=c8e997a80ebbf1c859f809fd8e9553d6212d49a0 # PR 17 (on main)
+# CONTRACTS_VERSION (the consumed var) is set by config/gip-0088.env to the post-audit gip-0088
+# contracts image, which deploys commit b771aa54f (deployment/testnet/2026-06-09/gip-0088).
+# Leave it to the fragment; only set CONTRACTS_VERSION here if that image ever needs overriding.
+NETWORK_SUBGRAPH_COMMIT=master                  # subgraph-deploy clones at this ref (latest)
+INDEXING_PAYMENTS_SUBGRAPH_VERSION=sha-c8e997a  # PR 17 (merged to main) — image-tag form of c8e997a
 
 # service ports
 CHAIN_RPC_PORT=8545
