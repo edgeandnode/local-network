@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091
 set -eu
 . /opt/config/.env
 . /opt/shared/lib.sh
@@ -7,7 +8,7 @@ graph_epoch_manager=$(contract_addr EpochManager.address horizon)
 data_edge=$(contract_addr DataEdge block-oracle)
 
 echo "=== Configuring block-oracle service ==="
-cd /opt/block-oracle
+mkdir -p /opt/block-oracle && cd /opt/block-oracle
 cat >config.toml <<-EOF
 blockmeta_auth_token = ""
 owner_address = "${DEPLOYER_ADDRESS#0x}"
@@ -17,11 +18,9 @@ epoch_manager_address = "${graph_epoch_manager#0x}"
 subgraph_url = "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/block-oracle"
 bearer_token = "TODO"
 log_level = "trace"
-# Default is 10 blocks — easy to trip under heavy test load when an
-# anvil_mine burst (epoch advance, time travel) puts the chain hundreds of
-# blocks ahead of the subgraph briefly, sending the service into a
-# 2s-cooldown spiral. 100 keeps the check active for genuine stalls while
-# absorbing typical test bursts.
+# Default 10 blocks trips under test load: an anvil_mine burst (epoch advance,
+# time travel) puts the chain far ahead of the subgraph, spiralling into 2s
+# cooldowns. 100 absorbs test bursts while still catching genuine stalls.
 freshness_threshold = 100
 
 [protocol_chain]
@@ -37,4 +36,4 @@ cat config.toml
 
 echo "=== Starting block-oracle service ==="
 sleep 5
-exec /opt/block-oracle/block-oracle run config.toml
+exec /usr/local/bin/block-oracle run config.toml
