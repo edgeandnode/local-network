@@ -1,0 +1,142 @@
+# Local Network Configuration
+#
+# This file is read by:
+#   - docker-compose (YAML variable substitution, plain key=value only)
+#   - host scripts (source .env)
+#   - containers (volume-mounted at /opt/config/.env, sourced by run.sh)
+#
+# Local overrides: create .env.local (gitignored) to override values for host
+# scripts. Host scripts source .env.local after .env. Note: .env.local does NOT
+# affect containers or docker-compose — those always use .env directly.
+#
+# Host scripts use ${VAR_HOST:-localhost} for service hostnames, allowing
+# devcontainer environments to set *_HOST env vars (e.g. CHAIN_HOST=chain)
+# to reach services on the Docker network instead of localhost.
+
+# --- Service profiles ---
+# Controls which optional service groups are started.
+# Available profiles:
+#   block-oracle          epoch block oracle
+#   explorer              block explorer UI
+#   rewards-eligibility   REO eligibility oracle node
+#   indexing-payments     dipper + iisa (requires GHCR auth — see README)
+# rewards-eligibility disabled: REO contract not deployed (REO_ENABLED=0)
+COMPOSE_PROFILES=block-oracle,explorer,indexing-payments
+
+# --- Compose file ---
+# Default: image-only stack from pinned versions. No local checkouts needed.
+#
+# Extra indexers: python3 scripts/gen-extra-indexers.py N
+# That script generates compose/extra-indexers.yaml AND idempotently appends
+# the path to COMPOSE_FILE below; running it with N=0 removes both.
+COMPOSE_FILE=docker-compose.yaml
+# indexer components versions
+GRAPH_NODE_VERSION=latest
+INDEXER_AGENT_VERSION=sha-8b0dd31
+INDEXER_SERVICE_RS_VERSION=sha-7ae6fc9
+INDEXER_TAP_AGENT_VERSION=sha-7ae6fc9
+
+# indexing-payments image versions (requires GHCR auth — see README)
+DIPPER_VERSION=sha-0d53d9a
+IISA_VERSION=latest
+IISA_CRONJOB_VERSION=latest
+
+# gateway components versions
+GATEWAY_COMMIT=29fa2968439723548ff67926575a6cfb73876e7c
+GRAPH_TALLY_AGGREGATOR_VERSION=v0.7.1
+GRAPH_TALLY_ESCROW_MANAGER_VERSION=v2.0.0
+
+# eligibility oracle (clone-and-build — requires published repo)
+# ELIGIBILITY_ORACLE_COMMIT=84710857394d3419f83dcbf6687a91f415cc1625 Commented out because `eligibility-oracle-node` repo is not published. 
+
+# network components versions
+BLOCK_ORACLE_COMMIT=3a3a425ff96130c3842cee7e43d06bbe3d729aed
+CONTRACTS_COMMIT=b771aa54f340ce899249d594c424ec47705ce07e # deployment/testnet/2026-06-09/gip-0088 HEAD as of June 17th 2026
+NETWORK_SUBGRAPH_COMMIT=master # latest
+INDEXING_PAYMENTS_SUBGRAPH_COMMIT=c8e997a80ebbf1c859f809fd8e9553d6212d49a0 # PR 17 (on main)
+
+# service ports
+CHAIN_RPC_PORT=8545
+IPFS_RPC_PORT=5001
+POSTGRES_PORT=5432
+GRAPH_NODE_GRAPHQL_PORT=8000
+GRAPH_NODE_ADMIN_PORT=8020
+GRAPH_NODE_STATUS_PORT=8030
+GRAPH_NODE_METRICS_PORT=8040
+INDEXER_MANAGEMENT_PORT=7600
+INDEXER_SERVICE_PORT=7601
+GATEWAY_PORT=7700
+REDPANDA_KAFKA_PORT=9092
+REDPANDA_KAFKA_EXTERNAL_PORT=29092
+REDPANDA_ADMIN_PORT=19644
+REDPANDA_PANDAPROXY_PORT=18082
+REDPANDA_SCHEMA_REGISTRY_PORT=18081
+GRAPH_TALLY_AGGREGATOR_PORT=7610
+BLOCK_EXPLORER_PORT=3000
+
+# backward compat: old names without _PORT suffix (shell-only, uses ${} expansion)
+# docker-compose sees these as literal strings — use _PORT names in docker-compose.yaml
+# TODO: remove once all consumers (other repos) are migrated to _PORT names
+CHAIN_RPC=${CHAIN_RPC_PORT}
+IPFS_RPC=${IPFS_RPC_PORT}
+POSTGRES=${POSTGRES_PORT}
+GRAPH_NODE_GRAPHQL=${GRAPH_NODE_GRAPHQL_PORT}
+GRAPH_NODE_ADMIN=${GRAPH_NODE_ADMIN_PORT}
+GRAPH_NODE_STATUS=${GRAPH_NODE_STATUS_PORT}
+GRAPH_NODE_METRICS=${GRAPH_NODE_METRICS_PORT}
+INDEXER_MANAGEMENT=${INDEXER_MANAGEMENT_PORT}
+INDEXER_SERVICE=${INDEXER_SERVICE_PORT}
+GATEWAY=${GATEWAY_PORT}
+REDPANDA_KAFKA=${REDPANDA_KAFKA_PORT}
+REDPANDA_KAFKA_EXTERNAL=${REDPANDA_KAFKA_EXTERNAL_PORT}
+REDPANDA_ADMIN=${REDPANDA_ADMIN_PORT}
+REDPANDA_PANDAPROXY=${REDPANDA_PANDAPROXY_PORT}
+REDPANDA_SCHEMA_REGISTRY=${REDPANDA_SCHEMA_REGISTRY_PORT}
+GRAPH_TALLY_AGGREGATOR=${GRAPH_TALLY_AGGREGATOR_PORT}
+BLOCK_EXPLORER=${BLOCK_EXPLORER_PORT}
+
+# Indexing Payments (used with indexing-payments override)
+DIPPER_ADMIN_RPC_PORT=9000
+DIPPER_INDEXER_RPC_PORT=9001
+INDEXER_SERVICE_DIPS_RPC_PORT=7602
+# Pricing floor advertised by indexer-service via /dips/info;
+# Price values are used by indexer-service to reject undervalued proposals
+# Values are GRT (no wei conversion)
+DIPS_MIN_GRT_PER_30_DAYS=100
+DIPS_MIN_GRT_PER_BILLION_ENTITIES_PER_30_DAYS=10000000 # unreasonably high for testing purposes
+
+## Chain config
+CHAIN_ID=1337
+CHAIN_NAME="hardhat"
+
+## Wallet
+## - Account 0 used by: EBO, admin actions (deploy contracts, transfer ETH/GRT), gateway payer for PaymentsEscrow
+## - Account 1 used by: Gateway signer for PaymentsEscrow
+## - Account x402 used by: Gateway x402 receiver wallet
+MNEMONIC="test test test test test test test test test test test junk"
+ACCOUNT0_ADDRESS="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+ACCOUNT0_SECRET="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+ACCOUNT1_ADDRESS="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+ACCOUNT1_SECRET="0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+ACCOUNT_X402_ADDRESS="0xE19f949A060934e19239a4730D86D3a4a0D43F33"
+ACCOUNT_X402_SECRET="0x48fef45dc52e43363cc31dde814c5cb9d17ecd5221bed71c8bed0ce83de37215"
+
+# receiver of Scalar payments (receiver is index 0 of mnemonic)
+INDEXER_MNEMONIC="test test test test test test test test test test test zero"
+RECEIVER_ADDRESS="0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3"
+RECEIVER_SECRET="0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573"
+
+# subgraphs
+SUBGRAPH="BFr2mx7FgkJ36Y6pE5BiXs1KmNUmVDCnL82KUSdcLW1g"
+SUBGRAPH_2="9p1TRzaccKzWBN4P6YEwEUxYwJn6HwPxf5dKXK2NYxgS"
+
+# REO (Rewards Eligibility Oracle)
+# Set to 1 to deploy and configure the REO contract (Phase 4). Unset or 0 to skip.
+REO_ENABLED=0
+# eligibilityPeriod: how long an indexer stays eligible after renewal (seconds)
+REO_ELIGIBILITY_PERIOD=300
+# oracleUpdateTimeout: fail-safe — if no oracle update for this long, all indexers eligible (seconds)
+REO_ORACLE_UPDATE_TIMEOUT=86400
+
+# Gateway
+GATEWAY_API_KEY="deadbeefdeadbeefdeadbeefdeadbeef"
