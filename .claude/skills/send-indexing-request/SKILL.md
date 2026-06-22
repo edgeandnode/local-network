@@ -10,33 +10,29 @@ Register an indexing request with dipper and monitor the full DIPs pipeline: IIS
 
 ## Targets
 
-The dipper stack runs on the `lnet-test` VM. The `dipper-cli` Rust binary is built on the Mac (where the dipper repo lives) and stays Mac-side — no cross-compile or scp. To reach dipper's admin RPC at `:9000` from the Mac, open an SSH local-forward to the VM (it's exposed externally by compose, but a tunnel is the cleanest portable approach). Helper scripts in the local-network repo run on the VM via SSH.
+The dipper stack runs on the `lnet-test` VM. Instead of building a `dipper-cli` binary on the Mac and tunnelling to the VM, run the **pinned `dipper-cli` GHCR image on the VM** with `docker run --rm --network host`. `--network host` lets the container reach dipper's admin RPC at `localhost:9000` on the VM host. The CLI image and the running dipper server share one pinned version (`DIPPER_VERSION` in `.env`), so the client always matches the server — no Mac build, no cross-compile, no version drift, no SSH tunnel.
 
-For a local-only docker setup, drop the SSH wrappers and tunnel; everything else is identical.
+For a local-only docker setup, drop the `ssh lnet-test` wrapper and run the same `docker run` directly; everything else is identical.
 
 ## Steps
 
-### 1. Build the dipper CLI (Mac)
+### 1. Resolve the pinned dipper-cli image (on the VM)
 
-Builds for the Mac's native arch — used as a client only, doesn't need to match the VM's arch.
-
-```bash
-cargo build --manifest-path /Users/samuel/Documents/github/dipper/Cargo.toml --bin dipper-cli --release
-```
-
-Always use the absolute path to the dipper repo and binary; never `cd` to the dipper repo, since later commands run from `/Users/samuel/Documents/github/local-network`.
-
-### 2. Open an SSH tunnel to dipper's admin RPC
-
-`dipper-cli` defaults to `http://localhost:9000`. The tunnel lets the Mac binary reach the VM's dipper without changing flags or hostnames. Idempotent — if it's already up, the second invocation is a no-op (port in use).
+The `dipper` server and the `dipper-cli` client both pin to `DIPPER_VERSION`, so the CLI image already present on the VM matches the running server. Confirm it's there:
 
 ```bash
-ssh -L 9000:localhost:9000 -fN lnet-test 2>/dev/null || true
+ssh lnet-test 'docker images --format "{{.Repository}}:{{.Tag}}" | grep "^ghcr.io/edgeandnode/dipper-cli:"'
 ```
 
-Tear it down at the end of the session (or leave it; harmless idle).
+If it's missing (fresh machine), pull the tag matching the running dipper — `DIPPER_VERSION` in `.env`:
 
-### 3. Verify dipper is healthy (on the VM)
+```bash
+ssh lnet-test 'docker pull ghcr.io/edgeandnode/dipper-cli:<DIPPER_VERSION>'
+```
+
+The image entrypoint is `dipper-cli`, so every call is `docker run --rm --network host <image> <subcommand> ...`. The CLI invocations below resolve the image inline on the VM, so they stay correct across version bumps without a hardcoded tag.
+
+### 2. Verify dipper is healthy (on the VM)
 
 ```bash
 ssh lnet-test 'docker compose -f /home/mainuser/local-network/docker-compose.yaml ps dipper --format "{{.Status}}"'
@@ -44,7 +40,7 @@ ssh lnet-test 'docker compose -f /home/mainuser/local-network/docker-compose.yam
 
 Expect `Up ... (healthy)`. If not, run the `fresh-deploy` skill.
 
-### 4. Ensure indexers have Redpanda query history
+### 3. Ensure indexers have Redpanda query history
 
 The IISA cronjob only scores indexers that have query history. Without it, scoring runs in degraded mode or excludes indexers the gateway hasn't routed to. Send queries through the gateway (which lives on the VM) to populate Redpanda for every indexer with allocations:
 
@@ -70,7 +66,7 @@ ssh lnet-test 'cd /home/mainuser/local-network && docker compose run --rm iisa-c
 
 The cronjob runs once and exits. Exit codes: `0` success, `1` scoring/push failure, `2` missing push token. The last log line `Scoring complete: mode=..., indexers=N, ...` reports the outcome. The `indexers` count should equal the total number of indexers with allocations. If it's lower, send more queries and retry.
 
-### 5. Send the indexing request (Mac binary, tunnelled to VM dipper)
+### 4. Send the indexing request (pinned CLI image on the VM)
 
 If the skill was invoked with an argument (e.g. `/send-indexing-request QmSQq...`), use that as the deployment ID. Otherwise resolve the current graph-network deployment hash dynamically — it changes whenever the schema, ABI, or mapping does, so a hardcoded value goes stale on every contract rebuild and indexer-service then rejects the proposal with `SubgraphManifestUnavailable`:
 
@@ -84,21 +80,23 @@ DEPLOYMENT=$(ssh lnet-test 'curl -s http://localhost:8000/subgraphs/name/graph-n
 Dipper's admin API is declarative: a single mutating method, `set-target-candidates`, takes the desired indexer count for a given `(deployment, chain)` tuple. The first call inserts a new request row; subsequent calls with a different `--num-candidates` value update it in place (grow or shrink). `--num-candidates 0` cancels. There is no separate `register`/`cancel` subcommand any more.
 
 ```bash
-/Users/samuel/Documents/github/dipper/target/release/dipper-cli indexings set-target-candidates \
+ssh lnet-test 'docker run --rm --network host \
+  $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^ghcr.io/edgeandnode/dipper-cli:" | head -1) \
+  indexings set-target-candidates \
   --server-url http://localhost:9000 \
   --signing-key "0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573" \
   <DEPLOYMENT_ID> \
   1337 \
-  --num-candidates 3
+  --num-candidates 3'
 ```
 
-`--num-candidates` is optional; omit it to let dipper use its configured maximum. Three is a sensible default for local testing — picks 3 of the 5 available indexers and exercises the full pipeline without saturating the stack.
+The `$(...)` resolves the CLI image on the VM (inside the single-quoted remote command), so it never needs a hardcoded tag. `--num-candidates` is optional; omit it to let dipper use its configured maximum. Three is a sensible default for local testing — picks 3 of the available indexers and exercises the full pipeline without saturating the stack.
 
 The signing key belongs to RECEIVER (`0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3`). Dipper's admin RPC allowlist only accepts this address; ACCOUNT0's key returns 403.
 
 On success, the CLI prints a UUID — the indexing request ID.
 
-To list available deployments to use a different one, query graph-node's status endpoint (also tunnel-friendly, but easier to ask graph-node directly via its container):
+To list available deployments to use a different one, query graph-node's status endpoint:
 
 ```bash
 ssh lnet-test 'docker compose -f /home/mainuser/local-network/docker-compose.yaml exec graph-node \
@@ -107,7 +105,7 @@ ssh lnet-test 'docker compose -f /home/mainuser/local-network/docker-compose.yam
   http://localhost:8030/graphql'
 ```
 
-### 6. Monitor the pipeline (on the VM)
+### 5. Monitor the pipeline (on the VM)
 
 ```bash
 ssh lnet-test 'cd /home/mainuser/local-network && python3 scripts/monitor-dips-pipeline.py <REQUEST_ID>'
@@ -125,29 +123,24 @@ ssh lnet-test 'cd /home/mainuser/local-network && python3 scripts/check-subgraph
 
 Then re-run the monitor.
 
-### 7. Check request status (Mac binary, tunnelled)
+### 6. Check request status (pinned CLI image on the VM)
 
 ```bash
-/Users/samuel/Documents/github/dipper/target/release/dipper-cli indexings status \
+ssh lnet-test 'docker run --rm --network host \
+  $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^ghcr.io/edgeandnode/dipper-cli:" | head -1) \
+  indexings status \
   --server-url http://localhost:9000 \
   --signing-key "0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573" \
-  <REQUEST_ID>
+  <REQUEST_ID>'
 ```
-
-### 8. (Optional) Tear down the SSH tunnel
-
-```bash
-pkill -f "ssh -L 9000:localhost:9000.*lnet-test" 2>/dev/null || true
-```
-
-Leaving the tunnel open is also fine — it's a quiet idle connection.
 
 ## Reference
 
 | Detail | Value |
 |--------|-------|
-| Admin RPC port | 9000 (tunnelled to localhost) |
+| Admin RPC port | 9000 (VM host port; the CLI container reaches it via `docker run --network host`) |
 | Indexer RPC port | 9001 (also exposed, not used by this skill) |
+| CLI image | `ghcr.io/edgeandnode/dipper-cli:${DIPPER_VERSION}` (pinned, matches the running dipper server) |
 | Signing key | RECEIVER: `0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573` |
 | Signing address | `0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3` |
 | Chain ID | 1337 (hardhat) |
