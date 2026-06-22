@@ -1,6 +1,6 @@
 # DIPs Local Testing - Bug Tracker
 
-## BUG-002: dipper run.sh hardcodes RecurringCollector as zero address
+## BUG-001: dipper run.sh hardcodes RecurringCollector as zero address
 
 **Symptom**: dipper returns 503 on all admin RPC calls because it can't interact with the RecurringCollector contract.
 
@@ -10,7 +10,7 @@
 **Fix**: Read address from horizon.json via `contract_addr RecurringCollector.address horizon`. Applied in local-network.
 **PR**: local-network fix applied, not submitted as standalone PR
 
-## BUG-003: indexer-service run-dips.sh uses stale config field names
+## BUG-002: indexer-service run-dips.sh uses stale config field names
 
 **Symptom**: `Ignoring unknown configuration field: dips.?.allowed_payers`, `dips.?.price_per_entity`, `dips.?.price_per_epoch`. Then: `DIPs enabled but no networks in dips.supported_networks. All proposals will be rejected.`
 
@@ -20,7 +20,7 @@
 **Fix**: Replaced old fields with `supported_networks = ["hardhat"]` and `[dips.min_grt_per_30_days]`. Applied in local-network.
 **PR**: local-network fix applied, not submitted as standalone PR
 
-## BUG-005: TAP subgraph pointed at old Escrow contract instead of Horizon PaymentsEscrow
+## BUG-003: TAP subgraph pointed at old Escrow contract instead of Horizon PaymentsEscrow
 
 **Symptom**: Gateway returns 402 for all queries. Indexer-service rejects with "No sender found for signer 0x7099...". Dipper crashes on bootstrap meta query.
 
@@ -30,7 +30,7 @@
 **Fix**: Changed `contract_addr Escrow tap-contracts` to `contract_addr PaymentsEscrow.address horizon` in subgraph-deploy/run.sh. Applied in local-network.
 **PR**: local-network fix applied, not submitted as standalone PR
 
-## BUG-008: SubgraphService not registered as rewards issuer in RewardsManager
+## BUG-004: SubgraphService not registered as rewards issuer in RewardsManager
 
 **Symptom**: indexer-agent fails all allocation operations (reallocate, new allocations for DIPs) with `execution reverted: "Not a rewards issuer"`. The agent enters a perpetual retry loop, blocking both protocol subgraph reallocations and DIPs agreement acceptance.
 
@@ -40,9 +40,9 @@
 **Fix**: Added idempotent `RewardsManager.setSubgraphService()` call in `containers/core/graph-contracts/run.sh`. Applied in local-network.
 **PR**: local-network fix applied, not submitted as standalone PR
 
-## BUG-011: Extra indexers rejected with SIGNER_NOT_AUTHORISED due to missing escrow accounts
+## BUG-005: Extra indexers rejected with SIGNER_NOT_AUTHORISED due to missing escrow accounts
 
-**Symptom**: After fixing BUG-010, dipper sends proposals to idle indexers but all are rejected with `SIGNER_NOT_AUTHORISED`.
+**Symptom**: Once dipper began sending proposals to idle indexers (registered with stake and a URL but holding no allocations), all of them were rejected with `SIGNER_NOT_AUTHORISED`.
 
 **Root cause**: The indexer-service's DIPs signer validator reuses the TAP `EscrowSignerValidator`, which queries the network subgraph for `paymentsEscrowAccounts` filtered by receiver (indexer address). The `tap-escrow-manager` only deposits GRT into PaymentsEscrow for the primary indexer. Extra indexers have no escrow accounts, so the query returns empty and all signers are rejected -- even though the signer authorization (on GraphTallyCollector) exists at the payer level.
 
@@ -52,7 +52,7 @@
 
 **Update (2026-04-13)**: This bug is effectively dead code after the DIPs migration to offer-based RCA authorization. Indexer-service no longer looks up signer authorization via escrow accounts; it queries the indexing-payments-subgraph for on-chain RCA offers instead. The escrow-deposit step for extra indexers stays in place because TAP still needs it for query-fee collection, but DIPs no longer cares about the escrow signer set. The `SIGNER_NOT_AUTHORISED` gRPC RejectReason now maps internally to `OfferNotFound` / `OfferMismatch` errors.
 
-## BUG-014: Indexer-agent pauses indexing-payments subgraph due to startup race condition
+## BUG-006: Indexer-agent pauses indexing-payments subgraph due to startup race condition
 
 **Symptom**: Dipper's chain_listener reports "Subgraph appears stalled" and never sees on-chain `IndexingAgreementAccepted` events. Agreements that were accepted on-chain by indexer-agents expire in dipper's DB (status 5 = Expired) after `deadline_seconds` (300s). Dipper then reassesses and creates duplicate agreements, leading to over-allocation.
 
@@ -62,7 +62,7 @@
 **Fix**: Changed the single check to a wait loop (up to 3 minutes, 5s intervals) that polls for the indexing-payments subgraph before giving up. Applied in `containers/indexer/indexer-agent/dev/run-dips.sh`.
 **PR**: local-network fix applied, not submitted as standalone PR
 
-## BUG-017: DIPs end-to-end pipeline can't fit a 50-request burst inside the 300s RCA deadline
+## BUG-007: DIPs end-to-end pipeline can't fit a 50-request burst inside the 300s RCA deadline
 
 **Symptom**: Under load (50 indexing requests registered in a single burst against 6 indexers, num_candidates=3), 50 of the 150 resulting agreements expire (status 5) at the 300s mark. Successful accepts in the same burst show p99 create→accept of 4:57 and a max of 5:02 — already inches from the 300s wall. Dipper reassessment then creates 50 fresh agreements which accept successfully against the now-mostly-empty pipeline.
 
@@ -95,9 +95,9 @@ Any one of these would tighten the budget; all three together break it at this s
 
 **PR**: not submitted; recorded for follow-up.
 
-## BUG-018: 76 active on-chain allocations have no backing IndexingAgreement entity
+## BUG-008: 76 active on-chain allocations have no backing IndexingAgreement entity
 
-**Symptom (observed 2026-04-29 after the 50-request stress test in BUG-017)**:
+**Symptom (observed 2026-04-29 after the 50-request burst stress test in BUG-007)**:
 
 ```
 on-chain (graph-network subgraph)              226 active allocations
