@@ -15,9 +15,9 @@ MATCH='^(dipper|iisa|indexer-agent|indexer-service|graph-node)(-[0-9]+)?$'
 ESC=$(printf '\033')
 
 # Idle-noise + non-DIPs chatter, matched after ANSI strip. Goal: idle near-silent, lights up on real DIPs
-# events. Drops graph-node per-block/epoch-decode/pruning, service spans+query-fee, dipper heartbeats,
-# health-checks, agent reconciliation plumbing. Keeps escrow/topology, tx, POI/reward collection; dedupes heartbeats.
-NOISE='Start processing block|Committed write batch|triggers: 0,|entities: 0,|Syncing [0-9]+ blocks from Ethereum|data_source: DataEdge|Start pruning|Finished pruning|Found [0-9]+ triggers|Applying [0-9]+ entity'
+# events. Drops graph-node per-block/block-scan/epoch-decode/pruning, service spans+query-fee, dipper
+# heartbeats, health-checks, agent reconciliation plumbing. Keeps escrow/topology, tx, POI/reward collection.
+NOISE='Start processing block|Committed write batch|Scanning blocks|Scanned blocks|triggers: 0,|entities: 0,|Syncing [0-9]+ blocks from Ethereum|data_source: DataEdge|Start pruning|Finished pruning|Found [0-9]+ triggers|Applying [0-9]+ entity'
 NOISE="$NOISE|uri: /status|router::http_request|routes::status|at crates/|tap_receipt|auth::tap|value_check|request_handler|pagination complete"
 NOISE="$NOISE|Accepting new connection|starting new connection|starting expiration scan|no expired agreements|paginated_client"
 NOISE="$NOISE|GET /health|\"msg\":\"GET / 200|\"level\":10,|No pending RAVs"
