@@ -15,8 +15,8 @@ MATCH='^(dipper|iisa|indexer-agent|indexer-service|graph-node)(-[0-9]+)?$'
 ESC=$(printf '\033')
 
 # Idle-noise + non-DIPs chatter, matched after ANSI strip. Goal: idle near-silent, lights up on real DIPs
-# events. Drops graph-node per-block/empty/epoch-decode/pruning, service spans+query-fee, dipper heart-
-# beats, health-checks, agent trace + POI-loop + reconciliation. Keeps escrow/topology, accepts, rules.
+# events. Drops graph-node per-block/epoch-decode/pruning, service spans+query-fee, dipper heartbeats,
+# health-checks, agent reward-collection/allocation-batch/epoch chatter. Keeps escrow/topology + tx; dedupes heartbeats.
 NOISE='Start processing block|Committed write batch|triggers: 0,|entities: 0,|Syncing [0-9]+ blocks from Ethereum|data_source: DataEdge|Start pruning|Finished pruning|Found [0-9]+ triggers|Applying [0-9]+ entity'
 NOISE="$NOISE|uri: /status|router::http_request|routes::status|at crates/|tap_receipt|auth::tap|value_check|request_handler|pagination complete"
 NOISE="$NOISE|Accepting new connection|starting new connection|starting expiration scan|no expired agreements|paginated_client"
@@ -24,8 +24,9 @@ NOISE="$NOISE|GET /health|\"msg\":\"GET / 200|\"level\":10,|No pending RAVs"
 NOISE="$NOISE|presentPOI|Identify expiring allocations|Expired allocations found"
 NOISE="$NOISE|0 pending, 0 active accepted|No collectable agreements found|No recently closed allocations|No deployment changes are necessary"
 NOISE="$NOISE|[Rr]econcil|Fetch subgraph deployment assignments|Fetching mapped subgraph deployment|Fetching active deployments|Refresh eligible allocations|Fetch recently closed allocations|isPaused|Execute 'actions' query|Ensuring indexing rules for DIPs|Fetching indexing rules|Fetch Active allocations|Query subgraph deployments|Finished fetching "
+NOISE="$NOISE|Preparing to present POI|Populating present-poi transaction|Found subgraph service transactions|Resolved current Epoch|Approved actions found|Auto allocation management executes|Batch ready, preparing to execute|Begin executing approved actions|Validating action batch|Ensure subgraph deployments are deployed|Finished deploying actions, marking as PENDING"
 
-# Dedupe-on-change for unchanging state heartbeats (escrow / allocations / ETH balance / chain-listener):
+# Dedupe-on-change for unchanging state heartbeats (escrow / allocations / balance / chain / DIPs rules / collection):
 # strip the volatile parts (timestamps, block numbers, poll counters) to a value key, then suppress a line
 # only when that value matches the last one printed. First sighting prints; changes reprint; errors pass.
 tail_one() {
@@ -49,6 +50,8 @@ tail_one() {
         else if (clean ~ /returned allocations/) tag = "alloc"
         else if (clean ~ /Current operator ETH balance/) tag = "eth"
         else if (clean ~ /chain listener heartbeat/) tag = "chain"
+        else if (clean ~ /Ensuring DIPS indexing rules/) tag = "dips"
+        else if (clean ~ /No agreements ready for collection/) tag = "collect"
         if (tag != "") {
           v = clean
           gsub(/[0-9-]+T[0-9:.]+Z/, "", v)
