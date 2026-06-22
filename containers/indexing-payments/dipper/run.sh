@@ -31,14 +31,16 @@ network_subgraph_deployment=$(wait_for_gql \
 
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 recurring_collector=$(contract_addr RecurringCollector.address horizon)
+recurring_agreement_manager=$(contract_addr RecurringAgreementManager.address issuance)
 
-# Config for dipper-service. chain_client single-sources chain_id from the signer
-# section and the collector address from the dips section (edgeandnode/dipper#626).
+# Config for dipper-service. chain_client derives chain_id, the collector and the
+# SubgraphService address from the signer/dips sections (edgeandnode/dipper#626, #643).
 cat >config.json <<-EOF
 {
   "dips": {
     "data_service": "${subgraph_service}",
     "recurring_collector": "${recurring_collector}",
+    "recurring_agreement_manager": "${recurring_agreement_manager}",
     "max_agreement_grt_per_30_days": 20000,
     "max_seconds_per_collection": 86400,
     "min_seconds_per_collection": 3600,
@@ -78,8 +80,6 @@ cat >config.json <<-EOF
     "providers": ["http://chain:${CHAIN_RPC_PORT}"],
     "request_timeout": 30,
     "max_retries": 3,
-    "subgraph_service_address": "${subgraph_service}",
-    "indexing_payments_subgraph_url": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments",
     "gas_price_multiplier": 1.2,
     "max_gas_price_gwei": 100,
     "gas_buffer_multiplier": 2.0,
