@@ -269,8 +269,12 @@ def main() -> int:
         all_terminal = all(s in TERMINAL for s in statuses)
 
         if all_terminal and agreements:
-            success_count = sum(1 for s in statuses if s in TERMINAL_SUCCESS)
-            failure_count = sum(1 for s in statuses if s in TERMINAL_FAILURE)
+            success_count = sum(
+                1 for ag in agreements if ag["status"] in TERMINAL_SUCCESS
+            )
+            failure_count = sum(
+                1 for ag in agreements if ag["status"] in TERMINAL_FAILURE
+            )
             print(
                 f"\ndone: {success_count} accepted, {failure_count} failed ({elapsed}s)"
             )
