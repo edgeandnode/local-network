@@ -58,9 +58,8 @@ export INDEXER_AGENT_SUBGRAPH_SERVICE_ADDRESS_BOOK=/opt/config/subgraph-service.
 # by @semiotic-labs/tap-contracts-bindings, which has no chainId 1337 baked in.
 export INDEXER_AGENT_TAP_ADDRESS_BOOK=/opt/config/tap-contracts.json
 # Protocol subgraphs (network, epoch, indexing-payments, tap) live on the
-# primary's graph-node — extras query the same endpoints. The agent's own
-# graph-node admin/query/status endpoints point at GRAPH_NODE_HOST (the
-# indexer's own graph-node, which equals primary for the primary indexer).
+# primary's graph-node, so extras query the same endpoints. The agent's own
+# graph-node endpoints use GRAPH_NODE_HOST (equals primary for the primary).
 export INDEXER_AGENT_EPOCH_SUBGRAPH_ENDPOINT="http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/block-oracle"
 export INDEXER_AGENT_GATEWAY_ENDPOINT="http://gateway:${GATEWAY_PORT}"
 export INDEXER_AGENT_GRAPH_NODE_QUERY_ENDPOINT="http://${GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}"
@@ -75,11 +74,9 @@ export INDEXER_AGENT_VOUCHER_REDEMPTION_THRESHOLD=0.01
 export INDEXER_AGENT_NETWORK_SUBGRAPH_ENDPOINT="http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 # indexing-payments subgraph is deployed by subgraph-deploy.
 export INDEXER_AGENT_INDEXING_PAYMENTS_SUBGRAPH_ENDPOINT="http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
-# TAP subgraph is no longer deployed on this branch (TAP escrow consolidated
-# into Horizon). The agent still has unconditional code paths for TapSubgraph
-# that crash when the URL is undefined, so we point at a stale endpoint that
-# returns 404. The agent starts; TAP query-fee paths return errors gracefully.
-# DIPs end-to-end testing does not exercise this path.
+# TAP subgraph is no longer deployed on this branch (escrow moved into Horizon),
+# but the agent crashes if the TapSubgraph URL is undefined. Point at a stale 404
+# endpoint so it starts; TAP query-fee paths error gracefully, DIPs doesn't use it.
 export INDEXER_AGENT_TAP_SUBGRAPH_ENDPOINT="http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/semiotic/tap"
 export INDEXER_AGENT_NETWORK_PROVIDER="http://chain:${CHAIN_RPC_PORT}"
 export INDEXER_AGENT_MNEMONIC="${INDEXER_OPERATOR_MNEMONIC}"
@@ -93,16 +90,14 @@ export INDEXER_AGENT_MAX_PROVISION_INITIAL_SIZE=200000
 export INDEXER_AGENT_CONFIRMATION_BLOCKS=1
 export INDEXER_AGENT_LOG_LEVEL=trace
 
-# DIPs: enable the indexer-agent's on-chain accept path when RecurringCollector
-# is deployed. Mirrors the conditional [dips] block in indexer-service/run.sh.
-# Without this, the agent never polls pending_rca_proposals, never calls
-# acceptIndexingAgreement on-chain, and every dipper-submitted offer expires.
+# DIPs: enable the agent's on-chain accept path when RecurringCollector is
+# deployed (mirrors the [dips] block in indexer-service/run.sh). Without it the
+# agent never polls pending_rca_proposals or accepts, so every offer expires.
 recurring_collector=$(contract_addr RecurringCollector.address horizon 2>/dev/null) || recurring_collector=""
 if [ -n "$recurring_collector" ]; then
-  # BUG-014: wait for the indexing-payments subgraph so we can pin it as an
-  # offchain subgraph. Without this, reconcileDeployments pauses it because
-  # the indexer has no allocation. subgraph-deploy runs in parallel and may
-  # not be done when this container starts — poll for up to 3 minutes.
+  # Pin the indexing-payments subgraph as an offchain subgraph so
+  # reconcileDeployments doesn't pause it (the indexer has no allocation for it).
+  # subgraph-deploy runs in parallel, so poll for it for up to 3 minutes.
   echo "Waiting for indexing-payments subgraph..."
   INDEXING_PAYMENTS_DEPLOYMENT=""
   for _ip_attempt in $(seq 1 36); do

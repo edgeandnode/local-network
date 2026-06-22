@@ -156,7 +156,7 @@ Each agent's reconciliation loop fires roughly every 15 seconds in local-dev mod
 
 The gateway's candidate-selection algorithm strongly favors the highest-staked indexer (= primary). Without intervention, extras get no queries and IISA scores them with no data. Workaround: pause the primary's `indexer-service` briefly so gateway routes to extras, then unpause.
 
-Before pausing, set an offchain rule on the primary's agent to protect the `indexing-payments` subgraph (BUG-014 — without this the agent will mark indexing-payments unhealthy when it sees the paused service and pause the subgraph; reconciliation re-pauses it on resume because there's no offchain rule to override).
+Before pausing, set an offchain rule on the primary's agent to protect the `indexing-payments` subgraph (without this the agent will mark indexing-payments unhealthy when it sees the paused service and pause the subgraph; reconciliation re-pauses it on resume because there's no offchain rule to override).
 
 ```bash
 ssh lnet-test bash <<'REMOTE'
