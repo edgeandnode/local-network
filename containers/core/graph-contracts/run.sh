@@ -234,12 +234,29 @@ run_issuance_stage() {
   return 1
 }
 
-# Deploy + configure the issuance contracts and the mock oracle. We stop before
-# eligibility-integrate/issuance-connect/issuance-allocate — those call
-# RewardsManager.setIssuanceAllocator (protocol-funded flow), out of scope here.
+# Deploy + configure the issuance contracts and the mock oracle, then connect the
+# protocol-funded flow so RecurringAgreementManager (RAM) receives issuance. Still
+# skip eligibility-integrate: it gates indexing rewards, off the DIPs funding path.
 run_issuance_stage "GIP-0088:upgrade,deploy"
 run_issuance_stage "GIP-0088:upgrade,configure"
 run_issuance_stage "RewardsEligibilityOracleMock,deploy,configure"
+
+# Route issuance to RAM, else its beforeCollection() escrow top-up has nothing to
+# deposit and DIPs collect() reverts on an empty escrow. issuance-allocate needs the
+# config table to sum to RM's on-chain 100 GRT/block, so fill it: 94 (RM) + 6 (RAM).
+ISSUANCE_CONFIG=/opt/contracts/packages/deployment/config/localNetwork.json5
+sed -i \
+  -e "s|// issuancePerBlock: '<RM issuancePerBlock>',|issuancePerBlock: '100',|" \
+  -e "s|// RewardsManager: { selfGrtPerBlock: '<issuancePerBlock - 6>' },|RewardsManager: { selfGrtPerBlock: '94' },|" \
+  "$ISSUANCE_CONFIG"
+if grep -q "issuancePerBlock: '100'" "$ISSUANCE_CONFIG"; then
+  echo "  Issuance allocation table set: 100 GRT/block = 94 (RM self) + 6 (RAM)"
+else
+  echo "  WARNING: issuance config patch did not apply; issuance-allocate will validate" >&2
+fi
+
+run_issuance_stage "GIP-0088:issuance-connect"
+run_issuance_stage "GIP-0088:issuance-allocate"
 
 # Grant AGREEMENT_MANAGER_ROLE on RAM to the DIPs payer (ACCOUNT0) so dipper's
 # offers pass the indexer-service trust gate. ACCOUNT0 holds GOVERNOR_ROLE, which
