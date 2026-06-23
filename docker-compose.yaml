@@ -7,7 +7,7 @@ services:
       - chain-data:/data
     healthcheck: { interval: 1s, retries: 10, test: cast block }
     stop_grace_period: 30s
-    mem_limit: 512m
+    mem_limit: 1g
     restart: on-failure:3
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
