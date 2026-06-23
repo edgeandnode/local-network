@@ -22,7 +22,7 @@ When a bug is found during testing, log it in `BUGS.md` @BUGS.md with:
 
 The stack has these layers:
 
-- **Chain**: local Hardhat EVM node (chain ID 1337) with all Graph protocol contracts
+- **Chain**: local anvil (Foundry) EVM node (chain ID 1337) with all Graph protocol contracts
 - **Indexing**: graph-node, indexer-agent, indexer-service
 - **Gateway**: routes paid queries to indexers
 - **Payments (TAP)**: graph-tally-aggregator, graph-tally-escrow-manager, tap-agent
