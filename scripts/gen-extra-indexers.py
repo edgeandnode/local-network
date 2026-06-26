@@ -319,7 +319,11 @@ def tap_service(n: int, address: str, secret: str, operator_mnemonic: str) -> st
 
 
 def funding_block(n: int, address: str, operator_mnemonic: str) -> str:
-    """ACCOUNT0 transactions: fund ETH + GRT to indexer and operator. Must be sequential (shared nonce)."""
+    """Fund GRT to the indexer and ETH to the operator (sequential — shared nonce).
+
+    The indexer accounts are anvil-prefunded with ETH (`--accounts 20` in
+    chain/run.sh); operators are custom-mnemonic addresses that anvil doesn't fund.
+    """
     return f"""\
         # Fund indexer {n}: {address}
         ADDR_{n}="{address}"
@@ -327,8 +331,6 @@ def funding_block(n: int, address: str, operator_mnemonic: str) -> str:
         echo "Funding indexer {n}: $$ADDR_{n}  operator: $$OP_{n}"
         STAKE=$$(cast call --rpc-url="$$RPC" "$$STAKING" 'getStake(address)(uint256)' "$$ADDR_{n}")
         if [ "$$STAKE" = "0" ]; then
-          retry_cast cast send --rpc-url="$$RPC" --confirmations=0 --mnemonic="$$MNEMONIC" \\
-            --value=1ether "$$ADDR_{n}"
           retry_cast cast send --rpc-url="$$RPC" --confirmations=0 --mnemonic="$$MNEMONIC" \\
             "$$TOKEN" 'transfer(address,uint256)' "$$ADDR_{n}" '100000000000000000000000'
         fi

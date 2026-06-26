@@ -28,7 +28,7 @@ Mac path: `/Users/samuel/Documents/github/local-network`. VM path: `/home/mainus
 
 ## Accounts
 
-Extras use hardhat "junk" mnemonic accounts starting at index 2. Maximum 18 extra (indices 2–19). Each indexer also gets a unique operator derived from a mnemonic of the form `test test test ... test {bip39_word}` (11 "test" + 1 valid checksum word). The generator handles mnemonic validation, operator derivation, ETH funding, and on-chain `setOperator` for both `SubgraphService` and `HorizonStaking`.
+Extras use hardhat "junk" mnemonic accounts starting at index 2. Maximum 18 extra (indices 2–19). Each indexer also gets a unique operator derived from a mnemonic of the form `test test test ... test {bip39_word}` (11 "test" + 1 valid checksum word). The generator handles mnemonic validation, operator derivation, operator ETH funding (anvil pre-funds the indexer accounts), and on-chain `setOperator` for both `SubgraphService` and `HorizonStaking`.
 
 | Suffix | Mnemonic Index | Address |
 |--------|---------------|---------|
