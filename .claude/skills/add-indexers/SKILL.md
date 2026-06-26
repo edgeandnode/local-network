@@ -28,7 +28,7 @@ Mac path: `/Users/samuel/Documents/github/local-network`. VM path: `/home/mainus
 
 ## Accounts
 
-Extras use hardhat "junk" mnemonic accounts starting at index 2. Maximum 18 extra (indices 2–19). Each indexer also gets a unique operator derived from a mnemonic of the form `test test test ... test {bip39_word}` (11 "test" + 1 valid checksum word). The generator handles mnemonic validation, operator derivation, ETH funding, on-chain `setOperator` for both `SubgraphService` and `HorizonStaking`, and `PaymentsEscrow` deposits.
+Extras use hardhat "junk" mnemonic accounts starting at index 2. Maximum 18 extra (indices 2–19). Each indexer also gets a unique operator derived from a mnemonic of the form `test test test ... test {bip39_word}` (11 "test" + 1 valid checksum word). The generator handles mnemonic validation, operator derivation, ETH funding, and on-chain `setOperator` for both `SubgraphService` and `HorizonStaking`.
 
 | Suffix | Mnemonic Index | Address |
 |--------|---------------|---------|
@@ -71,13 +71,13 @@ After the scp, `ssh lnet-test 'cd /home/mainuser/local-network && docker compose
 
 ### 4. Register new indexers on-chain
 
-The `start-indexing-extra` one-shot stakes GRT, authorizes operators, and deposits to `PaymentsEscrow` for every extra in the YAML.
+The `start-indexing-extra` one-shot stakes GRT and authorizes operators for every extra in the YAML.
 
 ```bash
 ssh lnet-test 'cd /home/mainuser/local-network && docker compose run --rm start-indexing-extra'
 ```
 
-Watch for `All escrow deposits complete` near the end of the output — that's the success signal. The container exits 0.
+Watch for `All extra indexers registered` near the end of the output — that's the success signal. The container exits 0.
 
 ### 5. Bring up the new containers
 
