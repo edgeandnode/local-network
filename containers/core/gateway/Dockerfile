@@ -1,15 +1,13 @@
-FROM debian:bookworm-slim
-ARG GATEWAY_COMMIT
+ARG GATEWAY_VERSION=v27.6.0
+FROM ghcr.io/edgeandnode/graph-gateway:${GATEWAY_VERSION}
 
 RUN apt-get update \
-    && apt-get install -y clang cmake curl git jq libsasl2-dev libssl-dev pkg-config protobuf-compiler \
+    && apt-get install -y --no-install-recommends curl jq ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 
-WORKDIR /opt
-RUN git clone https://github.com/edgeandnode/gateway && \
-    cd gateway && git checkout ${GATEWAY_COMMIT} && \
-    . /root/.cargo/env && cargo build -p graph-gateway && \
-    cp target/debug/graph-gateway /usr/local/bin/graph-gateway && cd .. && rm -rf gateway
+# The published image's binary is at /opt/gateway/target/release/graph-gateway (not on
+# PATH); run.sh calls `graph-gateway` by name, so put it on PATH.
+RUN ln -sf /opt/gateway/target/release/graph-gateway /usr/local/bin/graph-gateway
+
 COPY ./run.sh /opt/run.sh
 ENTRYPOINT ["bash", "/opt/run.sh"]

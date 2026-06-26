@@ -254,7 +254,7 @@ services:
     build:
       context: containers/core/gateway
       args:
-        GATEWAY_COMMIT: ${GATEWAY_COMMIT}
+        GATEWAY_VERSION: ${GATEWAY_VERSION:-v27.6.0}
     depends_on:
       indexer-service: { condition: service_healthy }
       redpanda: { condition: service_healthy }
