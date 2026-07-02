@@ -55,7 +55,10 @@ export LOCAL_GATEWAY_PROXY_URL="http://gateway:7700/api"
 export LOCAL_GNS_ADDRESS LOCAL_GRAPH_TOKEN_ADDRESS LOCAL_L2_GRAPH_TOKEN_GATEWAY_ADDRESS
 export GRAPH_NETWORK_LOCAL_GRAPHQL_URI="http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network"
 export INDEXING_PAYMENTS_SUBGRAPH_ENABLED=true
-export INDEXING_PAYMENTS_SUBGRAPH_URL="http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
+# DIPS default chain for multi-network published subgraphs. Studio commit e454e269
+# dropped INDEXING_PAYMENTS_SUBGRAPH_URL (per-network URL now hardcoded in the client).
+# Read only by inlinedEnv.mjs here; default already matches local. Pinned for parity with api.sh.
+export DIPS_PUBLISHED_DEFAULT_CHAIN_CAIP2ID="eip155:1337"
 
 # Billing — required by UI inlinedEnv but local doesn't exercise paid flows.
 # GraphQL points at a non-routable host; addrs are zero; chain ID must be one
