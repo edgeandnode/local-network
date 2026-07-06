@@ -1,6 +1,6 @@
 ---
 name: fresh-deploy
-description: Full nuke-and-rebuild of the local-network Docker Compose stack on the deploy VM (`lnet-test`) — wipes containers, volumes, images, networks, the local-network clone itself, then re-clones from origin, resets compose to primary-only (any prior `/add-indexers` overlay is dropped), repopulates the eligibility-oracle-node source/ directory, rebuilds with --pull, brings the stack up, and waits for dipper healthy. Use when the user asks for a fresh deploy, full reset, redeploy from scratch, after merging branch changes, or when debugging stuck state. Also use after the user runs `git pull` on a branch whose container code has changed.
+description: Full nuke-and-rebuild of the local-network Docker Compose stack on the deploy VM (`lnet-test`) — wipes containers, volumes, images, networks, the local-network clone itself, then re-clones from origin, resets compose to primary-only (any prior `/add-indexers` overlay is dropped), repopulates the eligibility-oracle-node source/ directory and (when the branch enables the studio profile) the mounted subgraph-studio checkout, rebuilds with --pull, brings the stack up, and waits for dipper healthy. Use when the user asks for a fresh deploy, full reset, redeploy from scratch, after merging branch changes, or when debugging stuck state. Also use after the user runs `git pull` on a branch whose container code has changed.
 ---
 
 # Fresh Deploy
@@ -17,6 +17,7 @@ If your deploy target is local docker on the Mac instead of the VM, drop the `ss
 
 - SSH access to `lnet-test` (passwordless `sudo` is needed once during teardown for `rm -rf` of the clone, since some files in `tests/target/` are owned by root from container builds bind-mounted as root).
 - A clone of `edgeandnode/eligibility-oracle-node` on the Mac at `/Users/samuel/Documents/github/eligibility-oracle-node`. The repo is private; the VM has no GitHub auth, so the source is `rsync`'d from the Mac into the build context.
+- For branches that enable the `studio` profile (e.g. `nas/studio-dips-development`): a clone of `edgeandnode/subgraph-studio` on the Mac, sibling to the local-network clone (`/Users/samuel/Documents/github/subgraph-studio`). Same rationale — private repo, no VM auth — so the source is `rsync`'d from the Mac to the bind-mount sibling and built on the VM (steps 6b / 7b). Whatever commit the Mac checkout is on is what the stack runs.
 - The branch to deploy must already be pushed to origin. The skill clones from origin, never from a local Mac checkout.
 
 ## Steps
@@ -95,6 +96,21 @@ rsync -a \
 
 If the user has bumped their local clone to a specific commit, that commit is what gets baked into the image. The `rewards-eligibility` profile is OFF by default in `.env`, so the build skips this service unless the profile is enabled — but populating `source/` keeps the documented developer workflow honest and costs nothing.
 
+### 6b. Populate the subgraph-studio source from the Mac (studio profile only)
+
+Skip this and 7b if the branch's `.env` does not enable the `studio` profile. On branches that do (e.g. `nas/studio-dips-development`, where `.env` ships `COMPOSE_PROFILES=...,studio` and `COMPOSE_FILE=docker-compose.yaml:compose/dev/studio.yaml`), the four studio services bind-mount a local `subgraph-studio` checkout at `/app` (`${STUDIO_SOURCE_ROOT}:/app`, default `../subgraph-studio` → `/home/mainuser/subgraph-studio`). That sibling is a separate private repo, not part of the local-network clone, so a fresh clone brings studio up against an empty mount and the services exit unless it is populated.
+
+Unlike the oracle (`COPY`'d into an image), studio is mounted at runtime **and** must be rebuilt on the VM: `node_modules` carries the bun binary + native addons for the container's linux arch, so the Mac's arm64 `node_modules` can't be copied. rsync the source without `node_modules`/`.git`, then build in-container (step 7b).
+
+```bash
+rsync -a \
+  --exclude='.git/' --exclude='node_modules/' --exclude='.next/' --exclude='.turbo/' \
+  /Users/samuel/Documents/github/subgraph-studio/ \
+  lnet-test:/home/mainuser/subgraph-studio/
+```
+
+There is no image baking for studio, so the live commit is whatever the Mac checkout points at — `git pull` (or checkout) the Mac `subgraph-studio` before rsync to move studio forward. `STUDIO_SOURCE_ROOT=../subgraph-studio` is already in the committed `.env`; no env toggling needed.
+
 ### 7. Build everything with --pull
 
 ```bash
@@ -104,6 +120,19 @@ ssh lnet-test 'cd /home/mainuser/local-network && docker compose build --pull'
 Run this in the background — it takes ~10–15 minutes on a cold cache. The long pole is `block-oracle` (Rust compiles from source) plus `graph-contracts` (clones the contracts repo at the pinned commit). The thin-wrapper services (`chain`, `graph-node`, `gateway`, `indexer-agent`, `indexer-service`, `tap-agent`, `dipper`, etc.) finish in seconds because their Dockerfiles are just `FROM ghcr.io/...` plus a few apt packages and a copy of run.sh.
 
 `--pull` refreshes the FROM-line base images; without it, the daemon would skip the pull for layers it remembers (irrelevant here since step 2 wiped them, but harmless to be explicit).
+
+### 7b. Build the subgraph-studio source in-container (studio profile only)
+
+Skip if studio isn't enabled. The studio container needs `node_modules` + the workspace package build outputs (`packages/*/lib`) that the UI/API import; the rsync deliberately omitted `node_modules` (arch-specific). So after the images exist (step 7) and the source is rsync'd (step 6b), build it inside the studio dev image (which bundles bun at `/root/.bun/bin`), writing `node_modules` + each package's build output back to the mounted host dir.
+
+**Use a plain `docker run`, NOT `docker compose run`.** The studio-ui service mounts `./.env:/opt/config/.env:ro` nested inside `config-local:/opt/config:ro`; on a fresh, empty `config-local` volume runc can't create the `.env` mountpoint in a read-only volume and the container fails at init with `make mountpoint "/opt/config/.env": read-only file system`. (During a normal `up` this works only because graph-contracts mounts `config-local` read-write first and creates that mountpoint.) A plain `docker run` mounting just the source sidesteps the whole config/.env layering — the build doesn't need either:
+
+```bash
+ssh lnet-test 'docker run --rm -v /home/mainuser/subgraph-studio:/app -w /app \
+  --entrypoint bash local-network-studio-ui -c "cd /app && bun install && bun run build"'
+```
+
+Run in the background — install + monorepo build takes several minutes. It's platform-correct because it runs in the same linux image the services run from. The studio services run `next dev` / `node .`, so a missing `packages/ui/.next` is fine (dev server compiles on demand) — the hard requirement is `node_modules`. Step 8 (`up`) must not start the studio services until this finishes, or `studio-ui`/`studio-api` boot against a tree with no `node_modules` and crash-loop. The ui.sh wiring for the DIPs gateway-URL feature is already baked into the clone (`containers/ui/studio/ui.sh` exports `INDEXING_PAYMENTS_SUBGRAPH_ENABLED` / `_URL`) — no studio-source change needed for it, since that runs at container start, not build.
 
 ### 8. Bring up the stack
 
@@ -179,6 +208,24 @@ Expected terminal state on a clean PR-67-style deploy:
 The `iisa-cronjob (Exited 1)` is **expected** on a fresh deploy. The cronjob runs once, finds no Kafka query traffic yet (because the gateway hasn't routed any user queries), falls into degraded scoring mode, and exits non-zero. Restart policy `no` is set deliberately so it doesn't crash-loop. Once the user sends queries through the gateway, a manual `docker compose run --rm iisa-cronjob` produces a clean exit.
 
 If the `rewards-eligibility` profile is enabled in `.env`, also expect `eligibility-oracle-node` running (built from the rsync'd source).
+
+If the `studio` profile is enabled (as on `nas/studio-dips-development`), also expect the five studio services up — `studio-redis`, `studio-api`, `studio-ui`, `studio-query-proxy`, `studio-deployment-router` — with the UI reachable at `http://localhost:${STUDIO_UI_PORT}/studio/` (default 5000). These only come up if steps 6b/7b populated and built `/home/mainuser/subgraph-studio`; an empty or unbuilt mount makes them exit with "needs subgraph-studio source mounted at /app". A studio service stuck restarting after a successful build usually means the build didn't finish before `up` — re-run step 7b, then `docker compose up -d` again.
+
+**Accessing the studio UI from the VM — use an SSH tunnel, not the VM IP.** ui.sh inlines `localhost`-based URLs into the client bundle (`STUDIO_GRAPHQL_HTTP_URI=http://localhost:4000/graphql`, the gateway query URL `localhost:7700`, chain RPC `localhost:8545`, etc.). Loading the UI by the VM's IP makes the browser resolve those `localhost:PORT` URLs to the user's own machine, so GraphQL calls fail with `net::ERR_FAILED`/CORS and MetaMask can't reach the chain. Tell the user to forward the ports and browse `http://localhost:5000/studio/` (run on their Mac, long-lived foreground process):
+
+```bash
+ssh -N \
+  -L 5000:localhost:5000 \
+  -L 4000:localhost:4000 \
+  -L 7700:localhost:7700 \
+  -L 8545:localhost:8545 \
+  -L 8000:localhost:8000 \
+  lnet-test
+```
+
+`5000` studio-ui, `4000` studio-api (GraphQL HTTP + WS), `7700` gateway (querying the Gateway Query URL), `8545` chain RPC (MetaMask network `http://localhost:8545`, chainId `1337`), `8000` graph-node (the publish flow reads the local graph-network subgraph via `GRAPH_NETWORK_LOCAL_GRAPHQL_URI=http://localhost:8000` — `nextAccountSeqID`/explorer-subgraph state). Tunnelling keeps the origin `localhost:5000`, which also keeps SIWE domain validation and CORS consistent. Avoid rewiring ui.sh to the VM IP — it hardcodes the address and breaks SIWE/CORS.
+
+**Critical: no competing local-network stack on the Mac.** `ssh -L` cannot bind a port the Mac is already using, so if a Mac-local stack holds any of these ports (`docker ps` shows graph-node on 8000, gateway on 7700, studio-api on 4000, etc.) the matching `-L` silently fails and the browser hits the *Mac* stack for that port while other ports reach the VM. That split-brain is subtle and breaks publishing: chain reads come from the VM (8545) but the network-subgraph read comes from the Mac (8000), so the publish flow finds the user's Mac-published subgraph, takes the `publishNewVersion` branch, and the tx reverts on the VM chain with `ERC721: owner query for nonexistent token` (the subgraph NFT was never minted on the VM). Before tunnelling, tear down any Mac-local stack (`docker compose rm -f -s` + free the ports) so all `-L` binds succeed and every backend resolves to the VM. Verify with `lsof -nP -iTCP:8000 -sTCP:LISTEN` — it should show `ssh`, not `com.docker`.
 
 ## Hook workarounds
 
