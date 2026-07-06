@@ -6,10 +6,9 @@ set -eu
 # shellcheck source=/dev/null
 . /opt/shared/lib.sh
 
-# Per-indexer overrides. The primary indexer leaves these unset and inherits
-# the default identity (RECEIVER_*) and service hostnames; extras inject their
-# own values via compose `environment:`. Names match the indexer-agent and
-# tap-agent run.sh files so a single set of overrides drives all three.
+# Per-indexer overrides. The primary leaves these unset and inherits the default
+# identity (RECEIVER_*) and hostnames; extras inject their own via compose env.
+# Names match the indexer-agent/tap-agent run.sh so one set drives all three.
 INDEXER_ADDRESS="${INDEXER_ADDRESS:-$RECEIVER_ADDRESS}"
 INDEXER_OPERATOR_MNEMONIC="${INDEXER_OPERATOR_MNEMONIC:-$INDEXER_MNEMONIC}"
 INDEXER_DB_NAME="${INDEXER_DB_NAME:-indexer_components_1}"
@@ -21,10 +20,9 @@ PROTOCOL_GRAPH_NODE_HOST="${PROTOCOL_GRAPH_NODE_HOST:-graph-node}"
 graph_tally_verifier=$(contract_addr GraphTallyCollector.address horizon)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 
-# RecurringCollector gates the [dips] block. If the contract isn't deployed
-# (older contracts branches, partial bring-up), we skip [dips] entirely so the
-# binary still starts and serves TAP traffic. With it present, the indexer
-# advertises pricing via /dips/info and accepts DIPs proposals.
+# RecurringCollector gates the [dips] block. Without the contract (older
+# branches, partial bring-up) we skip [dips] so the binary still serves TAP;
+# with it, the indexer advertises pricing via /dips/info and accepts proposals.
 recurring_collector=$(contract_addr RecurringCollector.address horizon 2>/dev/null) || recurring_collector=""
 
 cat >config.toml <<-EOF
@@ -44,11 +42,9 @@ query_url = "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgr
 recently_closed_allocation_buffer_secs = 60
 syncing_interval_secs = 30
 
-# The escrow subgraph (legacy semiotic/tap) is not deployed on this branch;
-# TAP signer authorizations live in Horizon contracts. The binary still
-# requires this section as a hard-required TOML field. Stale URL satisfies
-# the schema; queries against it fail gracefully and the DIPs flow does not
-# exercise this path.
+# The legacy escrow subgraph isn't deployed here (TAP authorizations live in
+# Horizon contracts), but the binary still requires this section. The stale URL
+# satisfies the schema; queries fail gracefully and DIPs never exercises it.
 [subgraphs.escrow]
 query_url = "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/semiotic/tap"
 syncing_interval_secs = 30
@@ -64,12 +60,9 @@ host_and_port = "0.0.0.0:${INDEXER_SERVICE_PORT}"
 url_prefix = "/"
 serve_network_subgraph = false
 serve_escrow_subgraph = false
-# Without this, ipfs_url falls back to the public Graph IPFS gateway via
-# default_values.toml in the indexer-rs config crate. The DIPs flow fetches
-# subgraph manifests from IPFS to validate proposals — the public gateway
-# can't serve manifests we only published to the local IPFS node, so DIPs
-# proposals get rejected with SUBGRAPH_MANIFEST_UNAVAILABLE. Point at the
-# stack's IPFS so the manifests resolve.
+# Point at the stack's IPFS: DIPs fetches subgraph manifests from IPFS to
+# validate proposals, and the default public gateway can't serve manifests we
+# only published locally, so proposals fail with SUBGRAPH_MANIFEST_UNAVAILABLE.
 ipfs_url = "http://ipfs:${IPFS_RPC_PORT}"
 
 [tap]
@@ -83,13 +76,15 @@ ${ACCOUNT0_ADDRESS} = "http://graph-tally-aggregator:${GRAPH_TALLY_AGGREGATOR_PO
 
 EOF
 
-# DIPs section is appended only when RecurringCollector is on-chain.
-# Presence of [dips] makes indexer-service register the /dips/info HTTP route
-# and the DIPs gRPC server on INDEXER_SERVICE_DIPS_RPC_PORT. IISA's scoring
-# cronjob probes /dips/info to learn each indexer's supported networks and
-# pricing floor; without it, IISA returns no candidates for any deployment.
+# Appended only when RecurringCollector is on-chain. [dips] registers the
+# /dips/info route and the DIPs gRPC server; IISA's scoring probes /dips/info
+# for each indexer's networks and pricing floor (else it returns no candidates).
 if [ -n "$recurring_collector" ]; then
 cat >>config.toml <<-EOF
+[subgraphs.indexing_payments]
+query_url = "http://${PROTOCOL_GRAPH_NODE_HOST}:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments"
+syncing_interval_secs = 30
+
 [dips]
 host = "0.0.0.0"
 port = "${INDEXER_SERVICE_DIPS_RPC_PORT}"

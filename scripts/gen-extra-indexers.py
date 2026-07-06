@@ -1,26 +1,17 @@
 #!/usr/bin/env python3
 """Generate a compose override file with N extra indexer stacks.
 
-Each extra indexer gets its own postgres, graph-node, indexer-agent,
-indexer-service, and tap-agent. Protocol subgraphs (network, epoch, TAP)
-are read from the primary graph-node -- extra graph-nodes only handle
-actual indexing work. On-chain registration (GRT stake, operator auth)
-is handled by a shared init container.
+Each extra gets its own postgres, graph-node, indexer-agent, indexer-service,
+and tap-agent. Protocol subgraphs are read from the primary graph-node;
+on-chain registration (GRT stake, operator auth) runs in a shared init
+container.
 
-Shared across all indexers: chain (hardhat), ipfs, gateway, dipper, iisa,
-redpanda, contract addresses, protocol subgraphs (on primary graph-node).
+Indexer accounts come from the anvil "junk" mnemonic at indices 2-19 (0-1 are
+ACCOUNT0/ACCOUNT1), pre-funded with 10k ETH. Each extra also gets a unique
+operator from a "test*11 {word}" mnemonic (a BIP39 word passing the 12-word
+checksum), matching production's per-indexer operator topology.
 
-Indexer accounts come from the "junk" mnemonic starting at index 2
-(indices 0-1 are ACCOUNT0/ACCOUNT1). Hardhat pre-funds these with 10k ETH.
-
-Each extra indexer gets a unique operator derived from a mnemonic of the
-form "test test test test test test test test test test test {word}" where
-{word} is a BIP39 word that passes the 12-word checksum. This gives each
-indexer an independent operator, matching production topology.
-
-Usage:
-    python3 scripts/gen-extra-indexers.py 3    # generate 3 extra indexers
-    python3 scripts/gen-extra-indexers.py 0    # remove the file
+Usage: python3 scripts/gen-extra-indexers.py N   (N extra indexers; 0 removes)
 """
 
 import sys
@@ -28,11 +19,7 @@ from pathlib import Path
 
 # eth_account and mnemonic are only needed when N > 0 (generating extras
 # requires deriving operator addresses from BIP39 mnemonics). The N == 0
-# cleanup path just deletes files and edits .env, so it must work on
-# systems without these third-party packages (e.g. the deploy VM, which
-# runs system Python with no pip). Wrap the imports and the heavy
-# module-level init so the script stays usable as a portable cleanup
-# tool even when the deps are absent.
+# cleanup path must run on the deploy VM's system Python, which lacks them.
 try:
     from eth_account import Account
     from mnemonic import Mnemonic
@@ -124,8 +111,7 @@ JUNK_MNEMONIC = "test test test test test test test test test test test junk"
 
 # Operator mnemonics: "test*11 {word}" for each BIP39 word that passes
 # the 12-word checksum. Skip "junk" (ACCOUNT0) and "zero" (RECEIVER).
-# Skipped entirely when eth_account/mnemonic aren't installed — the N == 0
-# cleanup path doesn't need this list, and N > 0 fails fast in main().
+# Empty when eth_account/mnemonic aren't installed (N == 0 cleanup path).
 OPERATOR_MNEMONICS: list[tuple[str, str]] = []  # (mnemonic, address)
 if _ETH_DEPS_AVAILABLE:
     _bip39 = Mnemonic("english")
@@ -333,7 +319,11 @@ def tap_service(n: int, address: str, secret: str, operator_mnemonic: str) -> st
 
 
 def funding_block(n: int, address: str, operator_mnemonic: str) -> str:
-    """ACCOUNT0 transactions: fund ETH + GRT to indexer and operator. Must be sequential (shared nonce)."""
+    """Fund GRT to the indexer and ETH to the operator (sequential — shared nonce).
+
+    The indexer accounts are anvil-prefunded with ETH (`--accounts 20` in
+    chain/run.sh); operators are custom-mnemonic addresses that anvil doesn't fund.
+    """
     return f"""\
         # Fund indexer {n}: {address}
         ADDR_{n}="{address}"
@@ -341,8 +331,6 @@ def funding_block(n: int, address: str, operator_mnemonic: str) -> str:
         echo "Funding indexer {n}: $$ADDR_{n}  operator: $$OP_{n}"
         STAKE=$$(cast call --rpc-url="$$RPC" "$$STAKING" 'getStake(address)(uint256)' "$$ADDR_{n}")
         if [ "$$STAKE" = "0" ]; then
-          retry_cast cast send --rpc-url="$$RPC" --confirmations=0 --mnemonic="$$MNEMONIC" \\
-            --value=1ether "$$ADDR_{n}"
           retry_cast cast send --rpc-url="$$RPC" --confirmations=0 --mnemonic="$$MNEMONIC" \\
             "$$TOKEN" 'transfer(address,uint256)' "$$ADDR_{n}" '100000000000000000000000'
         fi
@@ -380,24 +368,7 @@ def setup_block(n: int, address: str, secret: str, operator_mnemonic: str) -> st
 """
 
 
-def escrow_deposit_block(n: int, address: str) -> str:
-    return f"""\
-        # Escrow deposit for extra indexer {n}
-        BALANCE=$$(cast call --rpc-url="$$RPC" "$$ESCROW" \\
-          'getBalance(address,address,address)(uint256)' \\
-          "$$PAYER" "$$COLLECTOR" "{address}")
-        if [ "$$BALANCE" != "0" ]; then
-          echo "  Escrow for {address}: already funded ($$BALANCE)"
-        else
-          echo "  Depositing escrow for {address}"
-          retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --mnemonic="$$MNEMONIC" \\
-            "$$TOKEN" 'approve(address,uint256)' "$$ESCROW" "$$DEPOSIT_AMOUNT"
-          retry_cast cast send --rpc-url="$$RPC" --confirmations=1 --mnemonic="$$MNEMONIC" \\
-            "$$ESCROW" 'deposit(address,address,uint256)' "$$COLLECTOR" "{address}" "$$DEPOSIT_AMOUNT"
-        fi"""
-
-
-def init_indexers_service(registrations: str, escrow_deposits: str) -> str:
+def init_indexers_service(registrations: str) -> str:
     return f"""\
   start-indexing-extra:
     container_name: start-indexing-extra
@@ -429,18 +400,6 @@ def init_indexers_service(registrations: str, escrow_deposits: str) -> str:
 
 {registrations}
         echo "All extra indexers registered"
-
-        # Deposit GRT into PaymentsEscrow for each extra indexer.
-        # The indexer-service validates DIPs proposal signers via the network
-        # subgraph's paymentsEscrowAccounts (filtered by receiver). Without a
-        # deposit, the query returns empty and all signers are rejected.
-        ESCROW=$$(contract_addr PaymentsEscrow.address horizon)
-        COLLECTOR=$$(contract_addr GraphTallyCollector.address horizon)
-        PAYER="$${{ACCOUNT0_ADDRESS}}"
-        DEPOSIT_AMOUNT="2000000000000000000"  # 2 GRT per indexer
-
-{escrow_deposits}
-        echo "All escrow deposits complete"
 """
 
 
@@ -456,7 +415,6 @@ def generate(count: int) -> str:
     parts = []
     fund_blocks = []
     setup_blocks = []
-    deposit_blocks = []
     volume_names = []
 
     for i in range(count):
@@ -472,7 +430,6 @@ def generate(count: int) -> str:
         parts.append(tap_service(n, address, secret, op_mnemonic))
         fund_blocks.append(funding_block(n, address, op_mnemonic))
         setup_blocks.append(setup_block(n, address, secret, op_mnemonic))
-        deposit_blocks.append(escrow_deposit_block(n, address))
 
     # Combine: sequential funding, then parallel setup, then wait
     reg_blocks_combined = (
@@ -483,7 +440,7 @@ def generate(count: int) -> str:
         + "        wait\n"
     )
 
-    parts.append(init_indexers_service(reg_blocks_combined, "\n".join(deposit_blocks)))
+    parts.append(init_indexers_service(reg_blocks_combined))
 
     header = """\
 # Auto-generated by scripts/gen-extra-indexers.py -- do not edit manually

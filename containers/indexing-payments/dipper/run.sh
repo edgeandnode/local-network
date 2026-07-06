@@ -29,18 +29,19 @@ network_subgraph_deployment=$(wait_for_gql \
   ".data._meta.deployment" \
   600)
 
-tap_verifier=$(contract_addr GraphTallyCollector.address horizon)
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 recurring_collector=$(contract_addr RecurringCollector.address horizon)
+recurring_agreement_manager=$(contract_addr RecurringAgreementManager.address issuance)
 
-## Config
+# Config for dipper-service. chain_client derives chain_id, the collector and the
+# SubgraphService address from the signer/dips sections (edgeandnode/dipper#626, #643).
 cat >config.json <<-EOF
 {
   "dips": {
     "data_service": "${subgraph_service}",
     "recurring_collector": "${recurring_collector}",
-    "max_initial_tokens": "1000000000000000000",
-    "max_ongoing_tokens_per_second": "1000000000000000",
+    "recurring_agreement_manager": "${recurring_agreement_manager}",
+    "max_agreement_grt_per_30_days": 20000,
     "max_seconds_per_collection": 86400,
     "min_seconds_per_collection": 3600,
     "duration_seconds": null,
@@ -55,12 +56,6 @@ cat >config.json <<-EOF
   "admin_rpc": {
     "listen_addr": "0.0.0.0:${DIPPER_ADMIN_RPC_PORT}",
     "gateway_operator_allowlist": [
-      "${RECEIVER_ADDRESS}"
-    ]
-  },
-  "indexer_rpc": {
-    "listen_addr": "0.0.0.0:${DIPPER_INDEXER_RPC_PORT}",
-    "allowlist": [
       "${RECEIVER_ADDRESS}"
     ]
   },
@@ -85,20 +80,11 @@ cat >config.json <<-EOF
     "providers": ["http://chain:${CHAIN_RPC_PORT}"],
     "request_timeout": 30,
     "max_retries": 3,
-    "chain_id": ${CHAIN_ID},
-    "subgraph_service_address": "${subgraph_service}",
-    "recurring_collector_address": "${recurring_collector}",
-    "indexing_payments_subgraph_url": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments",
     "gas_price_multiplier": 1.2,
     "max_gas_price_gwei": 100,
     "gas_buffer_multiplier": 2.0,
     "gas_floor": 100000,
     "gas_max_addition": 200000
-  },
-  "tap_signer": {
-    "secret_key": "${ACCOUNT0_SECRET}",
-    "chain_id": ${CHAIN_ID},
-    "verifier": "${tap_verifier}"
   },
   "iisa": {
     "endpoint": "http://iisa:8080",

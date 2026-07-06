@@ -100,23 +100,25 @@ deploy_indexing_payments() {
 
   subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
   recurring_collector=$(contract_addr RecurringCollector.address horizon)
-  echo "deploy_indexing_payments: subgraph_service=${subgraph_service} recurring_collector=${recurring_collector}"
+  recurring_agreement_manager=$(contract_addr RecurringAgreementManager.address issuance)
+  echo "deploy_indexing_payments: subgraph_service=${subgraph_service} recurring_collector=${recurring_collector} recurring_agreement_manager=${recurring_agreement_manager}"
 
-  if [ -z "${subgraph_service}" ] || [ -z "${recurring_collector}" ]; then
+  if [ -z "${subgraph_service}" ] || [ -z "${recurring_collector}" ] || [ -z "${recurring_agreement_manager}" ]; then
     echo "ERROR: deploy_indexing_payments got empty addresses, bailing"
     return 1
   fi
 
   cd /opt/indexing-payments-subgraph
 
-  # Generate manifest from template with local-network addresses. The
-  # subgraph now indexes both SubgraphService (IndexingAgreementAccepted,
-  # etc.) and RecurringCollector (OfferStored) events.
+  # Generate manifest from template. The subgraph indexes SubgraphService,
+  # RecurringCollector, and RecurringAgreementManager (its role grants drive
+  # the indexer-service DIPs trust gate).
   cat > /tmp/indexing-payments-config.json <<-CONF
   {
     "network": "hardhat",
     "subgraphServiceAddress": "${subgraph_service}",
     "recurringCollectorAddress": "${recurring_collector}",
+    "recurringAgreementManagerAddress": "${recurring_agreement_manager}",
     "startBlock": 0
   }
 CONF
@@ -125,10 +127,9 @@ CONF
   npx graph build
   npx graph create indexing-payments --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}"
   npx graph deploy indexing-payments --node="http://graph-node:${GRAPH_NODE_ADMIN_PORT}" --ipfs="http://ipfs:${IPFS_RPC_PORT}" --version-label=v0.1.0 | tee deploy.txt
-  # Same reassign step as deploy_network/deploy_block_oracle --
-  # without this, graph-node leaves the deployment unassigned and the
-  # subgraph never starts, blocking dipper's chain_listener on a stalled
-  # subgraph.
+  # Reassign like deploy_network/deploy_block_oracle: without this graph-node
+  # leaves the deployment unassigned, the subgraph never starts, and dipper's
+  # chain_listener blocks on a stalled subgraph.
   deployment_id="$(grep "Build completed: " deploy.txt | awk '{print $3}' | sed -e 's/\x1b\[[0-9;]*m//g')"
   curl -s "http://graph-node:${GRAPH_NODE_ADMIN_PORT}" \
     -H 'content-type: application/json' \
@@ -157,10 +158,8 @@ fi
 
 elapsed "==== All subgraphs deployed ===="
 
-# ============================================================
-# Wait for network subgraph to sync graphNetwork entity
-# (indexer-service needs this at startup to initialize the dispute manager)
-# ============================================================
+# Wait for network subgraph to sync graphNetwork entity (indexer-service needs
+# it at startup to initialize the dispute manager).
 elapsed "Waiting for network subgraph to sync graphNetwork entity..."
 until curl -sf "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network" \
   -H 'content-type: application/json' \

@@ -7,7 +7,7 @@ services:
       - chain-data:/data
     healthcheck: { interval: 1s, retries: 10, test: cast block }
     stop_grace_period: 30s
-    mem_limit: 512m
+    mem_limit: 1g
     restart: on-failure:3
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
@@ -68,6 +68,8 @@ services:
   graph-node:
     container_name: graph-node
     platform: linux/amd64
+    labels:
+      - dev.dozzle.group=dips
     build:
       context: containers/indexer/graph-node
       args:
@@ -135,6 +137,8 @@ services:
 
   indexer-agent:
     container_name: indexer-agent
+    labels:
+      - dev.dozzle.group=dips
     build:
       context: containers/indexer/indexer-agent
       args:
@@ -254,7 +258,7 @@ services:
     build:
       context: containers/core/gateway
       args:
-        GATEWAY_COMMIT: ${GATEWAY_COMMIT}
+        GATEWAY_VERSION: ${GATEWAY_VERSION:-v27.6.0}
     depends_on:
       indexer-service: { condition: service_healthy }
       redpanda: { condition: service_healthy }
@@ -276,6 +280,8 @@ services:
 
   indexer-service:
     container_name: indexer-service
+    labels:
+      - dev.dozzle.group=dips
     build:
       context: containers/indexer/indexer-service
       args:
@@ -367,6 +373,8 @@ services:
 
   iisa:
     container_name: iisa
+    labels:
+      - dev.dozzle.group=dips
     profiles: [indexing-payments]
     image: ghcr.io/edgeandnode/subgraph-dips-indexer-selection:${IISA_VERSION}
     pull_policy: if_not_present
@@ -388,6 +396,8 @@ services:
 
   dipper:
     container_name: dipper
+    labels:
+      - dev.dozzle.group=dips
     profiles: [indexing-payments]
     platform: linux/amd64
     build:
@@ -407,7 +417,7 @@ services:
       - config-local:/opt/config:ro
     environment:
       RUST_BACKTRACE: full
-      RUST_LOG: debug
+      RUST_LOG: debug,sqlx=warn,hyper=warn,hyper_util=warn,h2=warn
     healthcheck:
       interval: 5s
       retries: 10

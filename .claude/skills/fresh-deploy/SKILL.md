@@ -101,7 +101,7 @@ If the user has bumped their local clone to a specific commit, that commit is wh
 ssh lnet-test 'cd /home/mainuser/local-network && docker compose build --pull'
 ```
 
-Run this in the background — it takes ~10–15 minutes on a cold cache. The long poles are `gateway` and `block-oracle` (Rust compiles from source) plus `graph-contracts` (clones the contracts repo at the pinned commit). The thin-wrapper services (`chain`, `graph-node`, `indexer-agent`, `indexer-service`, `tap-agent`, `dipper`, etc.) finish in seconds because their Dockerfiles are just `FROM ghcr.io/...` plus a few apt packages and a copy of run.sh.
+Run this in the background — it takes ~10–15 minutes on a cold cache. The long pole is `block-oracle` (Rust compiles from source) plus `graph-contracts` (clones the contracts repo at the pinned commit). The thin-wrapper services (`chain`, `graph-node`, `gateway`, `indexer-agent`, `indexer-service`, `tap-agent`, `dipper`, etc.) finish in seconds because their Dockerfiles are just `FROM ghcr.io/...` plus a few apt packages and a copy of run.sh.
 
 `--pull` refreshes the FROM-line base images; without it, the daemon would skip the pull for layers it remembers (irrelevant here since step 2 wiped them, but harmless to be explicit).
 

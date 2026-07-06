@@ -22,10 +22,10 @@ When a bug is found during testing, log it in `BUGS.md` @BUGS.md with:
 
 The stack has these layers:
 
-- **Chain**: local Hardhat EVM node (chain ID 1337) with all Graph protocol contracts
+- **Chain**: local anvil (Foundry) EVM node (chain ID 1337) with all Graph protocol contracts
 - **Indexing**: graph-node, indexer-agent, indexer-service
 - **Gateway**: routes paid queries to indexers
-- **Payments (TAP)**: tap-aggregator, tap-escrow-manager, tap-agent
+- **Payments (TAP)**: graph-tally-aggregator, graph-tally-escrow-manager, tap-agent
 - **DIPs**: dipper (orchestrator), iisa (indexing indexer selection algorithm - subgraph-dips-indexer-selection)
 - **Oracles**: block-oracle, eligibility-oracle-node (REO)
 
@@ -38,7 +38,7 @@ The stack runs entirely from pinned commits and images. The `graph-contracts` an
 
 ## Dipper IndexingAgreement status enum
 
-The dipper postgres `dipper_reg_indexing_agreements.status` column stores the discriminant values defined in `dipper-pgregistry/src/indexing_agreement.rs:131`. Six values are commonly observed in local-network. The discriminants are not contiguous and are easy to mis-map by intuition (in particular `6 = AcceptedOnChain` and `7 = Rejected` are not in alphabetical order). Always confirm against the source enum, not against natural ordering.
+The dipper postgres `dipper_reg_indexing_agreements.status` column stores the discriminant values defined in `dipper-pgregistry/src/indexing_agreement.rs:160`. Six values are commonly observed in local-network. The discriminants are not contiguous and are easy to mis-map by intuition (in particular `6 = AcceptedOnChain` and `7 = Rejected` are not in alphabetical order). Always confirm against the source enum, not against natural ordering.
 
 | Value | Variant | Meaning |
 |---|---|---|
@@ -49,27 +49,30 @@ The dipper postgres `dipper_reg_indexing_agreements.status` column stores the di
 | 5 | Expired | Terminal — deadline passed before acceptance |
 | 6 | AcceptedOnChain | `IndexingAgreementAccepted` event observed on-chain |
 | 7 | Rejected | Off-chain rejection by indexer-service via gRPC |
+| 8 | AbandonedByIndexer | Terminal — liveness checker saw no indexing progress; dipper cancelled and will reassign |
 
 ## DIPs conditions field
 
-The audit-branch `RecurringCollectionAgreement` struct has a `uint16 conditions` field (a bitmask of payer-declared conditions like `CONDITION_ELIGIBILITY_CHECK = 1`). Local-network always uses `conditions = 0`. Setting any non-zero value makes the `RecurringCollector` contract staticcall the payer to verify it implements an eligibility callback interface. Our payer is an EOA (ACCOUNT0 = dipper's wallet), so any non-zero condition bit causes both the `offer()` and `accept()` calls to revert. Exercising the eligibility-check path requires a contract payer, which is out of scope for local testing.
+The audit-branch `RecurringCollectionAgreement` struct has a `uint16 conditions` field (a bitmask of payer-declared conditions like `CONDITION_ELIGIBILITY_CHECK = 1`). Local-network always uses `conditions = 0`. Setting any non-zero value makes the `RecurringCollector` contract staticcall the payer to verify it implements an eligibility callback interface. The on-chain payer is the `RecurringAgreementManager` contract, not an EOA: as of dipper PR #643 (the `upgrade` branch, which is what local-network currently pins via `DIPPER_VERSION`), dipper routes every offer through the manager via `offer_via_manager()` instead of paying from a wallet directly. Dipper's own wallet still signs and sends the transaction under a manager role, but it is not the payer. Whether a non-zero `conditions` bit works therefore depends on whether the `RecurringAgreementManager` implements the eligibility callback interface — this has not been verified, so keep `conditions = 0` unless that path is explicitly checked.
 
 ## On-chain Event Signatures
 
-The SubgraphService contract (`0xcf7ed3...` on local-network) emits events that share topic0 across different functions. Never assume a topic0 maps to a single function -- always cross-reference with the transaction's input selector or agent logs.
+Each topic0 below maps to exactly one event. An earlier version of this table mislabeled the collection events as allocation/start events; the mappings here were corrected by recomputing every keccak and cross-checking live `eth_getLogs`. The real subtlety is that both a DIPs acceptance and a rewards collection are `multicall` transactions (selector `0xac9650d8`) that bundle several inner calls, so a single tx emits several of these events at once. Decode the inner multicall selectors or check the agent logs to tell which operation a tx performed -- don't infer it from one topic0 alone. SubgraphService is at `0xcf7ed3...` on local-network.
 
 | topic0 prefix | Event | Emitted by |
 |---|---|---|
-| `0x443f56bd` | Allocation-related | **Both** `startService` and `acceptIndexingAgreement` -- ambiguous without checking tx selector |
-| `0x02a24054` | AllocationCreated | `startService` |
-| `0x54fe682b` | ServiceStarted | `startService` |
+| `0x443f56bd` | IndexingRewardsCollected | SubgraphService `collect` (during `presentPOI`, indexing-rewards collection) |
+| `0x02a24054` | POIPresented | SubgraphService `collect` |
+| `0x54fe682b` | ServicePaymentCollected | SubgraphService `collect` |
+| `0xd3803eb8` | ServiceStarted | `startService` (and the DIPs `acceptIndexingAgreement` multicall) |
+| `0xe5e185fa` | AllocationCreated | `startService` (and the DIPs `acceptIndexingAgreement` multicall) |
 | `0xddf252ad` | Transfer | GRT token operations |
 | `0x8c5be1e5` | Approval | GRT token operations |
-| `0xa111914d` | RewardsAssigned | RewardsManager |
-| `0x48c384dd` | ProvisionIncreased | HorizonStaking |
-| `0xeaf6ea3a` | TokensAllocated | HorizonStaking |
+| `0xa111914d` | HorizonRewardsAssigned | RewardsManager |
+| `0x48c384dd` | HorizonStakeDeposited | HorizonStaking |
+| `0xeaf6ea3a` | ProvisionIncreased | HorizonStaking |
 
-To distinguish a DIPs acceptance from a regular allocation: check the agent log for a `proposalId` field, or check the tx input for the `acceptIndexingAgreement` function selector vs `startService`.
+To distinguish a DIPs acceptance from a rewards collection: a DIPs acceptance bundles `startService` + `acceptIndexingAgreement`, so its tx carries the start/allocation events (`ServiceStarted`, `AllocationCreated`) plus `IndexingAgreementAccepted`; a rewards collection carries the `IndexingRewardsCollected` / `POIPresented` / `ServicePaymentCollected` group instead. Decode the inner multicall selectors, or check the agent log for a `proposalId` field, to confirm.
 
 ## Rules
 
