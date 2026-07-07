@@ -1,23 +1,20 @@
 # DIPs Local Testing - Bug Tracker
 
-Open bugs only. A fixed bug is pruned once its fix — and the why behind any non-obvious
-guard — lives at the call site in the tree; git history and the PRs carry the forensics.
-Numbering restarted 2026-07-07 when the fixed series (old BUG-001..010) was pruned; those
-entries live in this file's prior revisions.
-
 ## BUG-001: DIPs end-to-end pipeline can't fit a 50-request burst inside the 300s RCA deadline
 
 **Status**: open — mitigated by a longer deadline; the three serialisation bottlenecks remain
 
-**Update (2026-07-07)**: the measured numbers below predate dipper running 8 worker loops
-(dipper #655), so re-measure before trusting them. Indexer PR #1234 (open) targets the
-slow-start pressure point (3).
+**Update (2026-07-07)**: dipper #661 (open) adds closed-loop offer pacing — in-flight caps
+per indexer and overall, topped up every 15s as acceptances free slots — addressing this at
+the source. The numbers below predate dipper's 8 worker loops (#655) and the pacing PR; one
+re-measured burst run refreshes them and doubles as BUG-002's stranded-allocation
+verification. Indexer PR #1234 (open) targets the slow-start pressure point (3).
 
 **Symptom**: Under load (50 indexing requests registered in a single burst against 6 indexers, num_candidates=3), 50 of the 150 resulting agreements expire (status 5) at the 300s mark. Successful accepts in the same burst show p99 create→accept of 4:57 and a max of 5:02 — already inches from the 300s wall. Dipper reassessment then creates 50 fresh agreements which accept successfully against the now-mostly-empty pipeline.
 
 **Measured numbers (50-request burst on 6 indexers, 50 distinct deployments)**:
 
-```
+```bash
 ACCEPTED agreements (150)             min 0:07  p50 3:30  p90 4:32  p99 4:57  max 5:02
 EXPIRED  agreements (50)              ~5:06–5:16 lifetime; 40/50 had offer_tx submitted
 ```
@@ -46,11 +43,13 @@ Any one of these would tighten the budget; all three together break it at this s
 
 ## BUG-002: 76 active on-chain allocations have no backing IndexingAgreement entity
 
-**Status**: open — design agreed, implementation not started
+**Status**: fixed upstream in the pinned agent (graphprotocol/indexer #1221/#1224/#1225/#1227:
+rule reaper + subgraph staleness guard, present in sha-9117ceb) — pending verification; prune
+once a re-run of the 50-request burst shows zero stranded allocations
 
 **Symptom (observed 2026-04-29 after the 50-request burst stress test in BUG-001)**:
 
-```
+```bash
 on-chain (graph-network subgraph)              226 active allocations
 indexing-payments subgraph                     150 IndexingAgreement entities (all Accepted)
 dipper DB                                      150 ACCEPTED + 50 EXPIRED
@@ -64,7 +63,7 @@ The architectural gap: the agent treats dipper's promises as durable invariants,
 
 **Repo**: `graphprotocol/indexer`
 
-**Fix (proposed, not yet implemented)**: Add a periodic sweep on the indexer-agent that reconciles each `dips`-basis allocation against the indexing-payments-subgraph. Design points settled with Samuel:
+**Fix (implemented upstream)**: a periodic sweep on the indexer-agent that reconciles each `dips`-basis allocation against the indexing-payments-subgraph. Design points settled with Samuel:
 
 - *Oracle*: indexing-payments-subgraph. Single batched query `indexingAgreements(where: { indexer: SELF })`, diff the returned set against the agent's active dips allocations.
 - *Staleness guard*: read the chain timestamp from the subgraph response (`_meta.block.timestamp`). If the response's chain time is recent (e.g. within a small bound of wall-clock), trust the result. If the timestamp is days/months/years old, treat the subgraph as unreliable and skip the sweep this tick.
@@ -73,4 +72,4 @@ The architectural gap: the agent treats dipper's promises as durable invariants,
 
 This makes the agent self-protective: regardless of dipper's behaviour, the agent only keeps `dips`-basis allocations alive while the indexing-payments subgraph confirms there's a paying agreement for them. Defends against dipper bugs marking accepted agreements expired, dipper restarts losing in-flight state, stale rules surviving DB resets, and the kind of reassessment-induced orphan we're seeing here.
 
-**PR**: not submitted; design agreed, implementation deferred.
+**PR**: graphprotocol/indexer #1221, #1224, #1225, #1227 (merged May–June 2026); burst re-verification in local-network pending.
