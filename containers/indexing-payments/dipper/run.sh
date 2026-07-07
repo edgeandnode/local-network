@@ -33,8 +33,9 @@ subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 recurring_collector=$(contract_addr RecurringCollector.address horizon)
 recurring_agreement_manager=$(contract_addr RecurringAgreementManager.address issuance)
 
-# Config for dipper-service. chain_client derives chain_id, the collector and the
-# SubgraphService address from the signer/dips sections (edgeandnode/dipper#626, #643).
+# Config for dipper-service. chain_client derives chain_id and addresses from the
+# signer/dips sections (dipper#626, #643). event_streaming_config is ignored by the
+# current pin and takes effect once the events-producer PRs (#648/#649/#656) ship.
 cat >config.json <<-EOF
 {
   "dips": {
@@ -62,8 +63,7 @@ cat >config.json <<-EOF
   "db": {
     "url": "postgres://postgres:${POSTGRES_PORT}/dipper_1",
     "username": "postgres",
-    "password": "postgres",
-    "max_connections": 10
+    "password": "postgres"
   },
   "network": {
     "gateway_url": "http://gateway:${GATEWAY_PORT}",
@@ -72,7 +72,7 @@ cat >config.json <<-EOF
     "update_interval": 60
   },
   "signer": {
-    "secret_key": "${ACCOUNT0_SECRET}",
+    "secret_key": "${DIPPER_SECRET}",
     "chain_id": ${CHAIN_ID}
   },
   "chain_client": {
@@ -103,6 +103,13 @@ cat >config.json <<-EOF
     "poll_interval": 5,
     "chain_id": ${CHAIN_ID},
     "bypass_chain_clock_defenses": true
+  },
+  "event_streaming_config": {
+    "enabled": true,
+    "kafka": {
+      "brokers": ["redpanda:${REDPANDA_KAFKA_PORT}"],
+      "partitions": 1
+    }
   },
   "additional_networks": {
     "${CHAIN_ID}": "${CHAIN_NAME}"

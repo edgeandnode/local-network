@@ -258,24 +258,35 @@ fi
 run_issuance_stage "GIP-0088:issuance-connect"
 run_issuance_stage "GIP-0088:issuance-allocate"
 
-# Grant AGREEMENT_MANAGER_ROLE on RAM to the DIPs payer (ACCOUNT0) so dipper's
-# offers pass the indexer-service trust gate. ACCOUNT0 holds GOVERNOR_ROLE, which
-# admins OPERATOR_ROLE, which admins this role — so it self-grants both in turn.
+# Dipper signs and sends from its own wallet (DIPPER_ADDRESS, shared/lib.sh) so
+# its offer txs don't race other account0 senders for nonces. Fund it with gas,
+# then grant the RAM roles its offers need (GOVERNOR self-grants the chain).
+dipper_balance=$(cast balance --rpc-url="http://chain:${CHAIN_RPC_PORT}" "${DIPPER_ADDRESS}")
+if [ "${dipper_balance}" = "0" ]; then
+  echo "  Funding dipper signer ${DIPPER_ADDRESS} with 10 ETH"
+  cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
+    --private-key="${ACCOUNT0_SECRET}" --value=10ether "${DIPPER_ADDRESS}"
+fi
 ram_address=$(jq -r '.["1337"].RecurringAgreementManager.address' /opt/config/issuance.json)
 operator_role=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" "${ram_address}" "OPERATOR_ROLE()(bytes32)")
 agreement_manager_role=$(cast keccak "AGREEMENT_MANAGER_ROLE")
 has_am_role=$(cast call --rpc-url="http://chain:${CHAIN_RPC_PORT}" \
-  "${ram_address}" "hasRole(bytes32,address)(bool)" "${agreement_manager_role}" "${ACCOUNT0_ADDRESS}" 2>/dev/null || echo "false")
+  "${ram_address}" "hasRole(bytes32,address)(bool)" "${agreement_manager_role}" "${DIPPER_ADDRESS}" 2>/dev/null || echo "false")
 if [ "$has_am_role" = "true" ]; then
-  echo "  AGREEMENT_MANAGER_ROLE already granted to ${ACCOUNT0_ADDRESS}"
+  echo "  AGREEMENT_MANAGER_ROLE already granted to ${DIPPER_ADDRESS}"
 else
-  echo "  Granting AGREEMENT_MANAGER_ROLE to ${ACCOUNT0_ADDRESS}"
+  echo "  Granting AGREEMENT_MANAGER_ROLE to ${DIPPER_ADDRESS}"
+  # ACCOUNT0 must hold OPERATOR_ROLE first: it admins AGREEMENT_MANAGER_ROLE,
+  # so without it the grants below revert with AccessControlUnauthorizedAccount.
   cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
     --private-key="${ACCOUNT0_SECRET}" \
     "${ram_address}" "grantRole(bytes32,address)" "${operator_role}" "${ACCOUNT0_ADDRESS}"
   cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
     --private-key="${ACCOUNT0_SECRET}" \
-    "${ram_address}" "grantRole(bytes32,address)" "${agreement_manager_role}" "${ACCOUNT0_ADDRESS}"
+    "${ram_address}" "grantRole(bytes32,address)" "${operator_role}" "${DIPPER_ADDRESS}"
+  cast send --rpc-url="http://chain:${CHAIN_RPC_PORT}" --confirmations=0 \
+    --private-key="${ACCOUNT0_SECRET}" \
+    "${ram_address}" "grantRole(bytes32,address)" "${agreement_manager_role}" "${DIPPER_ADDRESS}"
 fi
 
 # Strip deployment metadata (implementationDeployment/proxyDeployment) the

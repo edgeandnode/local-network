@@ -123,6 +123,10 @@ if [ -n "$recurring_collector" ]; then
   export INDEXER_AGENT_DIPS_EPOCHS_MARGIN=1
   export INDEXER_AGENT_DIPPER_ENDPOINT="http://dipper:${DIPPER_INDEXER_RPC_PORT}"
   export INDEXER_AGENT_DIPS_ALLOCATION_AMOUNT=1
+  # Collect near the start of the window. Default 50 aims midway, which on the
+  # 1h-to-1day window needs ~12.5h of chain time; 1 collects as soon as the
+  # contract's minimum interval passes, which the e2e's time advance reaches.
+  export INDEXER_AGENT_DIPS_COLLECTION_TARGET=1
   # Faster reconciliation for local testing (default 120s is too slow).
   export INDEXER_AGENT_POLLING_INTERVAL=15000
 fi

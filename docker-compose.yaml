@@ -211,6 +211,19 @@ services:
       }
     restart: on-failure:3
 
+  # Dipper's events producer (dipper#649) binds partitions at startup and disables
+  # itself if the topic is missing, so the topic must exist before dipper boots.
+  dips-events-topic:
+    container_name: dips-events-topic
+    profiles: [indexing-payments]
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+    depends_on:
+      redpanda: { condition: service_healthy }
+    entrypoint: ["bash", "-c"]
+    command:
+      - rpk topic create dipper.subgraph.indexing.agreement.events -p 1 --brokers=redpanda:9092 || true
+    restart: "no"
+
   graph-tally-aggregator:
     container_name: graph-tally-aggregator
     build:
@@ -403,6 +416,7 @@ services:
       block-oracle: { condition: service_healthy }
       postgres: { condition: service_healthy }
       gateway: { condition: service_healthy }
+      dips-events-topic: { condition: service_completed_successfully }
     ports:
       - "${DIPPER_ADMIN_RPC_PORT}:${DIPPER_ADMIN_RPC_PORT}"
       - "${DIPPER_INDEXER_RPC_PORT}:${DIPPER_INDEXER_RPC_PORT}"
