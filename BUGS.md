@@ -2,9 +2,10 @@
 
 Open bugs only. A fixed bug is pruned once its fix — and the why behind any non-obvious
 guard — lives at the call site in the tree; git history and the PRs carry the forensics.
-Pruned 2026-07-07: BUG-001 through 006, 009, 010 (see this file's prior revisions).
+Numbering restarted 2026-07-07 when the fixed series (old BUG-001..010) was pruned; those
+entries live in this file's prior revisions.
 
-## BUG-007: DIPs end-to-end pipeline can't fit a 50-request burst inside the 300s RCA deadline
+## BUG-001: DIPs end-to-end pipeline can't fit a 50-request burst inside the 300s RCA deadline
 
 **Status**: open — mitigated by a longer deadline; the three serialisation bottlenecks remain
 
@@ -43,11 +44,11 @@ Any one of these would tighten the budget; all three together break it at this s
 
 **PR**: not submitted; recorded for follow-up.
 
-## BUG-008: 76 active on-chain allocations have no backing IndexingAgreement entity
+## BUG-002: 76 active on-chain allocations have no backing IndexingAgreement entity
 
 **Status**: open — design agreed, implementation not started
 
-**Symptom (observed 2026-04-29 after the 50-request burst stress test in BUG-007)**:
+**Symptom (observed 2026-04-29 after the 50-request burst stress test in BUG-001)**:
 
 ```
 on-chain (graph-network subgraph)              226 active allocations
