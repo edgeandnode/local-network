@@ -1,33 +1,8 @@
 # DIPs Local Testing - Bug Tracker
 
-Open: BUG-007 (burst scale), BUG-008 (unpaid allocations). Fixed, kept because each documents
-a non-obvious guard or deployment step: BUG-004, 006, 009, 010. Removed as resolved-and-stale
-(2026-07-07): BUG-001, 002, 003, 005 — plain bugs whose fixes are the obvious implementation
-now in the tree, or that described code which no longer exists on this branch.
-
-## BUG-004: SubgraphService not registered as rewards issuer in RewardsManager
-
-**Status**: fixed (live in `containers/core/graph-contracts/run.sh`)
-
-**Symptom**: indexer-agent fails all allocation operations (reallocate, new allocations for DIPs) with `execution reverted: "Not a rewards issuer"`. The agent enters a perpetual retry loop, blocking both protocol subgraph reallocations and DIPs agreement acceptance.
-
-**Root cause**: The `AllocationManager.stakeUsageSummary()` calls `RewardsManager.getRewards(SubgraphService, allocationId)` before executing allocation transactions. The RewardsManager checks whether the caller (SubgraphService at `0x09635F...`) is a registered rewards issuer. On a fresh local-network deploy, SubgraphService is never whitelisted in the RewardsManager, so all `getRewards` calls revert.
-
-**Repo**: `local-network` (deploy scripts)
-**Fix**: Added idempotent `RewardsManager.setSubgraphService()` call in `containers/core/graph-contracts/run.sh`. Applied in local-network.
-**PR**: local-network fix applied, not submitted as standalone PR
-
-## BUG-006: Indexer-agent pauses indexing-payments subgraph due to startup race condition
-
-**Status**: fixed (the wait loop now lives in `containers/indexer/indexer-agent/run.sh`)
-
-**Symptom**: Dipper's chain_listener reports "Subgraph appears stalled" and never sees on-chain `IndexingAgreementAccepted` events. Agreements that were accepted on-chain by indexer-agents expire in dipper's DB (status 5 = Expired) after `deadline_seconds` (300s). Dipper then reassesses and creates duplicate agreements, leading to over-allocation.
-
-**Root cause**: The indexer-agent's startup script checks once for the indexing-payments subgraph deployment and sets `INDEXER_AGENT_OFFCHAIN_SUBGRAPHS` if found. On a fresh deploy, the agent starts before `subgraph-deploy` finishes deploying the indexing-payments subgraph (they run in parallel with no compose dependency). The single-shot check finds nothing (`INDEXING_PAYMENTS_DEPLOYMENT=`), the env var is never set, and the agent's `reconcileDeployments` subsequently pauses the subgraph because it has no allocation and no offchain rule.
-
-**Repo**: `local-network`
-**Fix**: Changed the single check to a wait loop (up to 3 minutes, 5s intervals) that polls for the indexing-payments subgraph before giving up.
-**PR**: local-network fix applied, not submitted as standalone PR
+Open bugs only. A fixed bug is pruned once its fix — and the why behind any non-obvious
+guard — lives at the call site in the tree; git history and the PRs carry the forensics.
+Pruned 2026-07-07: BUG-001 through 006, 009, 010 (see this file's prior revisions).
 
 ## BUG-007: DIPs end-to-end pipeline can't fit a 50-request burst inside the 300s RCA deadline
 
@@ -98,42 +73,3 @@ The architectural gap: the agent treats dipper's promises as durable invariants,
 This makes the agent self-protective: regardless of dipper's behaviour, the agent only keeps `dips`-basis allocations alive while the indexing-payments subgraph confirms there's a paying agreement for them. Defends against dipper bugs marking accepted agreements expired, dipper restarts losing in-flight state, stale rules surviving DB resets, and the kind of reassessment-induced orphan we're seeing here.
 
 **PR**: not submitted; design agreed, implementation deferred.
-
-## BUG-009: DIPs on-chain offer reverts on a fresh deploy, so no agreement is ever accepted
-
-**Status**: fixed upstream — merged as edgeandnode/dipper #657 (2026-07-06); pins moved to `sha-67a48d5`
-
-**Symptom (observed 2026-06-26 in CI on the `e2e` workflow)**: the `dips_agreement_acceptance` test registers an indexing request and waits 300s, but no agreement ever reaches `Accepted` (`seen: []`). The request itself succeeds (dipper returns a request id) and IISA scores one candidate, yet the agreement never appears in the indexing-payments subgraph. The same flow works on the long-lived `lnet-test` stack, where many `Accepted` agreements exist.
-
-**Root cause (from dipper logs)**: the pipeline gets as far as the on-chain offer and then reverts.
-
-```
-reassessment diff computed ... iisa_returned_count=1 to_add_count=1
-Indexer accepted proposal off-chain; submitting offer on-chain
-Submitting RCA offer via RecurringAgreementManager manager=0x3347B4d9... collector=0x4A679253...
-WARN Failed to submit offer on-chain, will retry  error=contract reverted with selector 0x26769f8d
-reassessment diff computed ... iisa_returned_count=0          # candidate gone on the retry
-WARN Agreement not in Created status, skipping offer submission  status=EXPIRED
-```
-
-So scoring and off-chain acceptance both work; only the on-chain `offer` reverts. The selector `0x26769f8d` decodes to `RecurringCollectorAgreementDeadlineElapsed(uint256 currentTimestamp, uint64 deadline)` — the agreement's acceptance deadline is already in the chain's past when the accept transaction lands. It is a `RecurringCollector` error, not a funding or authorisation failure.
-
-**Why (decoded from dipper's chain-listener logs)**: dipper stamps each agreement's deadline as `now + deadline_seconds`. With `bypass_chain_clock_defenses = true` (local-network sets this because the test harness advances chain time via `evm_increaseTime`), `now` was read from dipper's chain listener's last-polled block timestamp. That listener idles on a hardcoded 300s poll interval until it carries a pending agreement, so on a fresh deploy it never observes the suite fast-forwarding the local chain ~9,334s (~2.6h) ahead during that idle window. It stamps `deadline = stale_ts + 600`, already thousands of seconds behind the real chain head, and the accept reverts as expired. The listener heartbeat confirms the drift: `subgraph_lag_seconds=-9334` (chain ahead of wall). The secondary effect — IISA returns 0 candidates on the retry, so dipper never re-offers — only matters because the first attempt is born-expired; fix the first attempt and acceptance succeeds. The same flow works on `lnet-test` only because nothing fast-forwards that long-lived chain, so its listener timestamp tracks wall time.
-
-**Repo**: `dipper`. This is a real robustness gap the local-network harness surfaced: a deadline must come from live chain time, not a cached listener timestamp that can lag a fast-moving chain.
-
-**Fix (merged)**: edgeandnode/dipper #657 adds a live chain-head timestamp read and stamps deadlines from it when the bypass is on, falling back to the persisted listener timestamp and then wall clock (warning on each step down), with unit tests over every path. Merged to dipper main 2026-07-06; local-network pins the published `sha-67a48d5` image, and the CI DIPs tests exercise the fix end to end.
-
-## BUG-010: Harness, dipper, and escrow manager all transact from account0, so concurrent sends drop each other's transactions
-
-**Status**: fixed (dipper wallet split + harness retry, validated in CI)
-
-**Symptom**: Intermittent e2e failures across unrelated tests: `cast send` errors with `replacement transaction underpriced` / `replacement fee too low`, or a send that broadcasts fine but is never mined (`transaction was not confirmed within the timeout`, cast's 120s receipt wait). Observed killing `provision_lifecycle`, `stake_management`, `rewards_conditions`, `allocation_lifecycle`, and `dips_payment_collection` (CI run 28652662844: the test's first `runEpoch()` went out moments after dipper submitted its DIPs offer from the same account and never confirmed). Which test dies varies run to run, which made the suite look randomly flaky.
-
-**Root cause**: Three uncoordinated senders share ACCOUNT0's single nonce sequence: the test harness (every `cast_send` in `tests/src/cast.rs` signs with `account0_secret`), dipper (its `signer.secret_key` was `${ACCOUNT0_SECRET}`, used for every on-chain offer), and the graph-tally-escrow-manager (escrow deposits). Two of them querying the pending nonce at the same moment produce two transactions with the same nonce; anvil keeps one and drops the other, and the loser either errors at submission or silently never mines. This was reproduced live: a manual `grantRole` send from account0 was dropped the same way while a background loop was also sending from account0.
-
-**Repo**: `local-network`
-
-**Fix**: Two parts, both applied. (1) Dipper gets a dedicated signing wallet (`DIPPER_ADDRESS` / `DIPPER_SECRET`, defined in `shared/lib.sh`): graph-contracts funds it and grants it the RecurringAgreementManager roles, start-indexing authorizes it as a signer on the RecurringCollector, and dipper's config signs with it — removing the busiest concurrent sender from account0's nonce space, and matching production where dipper never shares the governor key. (2) The harness retries a send that hits a nonce-collision error up to three more times with growing pauses (3s/6s/12s — dipper's 8 worker loops make the agent's transaction bursts outlast a single short pause), reporting every attempt's error if all fail. The remaining shared sender is the escrow manager, which must keep sending from account0 because account0 is the TAP payer.
-
-**PR**: included in the e2e CI branch (`mb9/add-e2e-ci-and-dips-tests`).
