@@ -2,13 +2,15 @@
 
 ## BUG-001: DIPs end-to-end pipeline can't fit a 50-request burst inside the 300s RCA deadline
 
-**Status**: open — mitigated by a longer deadline; the three serialisation bottlenecks remain
+**Status**: fixed at the source — dipper #661 (merged 2026-07-08) paces offers to what the
+network can absorb, so a burst queues instead of expiring; pending verification. Prune with
+BUG-002 once a re-run of the 50-request burst on a post-#661 pin shows zero expiries.
 
-**Update (2026-07-07)**: dipper #661 (open) adds closed-loop offer pacing — in-flight caps
-per indexer and overall, topped up every 15s as acceptances free slots — addressing this at
-the source. The numbers below predate dipper's 8 worker loops (#655) and the pacing PR; one
-re-measured burst run refreshes them and doubles as BUG-002's stranded-allocation
-verification. Indexer PR #1234 (open) targets the slow-start pressure point (3).
+**Update (2026-07-08)**: dipper #662 (merged) additionally serves interactive requests before
+background sweeps. The agent-side serialisation items below remain, but pacing demotes them
+from correctness fixes to placement-latency improvements: indexer #1234 (open) targets the
+slow-start point (3), and batching accepts (2) would raise the window's refill rate. The
+measured numbers below predate all of this.
 
 **Symptom**: Under load (50 indexing requests registered in a single burst against 6 indexers, num_candidates=3), 50 of the 150 resulting agreements expire (status 5) at the 300s mark. Successful accepts in the same burst show p99 create→accept of 4:57 and a max of 5:02 — already inches from the 300s wall. Dipper reassessment then creates 50 fresh agreements which accept successfully against the now-mostly-empty pipeline.
 
