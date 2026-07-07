@@ -1,21 +1,9 @@
 # DIPs Local Testing - Bug Tracker
 
-Open: BUG-007 (burst scale), BUG-008 (unpaid allocations). Fixed and load-bearing: BUG-001,
-004, 006, 009, 010. Removed as stale (2026-07-07): BUG-002, 003, 005 — each described code
-that no longer exists on this branch (the old indexer-service DIPs config fields, the retired
-TAP subgraph, and the removed extra-indexer escrow-deposit step).
-
-## BUG-001: dipper run.sh hardcodes RecurringCollector as zero address
-
-**Status**: fixed (live in `containers/indexing-payments/dipper/run.sh`)
-
-**Symptom**: dipper returns 503 on all admin RPC calls because it can't interact with the RecurringCollector contract.
-
-**Root cause**: `containers/indexing-payments/dipper/run.sh` has `"recurring_collector": "0x0000000000000000000000000000000000000000"` instead of reading the deployed address from the config volume.
-
-**Repo**: `local-network`
-**Fix**: Read address from horizon.json via `contract_addr RecurringCollector.address horizon`. Applied in local-network.
-**PR**: local-network fix applied, not submitted as standalone PR
+Open: BUG-007 (burst scale), BUG-008 (unpaid allocations). Fixed, kept because each documents
+a non-obvious guard or deployment step: BUG-004, 006, 009, 010. Removed as resolved-and-stale
+(2026-07-07): BUG-001, 002, 003, 005 — plain bugs whose fixes are the obvious implementation
+now in the tree, or that described code which no longer exists on this branch.
 
 ## BUG-004: SubgraphService not registered as rewards issuer in RewardsManager
 
