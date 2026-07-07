@@ -17,7 +17,7 @@ Chain multiple overrides:
 COMPOSE_FILE=docker-compose.yaml:compose/dev/graph-node.yaml:compose/dev/indexer-agent.yaml
 ```
 
-Then `docker compose up -d` applies the overrides automatically.
+Then `just up` applies the overrides automatically.
 
 ## Available Overrides
 
@@ -28,6 +28,7 @@ Then `docker compose up -d` applies the overrides automatically.
 | `indexer-agent.yaml`      | indexer-agent                    | `INDEXER_AGENT_SOURCE_ROOT`                            |
 | `indexer-service.yaml`    | indexer-service                  | `INDEXER_SERVICE_BINARY`                               |
 | `tap-agent.yaml`          | tap-agent                        | `TAP_AGENT_BINARY`                                     |
+| `gateway.yaml`            | gateway                          | `GATEWAY_BINARY`                                       |
 | `eligibility-oracle.yaml` | eligibility-oracle-node          | `REO_BINARY`                                           |
 | `dipper.yaml`             | dipper                           | `DIPPER_BINARY`                                        |
 | `iisa.yaml`               | iisa                             | `IISA_VERSION=local`                                   |

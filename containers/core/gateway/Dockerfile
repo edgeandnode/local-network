@@ -1,3 +1,11 @@
+# Dev-builder stage: not part of the runtime image. compose/dev/gateway.yaml's
+# workflow builds this stage (--target build-env) to compile a local gateway
+# checkout; the runtime below runs the prebuilt published image instead.
+FROM rust:1-slim-bookworm AS build-env
+RUN apt-get update \
+    && apt-get install -y clang cmake git libsasl2-dev libssl-dev pkg-config protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
 ARG GATEWAY_VERSION=v27.6.0
 FROM ghcr.io/edgeandnode/graph-gateway:${GATEWAY_VERSION}
 
