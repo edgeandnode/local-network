@@ -12,6 +12,25 @@ const PROTOCOL_NETWORK: &str = "eip155:1337";
 /// amount every test allocation uses.
 const REPAIR_ALLOCATION_AMOUNT_WEI: &str = "10000000000000000";
 
+/// Run a test body and, on failure, restore an active allocation and an
+/// `always` rule so later tests inherit a working stack. Best-effort: a
+/// repair error is logged but never masks the test's own error.
+pub async fn restore_allocation_on_failure<F>(net: &TestNetwork, body: F) -> Result<()>
+where
+    F: std::future::Future<Output = Result<()>>,
+{
+    let result = body.await;
+    if result.is_err() {
+        match net.ensure_active_allocation().await {
+            Ok((deployment, id)) => {
+                eprintln!("  [restore] active allocation {id} on {deployment}")
+            }
+            Err(err) => eprintln!("  [restore] could not restore allocation state: {err}"),
+        }
+    }
+    result
+}
+
 impl TestNetwork {
     /// Create an allocation via the indexer management API. `deployment` is the
     /// IPFS hash (e.g., "QmXU9FEf..."); `amount` is in GRT (e.g., "0.01").

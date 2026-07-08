@@ -1,19 +1,10 @@
-//! Allocation Lifecycle Tests (BaselineTestPlan Cycles 4-5, 7)
-//!
-//! Exercises the allocation management and revenue collection workflow:
-//!   close existing allocation → verify → create new allocation → advance → close → verify
-//!
-//! Mapping to BaselineTestPlan:
-//!   - `close_and_recreate_allocation` → Cycle 4.2 (create) + 5.2 (close + rewards)
-//!   - `close_allocation_collects_rewards` → Cycle 5.2 (agent-mediated close with reward assertion)
-//!   - `gateway_query_serving` → Cycle 5.1 (query serving through gateway)
-//!
-//! The management API mutations (`createAllocation`, `closeAllocation`) emulate
-//! what `graph indexer allocations create/close` does. The close path internally
-//! triggers a multicall: collect(IndexingRewards) + stopService.
+//! Allocation lifecycle tests (BaselineTestPlan cycles 4-5, 7): close the
+//! existing allocation, verify, recreate, advance epochs, close, and re-verify.
+//! The management API mutations emulate `graph indexer allocations create/close`.
 
 use anyhow::{Context, Result};
 use local_network_tests::TestNetwork;
+use local_network_tests::management::restore_allocation_on_failure;
 use serial_test::serial;
 
 fn net() -> Result<TestNetwork> {
@@ -27,7 +18,15 @@ fn net() -> Result<TestNetwork> {
 #[serial(alloc)]
 async fn close_and_recreate_allocation() -> Result<()> {
     let net = net()?;
+    // An abort between close and recreate would otherwise strand the stack
+    // with no allocation and an offchain rule, failing every later test.
+    restore_allocation_on_failure(&net, async {
+        close_and_recreate_allocation_body(&net).await
+    })
+    .await
+}
 
+async fn close_and_recreate_allocation_body(net: &TestNetwork) -> Result<()> {
     // Ensure we have an active allocation (recovers if a prior test panicked)
     let (deployment, _) = net.ensure_active_allocation().await?;
 
@@ -103,17 +102,23 @@ async fn close_and_recreate_allocation() -> Result<()> {
     Ok(())
 }
 
-/// BaselineTestPlan 5.2: Close allocation via agent and verify indexingRewards > 0.
-///
-/// The indexer-agent's close flow does a multicall: collect(IndexingRewards) + stopService.
-/// This test verifies that the agent-mediated close produces non-zero rewards.
-/// Emulates `graph indexer allocations close` with reward verification.
+/// BaselineTestPlan 5.2: close via the agent and verify indexingRewards > 0.
+/// The agent close is a multicall (collect IndexingRewards + stopService);
+/// emulates `graph indexer allocations close` with reward verification.
 #[tokio::test]
 #[serial(alloc)]
 #[ignore = "flakes when other allocation tests run earlier in the serial(alloc) group; passes in isolation and on a fresh stack"]
 async fn close_allocation_collects_rewards() -> Result<()> {
     let net = net()?;
+    // An abort after the close leaves no active allocation; restore so the
+    // remaining tests in the serial group inherit a working stack.
+    restore_allocation_on_failure(&net, async {
+        close_allocation_collects_rewards_body(&net).await
+    })
+    .await
+}
 
+async fn close_allocation_collects_rewards_body(net: &TestNetwork) -> Result<()> {
     // Find an active allocation (recovers if a prior test left none)
     let (deployment, alloc_id) = net.ensure_active_allocation().await?;
 
