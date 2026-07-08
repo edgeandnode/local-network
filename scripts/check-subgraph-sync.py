@@ -18,7 +18,7 @@ from urllib.request import Request, urlopen
 GRAPH_NODE_STATUS = "http://localhost:8030/graphql"
 GRAPH_NODE_QUERY = "http://localhost:8000"
 GRAPH_NODE_ADMIN = "http://localhost:8020"
-NAMED_SUBGRAPHS = ["graph-network", "semiotic/tap", "block-oracle", "indexing-payments"]
+NAMED_SUBGRAPHS = ["graph-network", "block-oracle", "indexing-payments"]
 MAX_LAG = 5
 RESUME_TIMEOUT = 30
 RESUME_POLL = 5
