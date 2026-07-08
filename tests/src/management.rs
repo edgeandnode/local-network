@@ -78,8 +78,9 @@ impl TestNetwork {
         Ok(resp["data"]["closeAllocation"].clone())
     }
 
-    /// Ensure at least one active allocation exists, creating one if a prior
-    /// test panicked before restoring. Returns `(deployment_ipfs, allocation_id)`.
+    /// Ensure an active allocation exists (creating one if a prior test aborted)
+    /// and repair its rule to `always`; returns `(deployment_ipfs, allocation_id)`.
+    /// Targets the first active allocation, so keep deliberate opt-out rules off allocated deployments.
     pub async fn ensure_active_allocation(&self) -> Result<(String, String)> {
         let allocs = self.get_allocations().await?;
         let allocs = allocs.as_array().context("expected allocation array")?;

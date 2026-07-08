@@ -2,7 +2,7 @@
 //! existing allocation, verify, recreate, advance epochs, close, and re-verify.
 //! The management API mutations emulate `graph indexer allocations create/close`.
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use local_network_tests::TestNetwork;
 use local_network_tests::management::restore_allocation_on_failure;
 use serial_test::serial;
@@ -19,11 +19,9 @@ fn net() -> Result<TestNetwork> {
 async fn close_and_recreate_allocation() -> Result<()> {
     let net = net()?;
     // An abort between close and recreate would otherwise strand the stack
-    // with no allocation and an offchain rule, failing every later test.
-    restore_allocation_on_failure(&net, async {
-        close_and_recreate_allocation_body(&net).await
-    })
-    .await
+    // with no allocation and an offchain rule, failing every later test. The
+    // body fails via ensure!/bail! (not assert!) so the wrapper always runs.
+    restore_allocation_on_failure(&net, close_and_recreate_allocation_body(&net)).await
 }
 
 async fn close_and_recreate_allocation_body(net: &TestNetwork) -> Result<()> {
@@ -54,10 +52,10 @@ async fn close_and_recreate_allocation_body(net: &TestNetwork) -> Result<()> {
         let close_result = net.close_allocation(id).await?;
         let rewards = close_result["indexingRewards"].as_str().unwrap_or("0");
         eprintln!("  indexingRewards: {rewards}");
-        assert_eq!(
-            close_result["allocation"].as_str().unwrap_or(""),
-            id,
-            "Closed allocation ID should match"
+        let closed_id = close_result["allocation"].as_str().unwrap_or("");
+        ensure!(
+            closed_id == id,
+            "closed allocation ID should match: expected {id}, got {closed_id}"
         );
     }
 
@@ -70,14 +68,14 @@ async fn close_and_recreate_allocation_body(net: &TestNetwork) -> Result<()> {
         .context("createAllocation should return allocation ID")?;
     eprintln!("  Created allocation: {new_alloc_id}");
 
-    assert!(
+    ensure!(
         !new_alloc_id.is_empty(),
-        "Allocation ID should be non-empty"
+        "allocation ID should be non-empty"
     );
-    assert_eq!(
-        create_result["deployment"].as_str().unwrap_or(""),
-        deployment,
-        "Deployment should match"
+    let created_dep = create_result["deployment"].as_str().unwrap_or("");
+    ensure!(
+        created_dep == deployment,
+        "deployment should match: expected {deployment}, got {created_dep}"
     );
 
     // Advance 2 more epochs and close the new allocation
@@ -89,10 +87,10 @@ async fn close_and_recreate_allocation_body(net: &TestNetwork) -> Result<()> {
     let rewards = close_result["indexingRewards"].as_str().unwrap_or("0");
     eprintln!("  indexingRewards: {rewards}");
 
-    assert_eq!(
-        close_result["allocation"].as_str().unwrap_or(""),
-        new_alloc_id,
-        "Closed allocation ID should match"
+    let closed_id = close_result["allocation"].as_str().unwrap_or("");
+    ensure!(
+        closed_id == new_alloc_id,
+        "closed allocation ID should match: expected {new_alloc_id}, got {closed_id}"
     );
 
     // Re-create the allocation to restore network state
@@ -111,11 +109,9 @@ async fn close_and_recreate_allocation_body(net: &TestNetwork) -> Result<()> {
 async fn close_allocation_collects_rewards() -> Result<()> {
     let net = net()?;
     // An abort after the close leaves no active allocation; restore so the
-    // remaining tests in the serial group inherit a working stack.
-    restore_allocation_on_failure(&net, async {
-        close_allocation_collects_rewards_body(&net).await
-    })
-    .await
+    // remaining tests in the serial group inherit a working stack. The body
+    // fails via ensure!/bail! (not assert!) so the wrapper always runs.
+    restore_allocation_on_failure(&net, close_allocation_collects_rewards_body(&net)).await
 }
 
 async fn close_allocation_collects_rewards_body(net: &TestNetwork) -> Result<()> {
@@ -158,9 +154,9 @@ async fn close_allocation_collects_rewards_body(net: &TestNetwork) -> Result<()>
     // Ensure indexer is eligible (eligibility may expire during epoch advancement)
     if net.contracts.reo.is_some() {
         net.reo_renew_indexer(&net.indexer_address)?;
-        assert!(
+        ensure!(
             net.reo_is_eligible(&net.indexer_address)?,
-            "Indexer must be eligible before close"
+            "indexer must be eligible before close"
         );
     }
 
@@ -171,18 +167,17 @@ async fn close_allocation_collects_rewards_body(net: &TestNetwork) -> Result<()>
     let rewards: f64 = rewards_str.parse().unwrap_or(0.0);
     eprintln!("  indexingRewards: {rewards_str} ({rewards:.2} GRT)");
 
-    assert!(
+    ensure!(
         rewards > 0.0,
-        "Agent-mediated close should collect non-zero rewards. \
-         Got indexingRewards={rewards_str}"
+        "agent-mediated close should collect non-zero rewards, got indexingRewards={rewards_str}"
     );
 
     // Verify closed allocation in subgraph
     let alloc_data = net.query_allocation(&fresh_alloc).await?;
-    assert_eq!(
-        alloc_data["status"].as_str().unwrap_or(""),
-        "Closed",
-        "Allocation should be Closed in subgraph"
+    let status = alloc_data["status"].as_str().unwrap_or("");
+    ensure!(
+        status == "Closed",
+        "allocation should be Closed in subgraph, got {status}"
     );
 
     // Restore allocation (no epoch advance needed — creating doesn't require maturity)
