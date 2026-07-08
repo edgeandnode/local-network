@@ -61,3 +61,26 @@ allocation instead of assuming one. This is test independence, not a mask: Bug 1
 open against the agent regardless.
 
 **PR.** Not yet submitted.
+
+## Bug 3: dipper offers collection terms the contract rejects, then retries the revert forever
+
+**Symptom.** With `min_seconds_per_collection: 60, max_seconds_per_collection: 240` in dipper's
+config, every offer submission reverted (selector `0xe4576396`,
+`RecurringCollectorAgreementInvalidCollectionWindow`) and dipper logged "Failed to submit offer
+on-chain, will retry" in a loop. Indexers had accepted the proposals off-chain and sat waiting
+for an on-chain offer that never landed; all 3 proposals burned their full 600-second deadline,
+expired, and dipper reassigned to 3 more indexers whose offers reverted identically.
+
+**Root cause.** The RecurringCollector requires `max - min >= MIN_SECONDS_COLLECTION_WINDOW`
+(600, a contract constant). Dipper neither validates its configured window against that bound
+(at startup or before offering) nor decodes the custom-error revert — so an invalid config
+produces an unbounded revert-retry loop and silently wasted proposal deadlines instead of a
+clear failure.
+
+**Owning repo.** edgeandnode/dipper.
+
+**Fix.** Validate the collection window at config load (fail fast naming the contract bound),
+decode known RecurringCollector custom errors in the submit-offer path, and treat a
+deterministic revert as terminal for that agreement rather than retrying it indefinitely.
+
+**PR.** Not yet submitted.
