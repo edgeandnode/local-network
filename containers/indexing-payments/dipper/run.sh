@@ -35,7 +35,7 @@ recurring_agreement_manager=$(contract_addr RecurringAgreementManager.address is
 
 # Config for dipper-service. chain_client derives chain_id and addresses from the
 # signer/dips sections (dipper#626, #643); event_streaming_config waits on #648/#649/#656.
-# Collection min is a 120s test value so a collection cycle is watchable in-session.
+# Agents schedule collection 50% into [min, max]: 60s/240s pays out every 150s for testing.
 cat >config.json <<-EOF
 {
   "dips": {
@@ -43,8 +43,8 @@ cat >config.json <<-EOF
     "recurring_collector": "${recurring_collector}",
     "recurring_agreement_manager": "${recurring_agreement_manager}",
     "max_agreement_grt_per_30_days": 20000,
-    "max_seconds_per_collection": 604800,
-    "min_seconds_per_collection": 120,
+    "max_seconds_per_collection": 240,
+    "min_seconds_per_collection": 60,
     "duration_seconds": null,
     "deadline_seconds": 600,
     "pricing_table": {
