@@ -70,7 +70,9 @@ async fn graph_tally_escrow_state_observable() -> Result<()> {
             eprintln!("    payer={payer} receiver={receiver} balance={balance}");
         }
     } else {
-        eprintln!("  NOTE: No escrow accounts yet — Graph Tally escrow manager may need time to process");
+        eprintln!(
+            "  NOTE: No escrow accounts yet — Graph Tally escrow manager may need time to process"
+        );
     }
 
     // Check on-chain escrow balance directly

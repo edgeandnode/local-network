@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::{Duration, Instant};
 
 use crate::TestNetwork;
 
@@ -57,6 +58,53 @@ impl TestNetwork {
             .as_str()
             .map(String::from)
             .context("graph-network _meta.deployment missing")
+    }
+
+    /// Ensure the indexer has an active allocation on `deployment` that the
+    /// network subgraph can see — the serving precondition IISA selects on.
+    /// Repairs state from aborted tests; fails fast instead of burning the wait.
+    pub async fn ensure_serving_allocation(&self, deployment: &str) -> Result<()> {
+        let allocs = self.get_allocations().await?;
+        let has_active = allocs
+            .as_array()
+            .map(|list| {
+                list.iter().any(|a| {
+                    a["closedAtEpoch"].is_null()
+                        && a["subgraphDeployment"].as_str() == Some(deployment)
+                })
+            })
+            .unwrap_or(false);
+        if !has_active {
+            eprintln!("  WARNING: no active allocation on {deployment} — creating one");
+            self.create_allocation(deployment, "0.01").await?;
+        }
+        self.ensure_always_rule(deployment).await?;
+
+        // IISA and dipper read the network subgraph, not the agent, so wait
+        // (bounded) until the allocation is indexed there.
+        let deadline = Instant::now() + Duration::from_secs(90);
+        loop {
+            let visible = self
+                .query_active_allocations(&self.indexer_address)
+                .await?
+                .as_array()
+                .map(|list| {
+                    list.iter()
+                        .any(|a| a["subgraphDeployment"]["ipfsHash"].as_str() == Some(deployment))
+                })
+                .unwrap_or(false);
+            if visible {
+                return Ok(());
+            }
+            if Instant::now() > deadline {
+                anyhow::bail!(
+                    "no active allocation on {deployment} visible in the network subgraph \
+                     after 90s; IISA selects no candidates without one, so the agreement \
+                     wait would time out — check indexer-agent and graph-node logs"
+                );
+            }
+            tokio::time::sleep(Duration::from_secs(3)).await;
+        }
     }
 
     /// Give IISA query history to score against, then run one scoring pass.
