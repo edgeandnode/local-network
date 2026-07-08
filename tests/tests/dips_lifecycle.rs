@@ -12,11 +12,15 @@ fn is_accepted(state: &str) -> bool {
     state.eq_ignore_ascii_case("accepted") || state.eq_ignore_ascii_case("active")
 }
 
-/// Warm IISA, request indexing, and wait for an accepted on-chain agreement.
-/// Returns the accepted agreement's id.
+/// Ensure a serving allocation, warm IISA, request indexing, and wait for an
+/// accepted on-chain agreement. Returns the accepted agreement's id.
 async fn drive_to_accepted(net: &TestNetwork) -> Result<String> {
-    net.warm_iisa().await?;
     let deployment = net.network_deployment().await?;
+    // A proposal only goes to indexers already serving the deployment; verify
+    // that precondition up front so a broken stack fails in seconds with a
+    // clear message instead of burning the full agreement wait below.
+    net.ensure_serving_allocation(&deployment).await?;
+    net.warm_iisa().await?;
     eprintln!("=== requesting indexing for {deployment} ===");
     net.request_indexing(&deployment, 1)?;
 
