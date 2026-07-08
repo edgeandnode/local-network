@@ -15,6 +15,9 @@ export REDIS_HOST=studio-redis
 # Point at the docker-network address for studio-query-proxy
 export QUERY_PROXY_BASE_URL="http://studio-query-proxy:${STUDIO_QUERY_PROXY_PORT:-4002}/query"
 
+# Point subgraph-indexing-request producer to local-network's redpanda:9092
+export DEPLOYMENT_ROUTER_SUBGRAPH_INDEXING_REQUESTS_REDPANDA_CONFIG='{"brokers":["redpanda:9092"],"groupId":"studio-indexing-requests","clientId":"studio_deployment_router","topics":["subgraph.indexing.requests"]}'
+
 if [ $# -eq 0 ]; then
   set -- bash -c "cd /app/packages/deployment-router && exec node dist/server.mjs"
 fi
