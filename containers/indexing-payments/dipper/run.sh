@@ -33,9 +33,9 @@ subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 recurring_collector=$(contract_addr RecurringCollector.address horizon)
 recurring_agreement_manager=$(contract_addr RecurringAgreementManager.address issuance)
 
-# Config for dipper-service. chain_client derives chain_id and addresses from the
-# signer/dips sections (dipper#626, #643); event_streaming_config waits on #648/#649/#656.
-# Agents schedule collection 50% into [min, max]: 60s/240s pays out every 150s for testing.
+# Config for dipper-service; event_streaming_config waits on dipper#648/#649/#656.
+# Collection window: the contract requires max-min >= 600 and agents collect 50% into
+# [min, max], so 60s/660s is the fastest legal payout cadence (a payout every 360s).
 cat >config.json <<-EOF
 {
   "dips": {
@@ -43,7 +43,7 @@ cat >config.json <<-EOF
     "recurring_collector": "${recurring_collector}",
     "recurring_agreement_manager": "${recurring_agreement_manager}",
     "max_agreement_grt_per_30_days": 20000,
-    "max_seconds_per_collection": 240,
+    "max_seconds_per_collection": 660,
     "min_seconds_per_collection": 60,
     "duration_seconds": null,
     "deadline_seconds": 600,
