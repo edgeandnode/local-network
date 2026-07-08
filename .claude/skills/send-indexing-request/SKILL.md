@@ -75,7 +75,7 @@ Dipper's admin API is declarative: a single mutating method, `set-target-candida
 
 ```bash
 ssh lnet-test 'docker run --rm --network host \
-  $(docker compose --project-directory /home/mainuser/local-network --profile tools config --images dipper-cli) \
+  $(docker compose -f /home/mainuser/local-network/docker-compose.yaml --profile tools config --images dipper-cli) \
   indexings set-target-candidates \
   --server-url http://localhost:9000 \
   --signing-key "0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573" \
@@ -121,7 +121,7 @@ Then re-run the monitor.
 
 ```bash
 ssh lnet-test 'docker run --rm --network host \
-  $(docker compose --project-directory /home/mainuser/local-network --profile tools config --images dipper-cli) \
+  $(docker compose -f /home/mainuser/local-network/docker-compose.yaml --profile tools config --images dipper-cli) \
   indexings status \
   --server-url http://localhost:9000 \
   --signing-key "0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573" \
