@@ -440,6 +440,15 @@ services:
         ]
     restart: on-failure:3
 
+  # Operator CLI for dipper's admin RPC, pinned to the same version as the server.
+  # The "tools" profile keeps it out of normal up/build: it exists so deploys pull it
+  # (--profile tools pull) and skills resolve the tag (--profile tools config --images).
+  dipper-cli:
+    container_name: dipper-cli
+    profiles: [tools]
+    image: ghcr.io/edgeandnode/dipper-cli:${DIPPER_VERSION}
+    network_mode: host
+
   # --- Readiness check ---
 
   ready:

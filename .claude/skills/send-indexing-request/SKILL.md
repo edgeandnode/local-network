@@ -18,19 +18,13 @@ For a local-only docker setup, drop the `ssh lnet-test` wrapper and run the same
 
 ### 1. Resolve the pinned dipper-cli image (on the VM)
 
-The `dipper` server and the `dipper-cli` client both pin to `DIPPER_VERSION`, so the CLI image already present on the VM matches the running server. Confirm it's there:
+`dipper-cli` is defined in `docker-compose.yaml` under the `tools` profile, pinned to the same `DIPPER_VERSION` as the running dipper server — compose is the single source of truth for the tag. A fresh-deploy pulls it already; ensure it's present (idempotent, instant when cached):
 
 ```bash
-ssh lnet-test 'docker images --format "{{.Repository}}:{{.Tag}}" | grep "^ghcr.io/edgeandnode/dipper-cli:"'
+ssh lnet-test 'cd /home/mainuser/local-network && docker compose --profile tools pull dipper-cli 2>&1 | tail -1'
 ```
 
-If it's missing (fresh machine), pull the tag matching the running dipper — `DIPPER_VERSION` in `.env`:
-
-```bash
-ssh lnet-test 'docker pull ghcr.io/edgeandnode/dipper-cli:<DIPPER_VERSION>'
-```
-
-The image entrypoint is `dipper-cli`, so every call is `docker run --rm --network host <image> <subcommand> ...`. The CLI invocations below resolve the image inline on the VM, so they stay correct across version bumps without a hardcoded tag.
+The image entrypoint is `dipper-cli`, so every call is `docker run --rm --network host <image> <subcommand> ...`. The CLI invocations below resolve the image inline on the VM via `docker compose --profile tools config --images dipper-cli`, so they stay correct across version bumps without a hardcoded tag.
 
 ### 2. Verify dipper is healthy (on the VM)
 
@@ -81,7 +75,7 @@ Dipper's admin API is declarative: a single mutating method, `set-target-candida
 
 ```bash
 ssh lnet-test 'docker run --rm --network host \
-  $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^ghcr.io/edgeandnode/dipper-cli:" | head -1) \
+  $(docker compose --project-directory /home/mainuser/local-network --profile tools config --images dipper-cli) \
   indexings set-target-candidates \
   --server-url http://localhost:9000 \
   --signing-key "0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573" \
@@ -127,7 +121,7 @@ Then re-run the monitor.
 
 ```bash
 ssh lnet-test 'docker run --rm --network host \
-  $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^ghcr.io/edgeandnode/dipper-cli:" | head -1) \
+  $(docker compose --project-directory /home/mainuser/local-network --profile tools config --images dipper-cli) \
   indexings status \
   --server-url http://localhost:9000 \
   --signing-key "0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573" \
@@ -140,7 +134,7 @@ ssh lnet-test 'docker run --rm --network host \
 |--------|-------|
 | Admin RPC port | 9000 (VM host port; the CLI container reaches it via `docker run --network host`) |
 | Indexer RPC port | 9001 (also exposed, not used by this skill) |
-| CLI image | `ghcr.io/edgeandnode/dipper-cli:${DIPPER_VERSION}` (pinned, matches the running dipper server) |
+| CLI image | `ghcr.io/edgeandnode/dipper-cli:${DIPPER_VERSION}` (pinned via the compose `tools` profile, matches the running dipper server) |
 | Signing key | RECEIVER: `0x2ee789a68207020b45607f5adb71933de0946baebbaaab74af7cbd69c8a90573` |
 | Signing address | `0xf4EF6650E48d099a4972ea5B414daB86e1998Bd3` |
 | Chain ID | 1337 (hardhat) |
