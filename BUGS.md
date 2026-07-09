@@ -7,7 +7,10 @@ Clean slate as of 2026-07-08. The 2 remaining entries were pruned with their fix
 the burst-scale bug (dipper #661 offer pacing and #662 queue priority — a burst now queues
 instead of expiring) and the stranded-allocations bug (the pinned indexer-agent's rule
 reaper with its subgraph staleness guard, graphprotocol/indexer #1221/#1224/#1225/#1227).
-Prior entries live in this file's history.
+Pruned 2026-07-09: the test-abort bug (aborted allocation tests left the stack broken for
+every later test) landed as local-network #83, which restores allocation state on any
+failure and gives the DIPs tests a fail-fast warm-up. Prior entries live in this file's
+history.
 
 ## Bug 1: indexer-agent reconciliation races operator allocation changes, then blocklists the deployment
 
@@ -38,28 +41,9 @@ says `always`/`dips`), and make `confirmUnallocate` stamp `never` only when the 
 justified the close is still in place — not clobber a rule the operator changed since the
 decision was queued.
 
-**PR.** Not yet submitted.
-
-## Bug 2: allocation test aborts leave the stack broken for every later test
-
-**Symptom.** Same run: after `close_and_recreate_allocation` aborted mid-flow, nothing
-restored the graph-network allocation or cleared the opt-out rule. The gateway refused all
-queries for the deployment ("subgraph not found: no allocations", first at 14:19:19, 12
-seconds after the abort, then every 60 seconds until teardown), dipper's topology refresh
-failed for the rest of the run, and both DIPs tests failed as collateral.
-
-**Root cause.** The test restores state (recreate allocation, which also resets the rule to
-`always`) only on its success path; an error at any close step skips the restore. Later
-tests assume an active allocation exists and don't re-establish it.
-
-**Owning repo.** local-network (test suite on the mirror branch and the upstream PR #67 port).
-
-**Fix.** Restore state in a failure-tolerant guard so an aborted run still ends with an
-active allocation and an `always` rule, and make the DIPs tests' warm-up ensure an active
-allocation instead of assuming one. This is test independence, not a mask: Bug 1 stays
-open against the agent regardless.
-
-**PR.** Not yet submitted.
+**PR.** graphprotocol/indexer #1242 and #1243 (open, CI green), plus #1244 stacked on
+#1242, which cancels a stale queued close at execution time and lets deliberate closes
+stick.
 
 ## Bug 3: dipper offers collection terms the contract rejects, then retries the revert forever
 
@@ -82,4 +66,6 @@ clear failure.
 decode known RecurringCollector custom errors in the submit-offer path, and treat a
 deterministic revert as terminal for that agreement rather than retrying it indefinitely.
 
-**PR.** Not yet submitted.
+**PR.** edgeandnode/dipper #664 (startup validation of the window and its sibling duration
+bounds) and #665 (decode the revert, fail the job, let expiry reassign), both open and CI
+green.
