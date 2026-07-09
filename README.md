@@ -66,11 +66,12 @@ Available profiles:
 | `explorer`            | block-explorer UI                 | none                       |
 | `rewards-eligibility` | eligibility-oracle-node           | none (clones from GitHub)  |
 | `indexing-payments`   | dipper, iisa, iisa-scoring        | GHCR auth (below)          |
+| `studio`              | studio-api, studio-ui, studio-query-proxy, studio-deployment-router, studio-redis | local subgraph-studio checkout (see below) |
 
 To enable all profiles, uncomment the full line in `.env`:
 
 ```bash
-COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer,indexing-payments
+COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer,indexing-payments,studio
 ```
 
 ### GHCR authentication (indexing-payments)
@@ -104,6 +105,59 @@ COMPOSE_FILE=docker-compose.yaml:compose/dev/indexer-service.yaml:compose/dev/ta
 Each override requires a binary path env var. Source repos own their own build;
 local-network just wraps the published image with `run.sh` and utilities.
 See [compose/dev/README.md](compose/dev/README.md) for details.
+
+## Studio quickstart
+
+The `studio` profile runs Subgraph Studio (UI, API, query-proxy,
+deployment-router, redis) against the local chain. It currently requires a
+local `subgraph-studio` checkout mounted via a dev override — no
+local-targeted image is published yet. See
+[compose/dev/README.md](compose/dev/README.md#studio-dev-override) for the full
+rationale and the planned migration to a prebuilt image.
+
+1. Clone `subgraph-studio`, then install and build from inside the repo:
+   ```bash
+   bun install
+   bun run build
+   ```
+2. Point local-network at the checkout and enable the profile + override in
+   `.env.local`:
+   ```bash
+   STUDIO_SOURCE_ROOT=/abs/path/to/subgraph-studio
+   COMPOSE_FILE=docker-compose.yaml:compose/dev/studio.yaml
+   COMPOSE_PROFILES=studio
+   ```
+3. Start the stack:
+   ```bash
+   docker compose up -d
+   ```
+4. Connect a wallet to the local chain (see [Wallet setup](#wallet-setup) below).
+5. Seed a verified user and fund the wallet so it can sign in and publish
+   without the email-confirmation prompt:
+   ```bash
+   ./scripts/seed-studio-user.sh <your_wallet_address>
+   ./scripts/fund-wallet.sh <your_wallet_address> 1 && ./scripts/mine-block.sh
+   ```
+6. Open the UI at http://localhost:5000/studio/
+
+`STUDIO_UI_PORT` must stay at 5000 — WalletConnect's metadata URL is hardcoded
+to that port in the studio UI.
+
+### Wallet setup
+
+To sign in and publish from Studio, connect a wallet (e.g. MetaMask) to the
+local chain by adding a custom network:
+
+- **RPC URL:** `http://localhost:8545` (`CHAIN_RPC_PORT`)
+- **Chain ID:** `1337` (`CHAIN_ID`)
+- **Currency symbol:** ETH
+
+Use your own test account — seed and fund that address with the scripts above.
+Never connect a wallet holding real funds to a local dev chain.
+
+**macOS note:** the UI is pinned to port 5000, which macOS AirPlay Receiver
+binds by default. If http://localhost:5000/studio/ is unreachable, disable it
+under System Settings → General → AirDrop & Handoff → AirPlay Receiver.
 
 ## Devcontainer usage
 

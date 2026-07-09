@@ -130,3 +130,29 @@ curl "http://localhost:7700/api/subgraphs/id/BFr2mx7FgkJ36Y6pE5BiXs1KmNUmVDCnL82
 docker exec -it redpanda rpk topic consume gateway_client_query_results --brokers="localhost:9092"
 ```
 
+### studio
+
+Requires `STUDIO_SOURCE_ROOT` and `COMPOSE_FILE=docker-compose.yaml:compose/dev/studio.yaml` —
+see `compose/dev/README.md`.
+
+- UI: http://localhost:5000/studio
+- API: http://localhost:4000 — `/graphql`, `/.well-known/jwks.json`
+- Redis: `redis-cli -p 6379 ping`
+
+Seed a verified studio user so a MetaMask wallet can sign in and publish
+without the email-confirmation prompt:
+
+```bash
+./scripts/seed-studio-user.sh 0xYOUR_METAMASK_ADDRESS
+# e.g. ACCOUNT0: ./scripts/seed-studio-user.sh 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+```
+
+To publish a subgraph from Studio, the connected MetaMask wallet must have ETH
+on the local chain to cover gas. Fund it then mine a block so MetaMask picks
+up the new balance:
+
+```bash
+./scripts/fund-wallet.sh <metamask_address> [amount_in_eth]
+./scripts/mine-block.sh
+```
+

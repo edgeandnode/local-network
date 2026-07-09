@@ -397,6 +397,144 @@ services:
         ]
     restart: on-failure:3
 
+  # --- Studio (activated via COMPOSE_PROFILES) ---
+  # Studio app services require a local subgraph-studio checkout mounted at /app
+  # via compose/dev/studio.yaml. Without that override, containers start, find
+  # no source, and exit with a helpful message. Stage 6 (see compose/dev/README.md)
+  # plans to replace the dev/Dockerfile build with a published GHCR image.
+
+  studio-redis:
+    container_name: studio-redis
+    profiles: [studio]
+    image: redis:7-alpine
+    ports: ["${STUDIO_REDIS_PORT}:6379"]
+    healthcheck: { interval: 1s, retries: 20, test: redis-cli ping }
+    restart: on-failure:3
+
+  studio-api:
+    container_name: studio-api
+    profiles: [studio]
+    build: { context: containers/ui/studio/dev }
+    entrypoint: bash /opt/run.sh
+    command:
+      - bash
+      - -c
+      - |
+        if [ ! -d /app/packages/api ]; then
+          echo "studio-api needs subgraph-studio source mounted at /app."
+          echo "Activate compose/dev/studio.yaml and set STUDIO_SOURCE_ROOT — see compose/dev/README.md."
+          exit 1
+        fi
+        cd /app/packages/shared && bun run db:setup
+        cd /app/packages/api && exec npx tsx --require /opt/clear-metrics.cjs src/server.ts
+    depends_on:
+      postgres: { condition: service_healthy }
+      studio-redis: { condition: service_healthy }
+      graph-contracts: { condition: service_completed_successfully }
+      ipfs: { condition: service_healthy }
+    ports:
+      - "${STUDIO_API_PORT}:4000"
+      - "${STUDIO_API_METRICS_PORT}:9090"
+    volumes:
+      - ./containers/ui/studio/api.sh:/opt/run.sh:ro
+      - ./containers/ui/studio/dev/clear-metrics.cjs:/opt/clear-metrics.cjs:ro
+      - ./.env:/opt/config/.env:ro
+    healthcheck:
+      test: curl -sf http://127.0.0.1:4000/ || exit 1
+      interval: 10s
+      retries: 60
+    restart: on-failure:3
+
+  studio-ui:
+    container_name: studio-ui
+    profiles: [studio]
+    build: { context: containers/ui/studio/dev }
+    entrypoint: bash /opt/run.sh
+    command:
+      - bash
+      - -c
+      - |
+        if [ ! -d /app/packages/ui ]; then
+          echo "studio-ui needs subgraph-studio source mounted at /app."
+          echo "Activate compose/dev/studio.yaml and set STUDIO_SOURCE_ROOT — see compose/dev/README.md."
+          exit 1
+        fi
+        cd /app/packages/ui && exec npx next dev -p 5000
+    depends_on:
+      studio-api: { condition: service_healthy }
+    ports:
+      - "${STUDIO_UI_PORT}:5000"
+    volumes:
+      - ./containers/ui/studio/ui.sh:/opt/run.sh:ro
+      - ./.env:/opt/config/.env:ro
+    healthcheck:
+      test: curl -sf http://127.0.0.1:5000/studio/ || exit 1
+      interval: 10s
+      retries: 60
+    restart: on-failure:3
+
+  studio-deployment-router:
+    container_name: studio-deployment-router
+    profiles: [studio]
+    build: { context: containers/ui/studio/dev }
+    entrypoint: bash /opt/run.sh
+    command:
+      - bash
+      - -c
+      - |
+        if [ ! -d /app/packages/deployment-router ]; then
+          echo "studio-deployment-router needs subgraph-studio source mounted at /app."
+          echo "Activate compose/dev/studio.yaml and set STUDIO_SOURCE_ROOT — see compose/dev/README.md."
+          exit 1
+        fi
+        cd /app/packages/deployment-router && exec npx tsx src/server.ts
+    depends_on:
+      studio-api: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      graph-node: { condition: service_healthy }
+      ipfs: { condition: service_healthy }
+    ports:
+      - "${STUDIO_DEPLOYMENT_ROUTER_PORT}:4001"
+      - "${STUDIO_DEPLOYMENT_ROUTER_METRICS_PORT}:9091"
+    volumes:
+      - ./containers/ui/studio/deployment-router.sh:/opt/run.sh:ro
+      - ./.env:/opt/config/.env:ro
+    healthcheck:
+      test: curl -sf http://127.0.0.1:4001/deploy || exit 1
+      interval: 10s
+      retries: 60
+    restart: on-failure:3
+
+  studio-query-proxy:
+    container_name: studio-query-proxy
+    profiles: [studio]
+    build: { context: containers/ui/studio/dev }
+    entrypoint: bash /opt/run.sh
+    command:
+      - bash
+      - -c
+      - |
+        if [ ! -d /app/packages/query-proxy ]; then
+          echo "studio-query-proxy needs subgraph-studio source mounted at /app."
+          echo "Activate compose/dev/studio.yaml and set STUDIO_SOURCE_ROOT — see compose/dev/README.md."
+          exit 1
+        fi
+        cd /app/packages/query-proxy && exec npx tsx src/server.ts
+    depends_on:
+      studio-api: { condition: service_healthy }
+      studio-redis: { condition: service_healthy }
+    ports:
+      - "${STUDIO_QUERY_PROXY_PORT}:4002"
+      - "${STUDIO_QUERY_PROXY_METRICS_PORT}:9092"
+    volumes:
+      - ./containers/ui/studio/query-proxy.sh:/opt/run.sh:ro
+      - ./.env:/opt/config/.env:ro
+    healthcheck:
+      test: curl -sf http://127.0.0.1:9092/metrics || exit 1
+      interval: 10s
+      retries: 60
+    restart: on-failure:3
+
   # --- Readiness check ---
 
   ready:
