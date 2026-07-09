@@ -1,0 +1,29 @@
+# Studio dev override — mounts a local subgraph-studio checkout into the
+# studio app services. Required today because no local-network-targeted
+# subgraph-studio image is published yet (see "Future" in compose/dev/README.md).
+#
+# Activate via .env.local:
+#   STUDIO_SOURCE_ROOT=/abs/path/to/subgraph-studio
+#   COMPOSE_FILE=docker-compose.yaml:compose/dev/studio.yaml
+#   COMPOSE_PROFILES=block-oracle,explorer,studio
+#
+# Prerequisites in the studio checkout:
+#   bun install
+#   bun run build      # builds packages/shared (and others)
+
+services:
+  studio-api:
+    volumes:
+      - ${STUDIO_SOURCE_ROOT}:/app
+
+  studio-ui:
+    volumes:
+      - ${STUDIO_SOURCE_ROOT}:/app
+
+  studio-deployment-router:
+    volumes:
+      - ${STUDIO_SOURCE_ROOT}:/app
+
+  studio-query-proxy:
+    volumes:
+      - ${STUDIO_SOURCE_ROOT}:/app
