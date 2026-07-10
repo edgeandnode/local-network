@@ -179,7 +179,10 @@ def postgres_service(n: int) -> str:
       POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_USER: postgres
     healthcheck:
-      {{ interval: 1s, retries: 20, test: pg_isready -U postgres }}
+      # -h 127.0.0.1 is load-bearing: first boot runs a socket-only init server that a
+      # plain pg_isready reports ready, releasing dependents just before the init
+      # restart drops their connections. TCP only listens once the real server is up.
+      {{ interval: 1s, retries: 60, test: pg_isready -h 127.0.0.1 -U postgres }}
     restart: on-failure:3
 """
 

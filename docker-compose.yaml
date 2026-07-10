@@ -62,7 +62,10 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding UTF8 --locale=C"
       POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_USER: postgres
-    healthcheck: { interval: 1s, retries: 20, test: pg_isready -U postgres }
+    # -h 127.0.0.1 is load-bearing: first boot runs a socket-only init server that a
+    # plain pg_isready reports ready, releasing dependents just before the init
+    # restart drops their connections. TCP only listens once the real server is up.
+    healthcheck: { interval: 1s, retries: 60, test: pg_isready -h 127.0.0.1 -U postgres }
     restart: on-failure:3
 
   graph-node:
@@ -212,6 +215,19 @@ services:
         test: rpk topic list --brokers="localhost:9092",
       }
     restart: on-failure:3
+
+  # Dipper's events producer (dipper#649) binds partitions at startup and disables
+  # itself if the topic is missing, so the topic must exist before dipper boots.
+  dips-events-topic:
+    container_name: dips-events-topic
+    profiles: [indexing-payments]
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+    depends_on:
+      redpanda: { condition: service_healthy }
+    entrypoint: ["bash", "-c"]
+    command:
+      - rpk topic create dipper.subgraph.indexing.agreement.events -p 1 --brokers=redpanda:9092 || true
+    restart: "no"
 
   graph-tally-aggregator:
     container_name: graph-tally-aggregator
@@ -408,6 +424,7 @@ services:
       block-oracle: { condition: service_healthy }
       postgres: { condition: service_healthy }
       gateway: { condition: service_healthy }
+      dips-events-topic: { condition: service_completed_successfully }
     ports:
       - "${DIPPER_ADMIN_RPC_PORT}:${DIPPER_ADMIN_RPC_PORT}"
       - "${DIPPER_INDEXER_RPC_PORT}:${DIPPER_INDEXER_RPC_PORT}"
@@ -427,6 +444,15 @@ services:
           "curl -s -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"health\",\"id\":1}' http://localhost:9000/ | grep -q jsonrpc",
         ]
     restart: on-failure:3
+
+  # Operator CLI for dipper's admin RPC, pinned to the same version as the server.
+  # The "tools" profile keeps it out of normal up/build: it exists so deploys pull it
+  # (--profile tools pull) and skills resolve the tag (--profile tools config --images).
+  dipper-cli:
+    container_name: dipper-cli
+    profiles: [tools]
+    image: ghcr.io/edgeandnode/dipper-cli:${DIPPER_VERSION}
+    network_mode: host
 
   # --- Studio (activated via COMPOSE_PROFILES) ---
   # Studio app services require a local subgraph-studio checkout mounted at /app

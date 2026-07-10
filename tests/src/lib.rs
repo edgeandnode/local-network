@@ -1,9 +1,9 @@
-//! Integration test helpers for the local network.
-//!
-//! Provides `TestNetwork` — a typed interface to the local network services
-//! (chain RPC, subgraph, gateway, indexer management API, contract calls).
+//! Integration test helpers: `TestNetwork`, a typed interface to the local
+//! network services (chain RPC, subgraph, gateway, management API, contracts).
 
 pub mod cast;
+pub mod dips;
+pub mod dump;
 pub mod graphql;
 pub mod management;
 pub mod polling;
@@ -13,11 +13,9 @@ use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// Typed interface to a running local network.
-///
-/// Created from environment variables (`.env` + `.env.local`).
-/// All URLs default to devcontainer-friendly hostnames (service names on the
-/// Docker network) with fallback to localhost for host-side execution.
+/// Typed interface to a running local network, built from `.env` (+ `.env.local`).
+/// URLs default to Docker service hostnames, falling back to localhost for
+/// host-side execution.
 #[derive(Debug, Clone)]
 pub struct TestNetwork {
     pub rpc_url: String,
@@ -120,11 +118,14 @@ impl TestNetwork {
             .get("ACCOUNT1_SECRET")
             .cloned()
             .context("ACCOUNT1_SECRET not set in .env")?;
-        // The subgraph availability oracle is mnemonic index 4 of the deployment
-        // mnemonic (myth like bonus scare...). Its key is deterministic.
-        let oracle_secret = vars.get("ORACLE_SECRET").cloned().unwrap_or_else(|| {
-            "0xadd53f9a7e588d003326d1cbf9e4a43c061aadd9bc938c843a79e7b4fd2ad743".into()
-        });
+        // The subgraph availability oracle. A real env var wins over .env so CI can
+        // point it at whatever address the deploy registered.
+        let oracle_secret = std::env::var("ORACLE_SECRET")
+            .ok()
+            .or_else(|| vars.get("ORACLE_SECRET").cloned())
+            .unwrap_or_else(|| {
+                "0xadd53f9a7e588d003326d1cbf9e4a43c061aadd9bc938c843a79e7b4fd2ad743".into()
+            });
         let receiver_secret = vars
             .get("RECEIVER_SECRET")
             .cloned()

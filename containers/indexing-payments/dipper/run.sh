@@ -33,8 +33,9 @@ subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 recurring_collector=$(contract_addr RecurringCollector.address horizon)
 recurring_agreement_manager=$(contract_addr RecurringAgreementManager.address issuance)
 
-# Config for dipper-service. chain_client derives chain_id, the collector and the
-# SubgraphService address from the signer/dips sections (edgeandnode/dipper#626, #643).
+# Config for dipper-service; event_streaming_config waits on dipper#648/#649/#656.
+# Collection window: the contract requires max-min >= 600 and agents collect 50% into
+# [min, max], so 60s/660s is the fastest legal payout cadence (a payout every 360s).
 cat >config.json <<-EOF
 {
   "dips": {
@@ -42,8 +43,8 @@ cat >config.json <<-EOF
     "recurring_collector": "${recurring_collector}",
     "recurring_agreement_manager": "${recurring_agreement_manager}",
     "max_agreement_grt_per_30_days": 20000,
-    "max_seconds_per_collection": 86400,
-    "min_seconds_per_collection": 3600,
+    "max_seconds_per_collection": 660,
+    "min_seconds_per_collection": 60,
     "duration_seconds": null,
     "deadline_seconds": 600,
     "pricing_table": {
@@ -62,8 +63,7 @@ cat >config.json <<-EOF
   "db": {
     "url": "postgres://postgres:${POSTGRES_PORT}/dipper_1",
     "username": "postgres",
-    "password": "postgres",
-    "max_connections": 10
+    "password": "postgres"
   },
   "network": {
     "gateway_url": "http://gateway:${GATEWAY_PORT}",
@@ -72,7 +72,7 @@ cat >config.json <<-EOF
     "update_interval": 60
   },
   "signer": {
-    "secret_key": "${ACCOUNT0_SECRET}",
+    "secret_key": "${DIPPER_SECRET}",
     "chain_id": ${CHAIN_ID}
   },
   "chain_client": {
@@ -103,6 +103,13 @@ cat >config.json <<-EOF
     "poll_interval": 5,
     "chain_id": ${CHAIN_ID},
     "bypass_chain_clock_defenses": true
+  },
+  "event_streaming_config": {
+    "enabled": true,
+    "kafka": {
+      "brokers": ["redpanda:${REDPANDA_KAFKA_PORT}"],
+      "partitions": 1
+    }
   },
   "additional_networks": {
     "${CHAIN_ID}": "${CHAIN_NAME}"

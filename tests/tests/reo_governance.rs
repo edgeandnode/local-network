@@ -503,7 +503,11 @@ async fn pause_blocks_writes() -> Result<()> {
         &net.account0_secret,
         &reo,
         "setEligibilityValidation(bool)",
-        &[if net.reo_validation_enabled()? { "true" } else { "false" }],
+        &[if net.reo_validation_enabled()? {
+            "true"
+        } else {
+            "false"
+        }],
     )?;
     eprintln!("  setEligibilityValidation while paused blocked: {gov_blocked}");
 
@@ -695,7 +699,10 @@ async fn rewards_view_zero_for_ineligible() -> Result<()> {
     net.reo_renew_indexer(&net.indexer_address)?;
     eprintln!("  Restored period={original_period}s, validation={original_validation}");
 
-    assert!(ineligible, "Indexer should be ineligible after period expiry");
+    assert!(
+        ineligible,
+        "Indexer should be ineligible after period expiry"
+    );
 
     // The getRewards() view function may or may not gate on eligibility
     // depending on the contract version. Eligibility is enforced at claim

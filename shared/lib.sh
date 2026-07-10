@@ -1,6 +1,12 @@
 #!/bin/sh
 # Shared shell utilities for local-network (container services and host scripts)
 
+# Dipper's dedicated signing wallet (key derived from keccak of the label
+# "local-network dipper signer"). Kept out of ACCOUNT0 so dipper's offer txs
+# don't share a nonce sequence with deploys, the escrow manager, and tests.
+: "${DIPPER_ADDRESS:=0x85404fAdA062374130c434dE04351aF39e67CD96}"
+: "${DIPPER_SECRET:=0x254aaacc1a4091fdb844b297b2c00db641bd3a613914e9afaa0dbfce5c5cab5a}"
+
 require_jq() {
   _val=$(jq -r "$1 // empty" ${2:+"$2"})
   if [ -z "$_val" ]; then
@@ -10,9 +16,8 @@ require_jq() {
   printf '%s' "$_val"
 }
 
-# contract_addr CONTRACT_NAME ADDRESS_BOOK
-# Gets a contract address from a config file
-# Supports both host and container execution contexts.
+# contract_addr CONTRACT_NAME ADDRESS_BOOK — get a contract address from a
+# config file; works in both host and container execution contexts.
 # Example: contract_addr L2GraphToken.address horizon
 contract_addr() {
   if [ -d "/opt/config" ]; then
@@ -78,9 +83,8 @@ base58_to_hex() {
   printf '%s' "$_result"
 }
 
-# ipfs_hash_to_hex IPFS_HASH
-# Converts an IPFS CIDv0 hash (Qm...) to the 32-byte hex hash.
-# Strips the multihash prefix (1220 for sha256).
+# ipfs_hash_to_hex IPFS_HASH — convert an IPFS CIDv0 hash (Qm...) to the
+# 32-byte hex hash, stripping the 1220 sha256 multihash prefix.
 # Example: ipfs_hash_to_hex "QmXyz..." -> "abcd1234..."
 ipfs_hash_to_hex() {
   _full=$(base58_to_hex "$1")

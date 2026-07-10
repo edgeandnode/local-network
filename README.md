@@ -4,28 +4,36 @@ A local Graph network for debugging & integration tests.
 
 ## Usage
 
-Requires Docker & Docker Compose v2.24+.
+Requires Docker & Docker Compose v2.24+ and [just](https://github.com/casey/just).
 
 ```bash
+# Show all recipes
+just --list
+
 # Start (or resume) the network — skips already-completed setup steps
-docker compose up -d
+just up
+
+# Rebuild a single service after code changes
+just up --build ${service}
+
+# Get logs for a service
+just logs ${service}
 
 # Re-initialise from scratch (removes all persisted state)
-docker compose down -v && docker compose up -d
+just reset && just up
 ```
 
-State (chain, postgres, ipfs) is persisted in named volumes, so the network
-restarts where it left off. Use `down -v` only when you want a clean slate.
+__Note__: State is persisted in named volumes, so the network restarts where it left off. Use `just reset` only when you want a clean slate.
 
-Add `--build` to rebuild after changes to Docker build context, including modifying `run.sh` or `Dockerfile`, or changed source code.
+More useful commands for each component can be found at [CHEATSHEET.md](CHEATSHEET.md).
 
-## Useful commands
+## Configuration
 
-- `docker compose up -d --build ${service}` — rebuild a single service after code changes
-- `docker compose logs -f ${service}`
-- `source .env`
+The `.env` file holds all configuration and is read by three consumers:
 
-Useful commands for each component can be found at [CHEATSHEET.md](CHEATSHEET.md)
+- **docker-compose** — for `${VAR}` substitution in `docker-compose.yaml` (auto-loaded from the project directory).
+- **host scripts** — scripts that run on the host source this file via `source .env`.
+- **containers** — volume-mounted at `/opt/config/.env` and typically sourced by each service's `run.sh`.
 
 ## Local Overrides
 
@@ -37,15 +45,17 @@ COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer,indexing-payments
 GRAPH_NODE_VERSION=v0.38.0-rc1
 ```
 
-Host scripts source `.env.local` automatically after `.env`.
+`.env.local` overrides `.env` for:
+- `docker compose` but only when invoked via `just`. Bare `docker compose` reads only `.env`.
+- host scripts (typically sourced automatically after `.env`)
+- it DOES NOT override `.env` for container scripts.
 
 ## Service Profiles
 
-Optional services are controlled via `COMPOSE_PROFILES` in `.env`.
-By default, profiles that work out of the box are enabled:
+Optional services are controlled via `COMPOSE_PROFILES` in `.env`. By default, profiles that work out of the box are enabled:
 
 ```bash
-COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer
+COMPOSE_PROFILES=block-oracle,explorer
 ```
 
 Available profiles:
@@ -66,9 +76,7 @@ COMPOSE_PROFILES=rewards-eligibility,block-oracle,explorer,indexing-payments,stu
 
 ### GHCR authentication (indexing-payments)
 
-The `indexing-payments` profile pulls private images from `ghcr.io/edgeandnode`.
-Create a GitHub **classic** Personal Access Token with `read:packages` scope
-(https://github.com/settings/tokens — fine-grained tokens do not support packages) and log in once:
+The `indexing-payments` profile pulls private images from `ghcr.io/edgeandnode`. Create a GitHub **classic** Personal Access Token with `read:packages` scope (https://github.com/settings/tokens — fine-grained tokens do not support packages) and log in once:
 
 ```bash
 echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_USERNAME --password-stdin
@@ -83,8 +91,7 @@ IISA_VERSION=<tag>
 
 ## Building from source - Dev overrides (compose/dev/)
 
-For local development, mount locally-built binaries into running containers.
-Set `COMPOSE_FILE` in `.env` to include dev override files:
+For local development, mount locally-built binaries into running containers. Set `COMPOSE_FILE` in `.env` (or `.env.local`, when using `just`) to include dev override files:
 
 ```bash
 # Mount local indexer-service binary

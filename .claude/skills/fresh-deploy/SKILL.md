@@ -44,7 +44,7 @@ We want a true cold rebuild — no cached `local-network-*` images, no stale GHC
 
 ```bash
 ssh lnet-test 'docker images --format "{{.Repository}}:{{.Tag}}" | grep "^local-network-" | xargs -r docker rmi -f 2>&1 | tail -5
-docker images --format "{{.Repository}}:{{.Tag}}" | grep "^ghcr.io/edgeandnode/subgraph-dips" | xargs -r docker rmi -f 2>&1 | tail -5
+docker images --format "{{.Repository}}:{{.Tag}}" | grep -E "^ghcr.io/edgeandnode/(subgraph-dips|dipper-cli)" | xargs -r docker rmi -f 2>&1 | tail -5
 for img in postgres:17-alpine ipfs/kubo:v0.38.2 docker.redpanda.com/redpandadata/redpanda:v23.3.5 busybox:latest; do
   docker rmi -f "$img" 2>&1 | tail -1
 done'
@@ -115,7 +115,10 @@ There is no image baking for studio, so the live commit is whatever the Mac chec
 
 ```bash
 ssh lnet-test 'cd /home/mainuser/local-network && docker compose build --pull'
+ssh lnet-test 'cd /home/mainuser/local-network && docker compose --profile tools pull'
 ```
+
+The second command fetches the `tools`-profile images that are never built or started with the stack — currently `dipper-cli`, the client for dipper's admin RPC, pinned in `docker-compose.yaml` to the same `DIPPER_VERSION` as the running server. Pulling it here means the send-indexing-request skill (and anyone driving DIPs by hand) finds a version-matched CLI already present.
 
 Run this in the background — it takes ~10–15 minutes on a cold cache. The long pole is `block-oracle` (Rust compiles from source) plus `graph-contracts` (clones the contracts repo at the pinned commit). The thin-wrapper services (`chain`, `graph-node`, `gateway`, `indexer-agent`, `indexer-service`, `tap-agent`, `dipper`, etc.) finish in seconds because their Dockerfiles are just `FROM ghcr.io/...` plus a few apt packages and a copy of run.sh.
 

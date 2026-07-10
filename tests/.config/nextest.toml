@@ -1,13 +1,22 @@
-# Tests share a single blockchain so state-mutating tests need serial groups.
-# Nextest runs each test as a separate process, so #[serial] (in-process
-# locking) doesn't provide cross-process serialization. Instead we use
-# nextest test groups with max-threads = 1 per group.
-#
-# Group mapping (keep in sync with #[serial(...)] annotations in test code):
-#   alloc    — allocation lifecycle, denial, rewards conditions, eligibility
-#   reo      — REO governance config mutations
-#   staking  — stake and provision management
-#   (none)   — read-only / revert-only tests run freely in parallel
+# Tests share one blockchain, so state-mutating tests run in serial groups
+# (max-threads = 1). Nextest runs each test as its own process, so #[serial]
+# in-process locking wouldn't serialize across them.
+
+# Kill any test still running after 20 minutes (20 x 60s periods). Without
+# this, a test stuck polling a wedged stack runs until the CI job's own
+# timeout cancels it, and a cancelled job skips the failure-diagnostics steps.
+[profile.default]
+slow-timeout = { period = "60s", terminate-after = 20 }
+
+# JUnit XML (target/nextest/default/junit.xml) feeds the CI test report so
+# every test shows up individually in the PR checks instead of one green tick.
+[profile.default.junit]
+path = "junit.xml"
+
+# The DIPs agreement-events probe runs as its own non-blocking CI step and check
+# run, so it gets its own profile and JUnit at target/nextest/events/junit.xml.
+[profile.events.junit]
+path = "junit.xml"
 
 [test-groups.alloc]
 max-threads = 1
@@ -19,12 +28,14 @@ max-threads = 1
 max-threads = 1
 
 # alloc group: allocation lifecycle, reward collection, eligibility,
-# subgraph denial, and rewards conditions (except revert-only tests)
+# subgraph denial, rewards conditions (except revert-only tests), and DIPs
 [[profile.default.overrides]]
 filter = """binary(~allocation_lifecycle) \
   | binary(~reward_collection) \
   | binary(~eligibility) \
   | binary(~subgraph_denial) \
+  | binary(~dips_lifecycle) \
+  | binary(~dips_events) \
   | (binary(~rewards_conditions) - test(=reclaim_unauthorized_reverts))"""
 test-group = "alloc"
 
