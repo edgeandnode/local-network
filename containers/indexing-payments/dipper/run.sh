@@ -66,7 +66,7 @@ cat >config.json <<-EOF
     "username": "postgres",
     "password": "postgres"
   },
-  "network": {
+  "indexer_urls": {
     "subgraph_endpoint": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments",
     "update_interval": 60,
     "allow_empty_at_startup": true
