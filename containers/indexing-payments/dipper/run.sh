@@ -21,13 +21,14 @@ fi
 # --- Wait for dependencies in parallel with build ---
 wait_for_config
 
-# Wait for network subgraph to be deployed and queryable
-echo "Waiting for network subgraph..." >&2
-network_subgraph_deployment=$(wait_for_gql \
-  "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/graph-network" \
+# Wait for the indexing-payments subgraph to be deployed and queryable; dipper's
+# startup fetch of indexer URLs gives up after ~62s of failures, so gate on it here.
+echo "Waiting for indexing-payments subgraph..." >&2
+wait_for_gql \
+  "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments" \
   "{ _meta { deployment } }" \
   ".data._meta.deployment" \
-  600)
+  600 >/dev/null
 
 subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 recurring_collector=$(contract_addr RecurringCollector.address horizon)
@@ -66,10 +67,9 @@ cat >config.json <<-EOF
     "password": "postgres"
   },
   "network": {
-    "gateway_url": "http://gateway:${GATEWAY_PORT}",
-    "api_key": "${GATEWAY_API_KEY}",
-    "deployment_id": "${network_subgraph_deployment}",
-    "update_interval": 60
+    "subgraph_endpoint": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments",
+    "update_interval": 60,
+    "allow_empty_at_startup": true
   },
   "signer": {
     "secret_key": "${DIPPER_SECRET}",
@@ -127,8 +127,7 @@ if [ "$BUILD_FROM_SOURCE" = "true" ]; then
   wait "$BUILD_PID"
   echo "Build complete"
 
-  # Wait for runtime deps (gateway, iisa must be reachable before dipper starts)
-  wait_for_url "http://gateway:${GATEWAY_PORT}" 600
+  # Wait for runtime deps (iisa must be reachable before dipper starts)
   wait_for_url "http://iisa:8080/health" 600
 
   exec /opt/source/target/release/dipper-service "${WORK_DIR}/config.json"
