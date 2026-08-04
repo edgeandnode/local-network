@@ -38,9 +38,9 @@ recurring_agreement_manager=$(contract_addr RecurringAgreementManager.address is
 # and agents collect 50% into [min, max], so 60s/660s is the fastest legal payout
 # cadence (a payout every 360s).
 
-# The lookbacks are 0 and the expiry grace is 0 because the postgres volume outlives
-# a run: on defaults, one expired agreement would exclude the indexer for 30 days
-# across every later run, and expiry would only be recorded 300s after the deadline.
+# Selection windows and the expiry grace are left unset so dipper applies the same
+# defaults it runs in testnet: an indexer that fails to accept is skipped here too,
+# which is the point of testing here first.
 cat >config.json <<-EOF
 {
   "dips": {
@@ -52,11 +52,6 @@ cat >config.json <<-EOF
     "min_seconds_per_collection": 60,
     "duration_seconds": null,
     "deadline_seconds": 600,
-    "declined_indexer_lookback_days": 0,
-    "price_rejection_lookback_days": 0,
-    "uncertain_rejection_lookback_days": 0,
-    "unresponsive_indexer_lookback_days": 0,
-    "transient_rejection_lookback_minutes": 0,
     "pricing_table": {
       "${CHAIN_ID}": {
         "tokens_per_second": "174000000000000",
@@ -104,8 +99,7 @@ cat >config.json <<-EOF
   "expiration": {
     "enabled": true,
     "interval": 10,
-    "batch_size": 100,
-    "grace": 0
+    "batch_size": 100
   },
   "chain_listener": {
     "enabled": true,
