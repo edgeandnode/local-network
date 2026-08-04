@@ -41,6 +41,10 @@ recurring_agreement_manager=$(contract_addr RecurringAgreementManager.address is
 # Selection windows and the expiry grace are left unset so dipper applies the same
 # defaults it runs in testnet: an indexer that fails to accept is skipped here too,
 # which is the point of testing here first.
+
+# The chain is listed twice so dipper builds a multi-provider pool and its failover
+# path can be exercised; reassignment mirrors testnet's schedule, which means it
+# starts but will not reach a cycle inside a short run.
 cat >config.json <<-EOF
 {
   "dips": {
@@ -68,7 +72,8 @@ cat >config.json <<-EOF
   "db": {
     "url": "postgres://postgres:${POSTGRES_PORT}/dipper_1",
     "username": "postgres",
-    "password": "postgres"
+    "password": "postgres",
+    "max_connections": 50
   },
   "indexer_urls": {
     "subgraph_endpoint": "http://graph-node:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/indexing-payments",
@@ -81,7 +86,10 @@ cat >config.json <<-EOF
   },
   "chain_client": {
     "enabled": true,
-    "providers": ["http://chain:${CHAIN_RPC_PORT}"],
+    "providers": [
+      "http://chain:${CHAIN_RPC_PORT}",
+      "http://chain:${CHAIN_RPC_PORT}"
+    ],
     "request_timeout": 30,
     "max_retries": 3,
     "gas_price_multiplier": 1.2,
@@ -95,6 +103,13 @@ cat >config.json <<-EOF
     "request_timeout": 30,
     "connect_timeout": 10,
     "max_retries": 3
+  },
+  "reassignment": {
+    "enabled": true,
+    "interval": 86400,
+    "run_at_utc_hour": 10,
+    "batch_size": 100,
+    "min_request_age": 86400
   },
   "expiration": {
     "enabled": true,
