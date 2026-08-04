@@ -34,9 +34,13 @@ subgraph_service=$(contract_addr SubgraphService.address subgraph-service)
 recurring_collector=$(contract_addr RecurringCollector.address horizon)
 recurring_agreement_manager=$(contract_addr RecurringAgreementManager.address issuance)
 
-# Config for dipper-service; event_streaming_config waits on dipper#648/#649/#656.
-# Collection window: the contract requires max-min >= 600 and agents collect 50% into
-# [min, max], so 60s/660s is the fastest legal payout cadence (a payout every 360s).
+# Config for dipper-service. Collection window: the contract requires max-min >= 600
+# and agents collect 50% into [min, max], so 60s/660s is the fastest legal payout
+# cadence (a payout every 360s).
+
+# The lookbacks are 0 and the expiry grace is 0 because the postgres volume outlives
+# a run: on defaults, one expired agreement would exclude the indexer for 30 days
+# across every later run, and expiry would only be recorded 300s after the deadline.
 cat >config.json <<-EOF
 {
   "dips": {
@@ -48,6 +52,11 @@ cat >config.json <<-EOF
     "min_seconds_per_collection": 60,
     "duration_seconds": null,
     "deadline_seconds": 600,
+    "declined_indexer_lookback_days": 0,
+    "price_rejection_lookback_days": 0,
+    "uncertain_rejection_lookback_days": 0,
+    "unresponsive_indexer_lookback_days": 0,
+    "transient_rejection_lookback_minutes": 0,
     "pricing_table": {
       "${CHAIN_ID}": {
         "tokens_per_second": "174000000000000",
@@ -95,7 +104,8 @@ cat >config.json <<-EOF
   "expiration": {
     "enabled": true,
     "interval": 10,
-    "batch_size": 100
+    "batch_size": 100,
+    "grace": 0
   },
   "chain_listener": {
     "enabled": true,
