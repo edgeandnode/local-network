@@ -77,8 +77,8 @@ ${ACCOUNT0_ADDRESS} = "http://graph-tally-aggregator:${GRAPH_TALLY_AGGREGATOR_PO
 EOF
 
 # Appended only when RecurringCollector is on-chain. [dips] registers the
-# /dips/info route and the DIPs gRPC server; IISA's scoring probes /dips/info
-# for each indexer's networks and pricing floor (else it returns no candidates).
+# /dips/info route and the DIPs gRPC server on the fixed port 7602 the payer
+# dials; IISA probes /dips/info for networks and pricing, else no candidates.
 if [ -n "$recurring_collector" ]; then
 cat >>config.toml <<-EOF
 [subgraphs.indexing_payments]
@@ -87,7 +87,6 @@ syncing_interval_secs = 30
 
 [dips]
 host = "0.0.0.0"
-port = "${INDEXER_SERVICE_DIPS_RPC_PORT}"
 recurring_collector = "${recurring_collector}"
 supported_networks = ["hardhat"]
 min_grt_per_billion_entities_per_30_days = "${DIPS_MIN_GRT_PER_BILLION_ENTITIES_PER_30_DAYS}"
