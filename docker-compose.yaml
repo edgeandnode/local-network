@@ -433,11 +433,7 @@ services:
     healthcheck:
       interval: 5s
       retries: 10
-      test:
-        [
-          "CMD-SHELL",
-          "curl -s -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"health\",\"id\":1}' http://localhost:9000/ | grep -q jsonrpc",
-        ]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8546/health"]
     restart: on-failure:3
 
   # Operator CLI for dipper's admin RPC, pinned to the same version as the server.
