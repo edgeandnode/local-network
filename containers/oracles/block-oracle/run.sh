@@ -7,7 +7,7 @@ graph_epoch_manager=$(contract_addr EpochManager.address horizon)
 data_edge=$(contract_addr DataEdge block-oracle)
 
 echo "=== Configuring block-oracle service ==="
-cd /opt/block-oracle
+mkdir -p /opt/block-oracle && cd /opt/block-oracle
 cat >config.toml <<-EOF
 blockmeta_auth_token = ""
 owner_address = "${ACCOUNT0_ADDRESS#0x}"
@@ -31,4 +31,4 @@ cat config.toml
 
 echo "=== Starting block-oracle service ==="
 sleep 5
-exec /opt/block-oracle/block-oracle run config.toml
+exec block-oracle run config.toml

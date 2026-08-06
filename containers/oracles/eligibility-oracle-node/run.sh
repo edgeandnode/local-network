@@ -1,14 +1,12 @@
 #!/bin/bash
 set -eu
+# shellcheck source=/dev/null
 . /opt/config/.env
+# shellcheck source=/dev/null
 . /opt/shared/lib.sh
 
 # Wait for the REO contract address to be available in issuance.json
-reo_address=""
-for f in issuance.json; do
-  reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address // empty' "/opt/config/$f" 2>/dev/null || true)
-  [ -n "$reo_address" ] && break
-done
+reo_address=$(jq -r '.["1337"].RewardsEligibilityOracle.address // empty' /opt/config/issuance.json 2>/dev/null || true)
 
 if [ -z "$reo_address" ]; then
   echo "ERROR: RewardsEligibilityOracle address not found in issuance.json"
@@ -19,11 +17,11 @@ fi
 echo "=== Configuring eligibility-oracle-node ==="
 echo "  REO contract: ${reo_address}"
 echo "  Chain ID: ${CHAIN_ID}"
-echo "  Redpanda: redpanda:9092"
+echo "  Redpanda: redpanda:${REDPANDA_KAFKA_PORT}"
 
 # Create compacted output topic (idempotent)
 rpk topic create indexer_daily_metrics \
-  --brokers="redpanda:9092" \
+  --brokers="redpanda:${REDPANDA_KAFKA_PORT}" \
   -c cleanup.policy=compact,delete \
   -c retention.ms=7776000000 \
   2>/dev/null || true
@@ -33,13 +31,13 @@ rpk topic create indexer_daily_metrics \
 # when the topic has been repopulated after a network restart.
 rpk group seek eligibility-oracle --to start \
   --topics gateway_queries \
-  --brokers="redpanda:9092" \
+  --brokers="redpanda:${REDPANDA_KAFKA_PORT}" \
   2>/dev/null || true
 
 # Generate config.toml with local network values
 cat >config.toml <<EOF
 [kafka]
-bootstrap_servers = "redpanda:9092"
+bootstrap_servers = "redpanda:${REDPANDA_KAFKA_PORT}"
 # Shorter rebuild timeout for local network
 rebuild_timeout_secs = 10
 

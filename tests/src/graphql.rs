@@ -186,7 +186,7 @@ impl TestNetwork {
     }
 
     /// Low-level GraphQL POST. Returns the parsed JSON response.
-    async fn graphql_post(
+    pub(crate) async fn graphql_post(
         &self,
         url: &str,
         query: &str,

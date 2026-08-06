@@ -33,7 +33,7 @@ impl TestNetwork {
         for arg in args {
             cmd.arg(arg);
         }
-        run_command(&mut cmd)
+        run_send_retrying_nonce_races(&mut cmd)
     }
 
     /// Check if an address is eligible via the REO contract.
@@ -130,7 +130,7 @@ impl TestNetwork {
         for arg in args {
             cmd.arg(arg);
         }
-        run_command(&mut cmd)
+        run_send_retrying_nonce_races(&mut cmd)
     }
 
     /// Try a `cast send` and return Ok(true) if it succeeds, Ok(false) if it reverts.
@@ -157,27 +157,12 @@ impl TestNetwork {
     /// State-changing transaction via `cast send`, signed by `receiver_secret` (the indexer).
     /// Needed for operations that require `onlyAuthorizedForProvision`.
     pub fn cast_send_as_indexer(&self, to: &str, sig: &str, args: &[&str]) -> Result<String> {
-        let mut cmd = Command::new("cast");
-        cmd.arg("send")
-            .arg(format!("--rpc-url={}", self.rpc_url))
-            .arg("--confirmations=0")
-            .arg(format!("--private-key={}", self.receiver_secret))
-            .arg(to)
-            .arg(sig);
-        for arg in args {
-            cmd.arg(arg);
-        }
-        run_command(&mut cmd)
+        self.cast_send_as(&self.receiver_secret, to, sig, args)
     }
 
-    /// Collect indexing rewards for an allocation via `SubgraphService.collect()`.
-    ///
-    /// `closeAllocation` does NOT collect rewards — it reclaims them.
-    /// This function calls `collect(indexer, PaymentTypes.IndexingRewards, data)` directly,
-    /// which calls `takeRewards()` and mints GRT to the indexer's stake.
-    ///
-    /// Must be called BEFORE closing the allocation.
-    /// Requires calling as the indexer (RECEIVER_SECRET) due to `onlyAuthorizedForProvision`.
+    /// Collect indexing rewards via `SubgraphService.collect()` — must run BEFORE
+    /// closing the allocation (`closeAllocation` reclaims rewards, not collects).
+    /// Signs as the indexer (RECEIVER_SECRET) due to `onlyAuthorizedForProvision`.
     pub fn collect_indexing_rewards(&self, allocation_id: &str) -> Result<String> {
         let ss = &self.contracts.subgraph_service;
         // PaymentTypes.IndexingRewards = 2
@@ -676,11 +661,47 @@ fn run_command(cmd: &mut Command) -> Result<String> {
     Ok(String::from_utf8(output.stdout)?.trim().to_string())
 }
 
-/// Extract the numeric value from cast output.
-///
-/// Cast formats large numbers with a human-readable suffix:
-///   `1771675624 [1.771e9]`
-/// This returns just the first whitespace-delimited token (`1771675624`).
+/// Services (dipper, the indexer-agent) transact from the same accounts as the
+/// harness, so a send can lose a nonce race and get dropped. Their tx bursts can
+/// outlast one gap, so retry with growing backoff; report every error if all fail.
+fn run_send_retrying_nonce_races(cmd: &mut Command) -> Result<String> {
+    let mut history: Vec<String> = Vec::new();
+    // Pauses of 3s/6s/12s between attempts; a final attempt follows the last
+    // pause, so a send gets four tries across ~21s before giving up.
+    for delay_secs in [3u64, 6, 12] {
+        let err = match run_command(cmd) {
+            Ok(out) => return Ok(out),
+            Err(e) => e,
+        };
+        let msg = err.to_string();
+        let nonce_race = msg.contains("not confirmed within the timeout")
+            || msg.contains("replacement transaction underpriced")
+            || msg.contains("replacement fee too low")
+            || msg.contains("nonce too low");
+        if !nonce_race {
+            if history.is_empty() {
+                return Err(err);
+            }
+            return Err(anyhow::anyhow!(
+                "send failed — nonce races [{}], then: {err}",
+                history.join("; ")
+            ));
+        }
+        eprintln!("cast send lost a nonce race, retrying in {delay_secs}s: {msg}");
+        history.push(msg);
+        std::thread::sleep(std::time::Duration::from_secs(delay_secs));
+    }
+    run_command(cmd).map_err(|final_err| {
+        anyhow::anyhow!(
+            "send failed after {} attempts — prior: [{}]; final: {final_err}",
+            history.len() + 1,
+            history.join("; ")
+        )
+    })
+}
+
+/// Extract the numeric value from cast output: cast formats large numbers as
+/// `1771675624 [1.771e9]`; this returns the first whitespace-delimited token.
 pub fn cast_parse_uint(raw: &str) -> &str {
     raw.split_whitespace().next().unwrap_or(raw)
 }

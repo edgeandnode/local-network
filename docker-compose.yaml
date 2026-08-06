@@ -7,9 +7,11 @@ services:
       - chain-data:/data
     healthcheck: { interval: 1s, retries: 10, test: cast block }
     stop_grace_period: 30s
+    mem_limit: 1g
     restart: on-failure:3
     environment:
       - FORK_RPC_URL=${FORK_RPC_URL:-}
+      - NODE_OPTIONS=--max-old-space-size=384
 
   block-explorer:
     container_name: block-explorer
@@ -60,11 +62,16 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding UTF8 --locale=C"
       POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_USER: postgres
-    healthcheck: { interval: 1s, retries: 20, test: pg_isready -U postgres }
+    # -h 127.0.0.1 is load-bearing: first boot runs a socket-only init server that a
+    # plain pg_isready reports ready, releasing dependents just before the init
+    # restart drops their connections. TCP only listens once the real server is up.
+    healthcheck: { interval: 1s, retries: 60, test: pg_isready -h 127.0.0.1 -U postgres }
     restart: on-failure:3
 
   graph-node:
     container_name: graph-node
+    labels:
+      - dev.dozzle.group=dips
     build:
       context: containers/indexer/graph-node
       args:
@@ -85,6 +92,9 @@ services:
       - config-local:/opt/config:ro
     healthcheck:
       { interval: 1s, retries: 20, test: curl -f http://127.0.0.1:8030 }
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
 
   graph-contracts:
@@ -128,6 +138,8 @@ services:
 
   indexer-agent:
     container_name: indexer-agent
+    labels:
+      - dev.dozzle.group=dips
     build:
       context: containers/indexer/indexer-agent
       args:
@@ -142,7 +154,10 @@ services:
       - ./.env:/opt/config/.env:ro
       - config-local:/opt/config:ro
     healthcheck:
-      { interval: 10s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
+      { interval: 2s, retries: 600, test: curl -f http://127.0.0.1:7600/ }
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
 
   subgraph-deploy:
@@ -152,6 +167,7 @@ services:
       args:
         NETWORK_SUBGRAPH_COMMIT: ${NETWORK_SUBGRAPH_COMMIT}
         BLOCK_ORACLE_COMMIT: ${BLOCK_ORACLE_COMMIT}
+        INDEXING_PAYMENTS_SUBGRAPH_COMMIT: ${INDEXING_PAYMENTS_SUBGRAPH_COMMIT}
     depends_on:
       graph-contracts: { condition: service_completed_successfully }
       graph-node: { condition: service_healthy }
@@ -165,7 +181,6 @@ services:
     build: { context: containers/indexer/start-indexing }
     depends_on:
       subgraph-deploy: { condition: service_completed_successfully }
-      indexer-agent: { condition: service_healthy }
     volumes:
       - ./shared:/opt/shared:ro
       - ./.env:/opt/config/.env:ro
@@ -199,6 +214,19 @@ services:
       }
     restart: on-failure:3
 
+  # Dipper's events producer (dipper#649) binds partitions at startup and disables
+  # itself if the topic is missing, so the topic must exist before dipper boots.
+  dips-events-topic:
+    container_name: dips-events-topic
+    profiles: [indexing-payments]
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.5
+    depends_on:
+      redpanda: { condition: service_healthy }
+    entrypoint: ["bash", "-c"]
+    command:
+      - rpk topic create dipper.subgraph.indexing.agreement.events -p 1 --brokers=redpanda:9092 || true
+    restart: "no"
+
   graph-tally-aggregator:
     container_name: graph-tally-aggregator
     build:
@@ -225,7 +253,7 @@ services:
       args:
         GRAPH_TALLY_ESCROW_MANAGER_VERSION: ${GRAPH_TALLY_ESCROW_MANAGER_VERSION}
     depends_on:
-      subgraph-deploy: { condition: service_completed_successfully }
+      start-indexing: { condition: service_completed_successfully }
       redpanda: { condition: service_healthy }
     stop_signal: SIGKILL
     volumes:
@@ -242,7 +270,7 @@ services:
     build:
       context: containers/core/gateway
       args:
-        GATEWAY_COMMIT: ${GATEWAY_COMMIT}
+        GATEWAY_VERSION: ${GATEWAY_VERSION:-v27.6.0}
     depends_on:
       indexer-service: { condition: service_healthy }
       redpanda: { condition: service_healthy }
@@ -255,12 +283,17 @@ services:
     environment:
       RUST_LOG: info,graph_gateway=trace
       RUST_BACKTRACE: 1
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
     healthcheck:
       { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7700/ }
 
   indexer-service:
     container_name: indexer-service
+    labels:
+      - dev.dozzle.group=dips
     build:
       context: containers/indexer/indexer-service
       args:
@@ -280,6 +313,9 @@ services:
       RUST_BACKTRACE: 1
     healthcheck:
       { interval: 1s, retries: 100, test: curl -f http://127.0.0.1:7601/ }
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
 
   tap-agent:
@@ -299,6 +335,9 @@ services:
     environment:
       RUST_LOG: info,indexer_tap_agent=trace
       RUST_BACKTRACE: 1
+    dns_opt:
+      - timeout:2
+      - attempts:5
     restart: on-failure:3
 
   # --- Profiled components (activated via COMPOSE_PROFILES in .env) ---
@@ -308,8 +347,6 @@ services:
     profiles: [rewards-eligibility]
     build:
       context: containers/oracles/eligibility-oracle-node
-      args:
-        ELIGIBILITY_ORACLE_COMMIT: ${ELIGIBILITY_ORACLE_COMMIT}
     depends_on:
       redpanda: { condition: service_healthy }
       gateway: { condition: service_healthy }
@@ -322,42 +359,46 @@ services:
       BLOCKCHAIN_PRIVATE_KEY: ${ACCOUNT0_SECRET}
     restart: on-failure:3
 
-  iisa-scoring:
-    container_name: iisa-scoring
+  iisa-cronjob:
+    container_name: iisa-cronjob
     profiles: [indexing-payments]
-    build:
-      context: containers/indexing-payments/iisa
-      dockerfile: Dockerfile.scoring
-    depends_on:
-      redpanda: { condition: service_healthy }
+    image: ghcr.io/edgeandnode/subgraph-dips-indexer-selection-cronjob:${IISA_CRONJOB_VERSION:-latest}
+    pull_policy: if_not_present
     environment:
-      REDPANDA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      REDPANDA_BOOTSTRAP_SERVERS: "redpanda:${REDPANDA_KAFKA_PORT}"
       REDPANDA_TOPIC: gateway_queries
-      SCORES_FILE_PATH: /app/scores/indexer_scores.json
-      IISA_SCORING_INTERVAL: "600"
-    volumes:
-      - iisa-scores:/app/scores
-    healthcheck:
-      test: ["CMD", "test", "-f", "/app/scores/indexer_scores.json"]
-      interval: 5s
-      retries: 10
-    restart: on-failure:3
+      GRAPH_NETWORK_SUBGRAPH_URL: "http://graph-node:8000/subgraphs/name/graph-network"
+      DEGRADED_ALERT_THRESHOLD: "999"
+      IISA_API_URL: "http://iisa:8080"
+      IISA_PUSH_TOKEN: ${IISA_PUSH_TOKEN:-}
+      # Minimum graph-node version an indexer must report to remain a DIPs
+      # candidate. Mirrors the production policy on the testnet-v2 cluster.
+      MIN_GRAPH_NODE_VERSION: "0.43.0"
+      # Strict: also drop indexers whose /status doesn't return a version.
+      MIN_GRAPH_NODE_VERSION_STRICT: "true"
+    depends_on:
+      iisa: { condition: service_started }
+    # One-shot: run scoring once and exit. Exit codes: 0 success, 1 scoring/push
+    # failure, 2 missing push token. Restart policy `no` prevents a crash-loop
+    # where Docker would otherwise rerun the ~3 min scoring pass continuously.
+    restart: "no"
 
   iisa:
     container_name: iisa
+    labels:
+      - dev.dozzle.group=dips
     profiles: [indexing-payments]
     image: ghcr.io/edgeandnode/subgraph-dips-indexer-selection:${IISA_VERSION}
     pull_policy: if_not_present
-    depends_on:
-      iisa-scoring: { condition: service_healthy }
     ports: ["8080:8080"]
     environment:
       IISA_HOST: "0.0.0.0"
       IISA_PORT: "8080"
-      IISA_LOG_LEVEL: INFO
+      IISA_LOG_LEVEL: DEBUG
       SCORES_FILE_PATH: /app/scores/indexer_scores.json
+      IISA_PUSH_TOKEN: ${IISA_PUSH_TOKEN:-}
     volumes:
-      - iisa-scores:/app/scores
+      - iisa-cache:/app/scores
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
@@ -367,6 +408,8 @@ services:
 
   dipper:
     container_name: dipper
+    labels:
+      - dev.dozzle.group=dips
     profiles: [indexing-payments]
     build:
       context: containers/indexing-payments/dipper
@@ -376,7 +419,7 @@ services:
       block-oracle: { condition: service_healthy }
       postgres: { condition: service_healthy }
       gateway: { condition: service_healthy }
-      iisa: { condition: service_healthy }
+      dips-events-topic: { condition: service_completed_successfully }
     ports:
       - "${DIPPER_ADMIN_RPC_PORT}:${DIPPER_ADMIN_RPC_PORT}"
       - "${DIPPER_INDEXER_RPC_PORT}:${DIPPER_INDEXER_RPC_PORT}"
@@ -386,16 +429,21 @@ services:
       - config-local:/opt/config:ro
     environment:
       RUST_BACKTRACE: full
-      RUST_LOG: debug
+      RUST_LOG: debug,sqlx=warn,hyper=warn,hyper_util=warn,h2=warn
     healthcheck:
       interval: 5s
       retries: 10
-      test:
-        [
-          "CMD-SHELL",
-          "curl -s -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"health\",\"id\":1}' http://localhost:9000/ | grep -q jsonrpc",
-        ]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8546/health"]
     restart: on-failure:3
+
+  # Operator CLI for dipper's admin RPC, pinned to the same version as the server.
+  # The "tools" profile keeps it out of normal up/build: it exists so deploys pull it
+  # (--profile tools pull) and skills resolve the tag (--profile tools config --images).
+  dipper-cli:
+    container_name: dipper-cli
+    profiles: [tools]
+    image: ghcr.io/edgeandnode/dipper-cli:${DIPPER_VERSION}
+    network_mode: host
 
   # --- Studio (activated via COMPOSE_PROFILES) ---
   # Studio app services require a local subgraph-studio checkout mounted at /app
@@ -550,5 +598,5 @@ volumes:
   postgres-data:
   ipfs-data:
   redpanda-data:
-  iisa-scores:
+  iisa-cache:
   config-local:

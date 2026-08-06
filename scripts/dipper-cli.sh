@@ -12,13 +12,21 @@ source "$SCRIPT_DIR/../.env"
 export INDEXING_SIGNING_KEY="${RECEIVER_SECRET}"
 export INDEXING_SERVER_URL="http://${DIPPER_HOST:-localhost}:${DIPPER_ADMIN_RPC_PORT}/"
 
-# Change to dipper source directory
+# Locate dipper source
 DIPPER_SOURCE="${DIPPER_SOURCE_ROOT:-}"
 if [ -z "$DIPPER_SOURCE" ] || [ ! -d "$DIPPER_SOURCE" ]; then
     echo "Error: Set DIPPER_SOURCE_ROOT to a local clone of edgeandnode/dipper." >&2
     exit 1
 fi
-cd "$DIPPER_SOURCE"
 
-# Run dipper-cli with all passed arguments
-cargo run --bin dipper-cli -- "$@"
+# Use pre-built release binary; build if missing
+DIPPER_BIN="$DIPPER_SOURCE/target/release/dipper-cli"
+if [ ! -f "$DIPPER_BIN" ]; then
+    echo "Building dipper-cli (first run, ~2 min)..." >&2
+    if ! cargo build --manifest-path "$DIPPER_SOURCE/Cargo.toml" --bin dipper-cli --release; then
+        echo "Error: cargo build failed" >&2
+        exit 1
+    fi
+fi
+
+exec "$DIPPER_BIN" "$@"

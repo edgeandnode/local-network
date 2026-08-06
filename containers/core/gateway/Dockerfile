@@ -1,24 +1,24 @@
-# Stage 1: build environment — deps only, reusable as a dev builder
+# This ARG must stay above the first FROM: FROM lines only see ARGs declared
+# before the first build stage, so anywhere lower it expands to an empty tag.
+ARG GATEWAY_VERSION=v27.6.0
+
+# Dev-builder stage: not part of the runtime image. compose/dev/gateway.yaml's
+# workflow builds this stage (--target build-env) to compile a local gateway
+# checkout; the runtime below runs the prebuilt published image instead.
 FROM rust:1-slim-bookworm AS build-env
 RUN apt-get update \
     && apt-get install -y clang cmake git libsasl2-dev libssl-dev pkg-config protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
-# Stage 2: build the pinned gateway commit
-FROM build-env AS build
-ARG GATEWAY_COMMIT
-WORKDIR /opt
-RUN git clone https://github.com/edgeandnode/gateway && \
-    cd gateway && git checkout ${GATEWAY_COMMIT} && \
-    cargo build -p graph-gateway && \
-    cp target/debug/graph-gateway /usr/local/bin/graph-gateway
+FROM ghcr.io/edgeandnode/graph-gateway:${GATEWAY_VERSION}
 
-# Stage 3: minimal runtime
-FROM debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install -y curl jq libsasl2-dev libssl-dev \
+    && apt-get install -y --no-install-recommends curl jq ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-WORKDIR /opt
-COPY --from=build /usr/local/bin/graph-gateway /usr/local/bin/graph-gateway
+
+# The published image's binary is at /opt/gateway/target/release/graph-gateway (not on
+# PATH); run.sh calls `graph-gateway` by name, so put it on PATH.
+RUN ln -sf /opt/gateway/target/release/graph-gateway /usr/local/bin/graph-gateway
+
 COPY ./run.sh /opt/run.sh
 ENTRYPOINT ["bash", "/opt/run.sh"]

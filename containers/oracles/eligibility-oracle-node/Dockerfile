@@ -1,10 +1,9 @@
 FROM debian:bookworm-slim
-ARG ELIGIBILITY_ORACLE_COMMIT
 
 # Build + runtime dependencies
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-      build-essential clang cmake lld pkg-config git \
+      build-essential clang cmake lld pkg-config \
       curl jq unzip ca-certificates \
       libssl-dev librdkafka-dev \
   && rm -rf /var/lib/apt/lists/*
@@ -12,18 +11,22 @@ RUN apt-get update \
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 
-# Clone and build eligibility-oracle binary
+# Build eligibility-oracle binary from pre-cloned source.
+# `source/` is gitignored; each developer drops a clone of
+# edgeandnode/eligibility-oracle-node there because the repo is private and
+# the build container has no GitHub auth. Whatever commit is in source/ is
+# what gets built.
 WORKDIR /opt
 ENV CC=clang CXX=clang++
 ENV RUSTFLAGS="-C link-arg=-fuse-ld=lld"
-RUN git clone https://github.com/edgeandnode/eligibility-oracle-node && \
-  cd eligibility-oracle-node && git checkout ${ELIGIBILITY_ORACLE_COMMIT} && \
+COPY ./source /opt/eligibility-oracle-node
+RUN cd /opt/eligibility-oracle-node && \
   . /root/.cargo/env && cargo build --release -p eligibility-oracle && \
   cp target/release/eligibility-oracle /usr/local/bin/eligibility-oracle && \
-  cd .. && rm -rf eligibility-oracle-node
+  cd /opt && rm -rf eligibility-oracle-node
 
 # Clean up build-only dependencies
-RUN apt-get purge -y build-essential clang cmake lld pkg-config git libssl-dev librdkafka-dev && \
+RUN apt-get purge -y build-essential clang cmake lld pkg-config libssl-dev librdkafka-dev && \
   apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 # Install runtime libraries
